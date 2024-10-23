@@ -106,7 +106,7 @@ for v in vars_to_plot:
     
         ax.legend(loc='best')
     
-        hep.cms.label(f"_cat{cat}", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
+        hep.cms.label(f"Category {cat}", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
     
         plt.tight_layout()
         ext = f"_cat{cat}"

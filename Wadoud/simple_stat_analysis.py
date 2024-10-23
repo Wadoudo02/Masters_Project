@@ -80,7 +80,7 @@ for proc in procs.keys():
 
 
 fig, ax = plt.subplots(1,1, figsize=plot_size)
-v = "mass"
+v = "dilepton_mass"
 for cat in cats_unique:
     print(f" --> Plotting: {v} in cat{cat}")
     nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
@@ -114,7 +114,7 @@ for cat in cats_unique:
     ax.cla()
     plt.show()
 
-
+#%%
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Simple binned likelihood fit to mass histograms in signal window (120,130)
 hists = {}
