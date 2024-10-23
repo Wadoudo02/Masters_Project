@@ -77,80 +77,50 @@ for proc in procs.keys():
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plot diphoton mass distribution in each category
 
+vars_to_plot = ["mass","n_jets","lead_pt","Muo0_pt","MET_pt","HT","dijet_mass","deltaR","delta_phi_gg","dilepton_mass","n_leptons","pt/mass"]
 
+for v in vars_to_plot:
 
-fig, ax = plt.subplots(1,1, figsize=plot_size)
-v = "mass"
-for cat in cats_unique:
-    print(f" --> Plotting: {v} in cat{cat}")
-    nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
-    # Loop over procs and add histogram
-    for proc in procs.keys():
-        label, color = procs[proc]
-
-        cat_mask = dfs[proc]['category']==cat
-
-        x = np.array(dfs[proc][v][cat_mask])
-
-        # Event weight
-        w = np.array(dfs[proc]['plot_weight'])[cat_mask]
-
-        ax.hist(x, nbins, xrange, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
-
-    ax.set_xlabel(sanitized_var_name)
-    ax.set_ylabel("Events")
-
-    if is_log_scale:
-        ax.set_yscale("log")
-
-    ax.legend(loc='best')
-
-    hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
-
-    plt.tight_layout()
-    ext = f"_cat{cat}"
-    #fig.savefig(f"{plot_path}/{v}{ext}.pdf", bbox_inches="tight")
-    fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
-    ax.cla()
-    plt.show()
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Simple binned likelihood fit to mass histograms in signal window (120,130)
-hists = {}
-mass_range = (120,130)
-mass_bins = 5
-v = 'mass'
-
-for cat in cats_unique:
-    hists[cat] = {}
-    for proc in procs.keys():
-        cat_mask = dfs[proc]['category'] == cat
-        hists[cat][proc] = np.histogram(dfs[proc][cat_mask][v], mass_bins, mass_range, weights=dfs[proc][cat_mask]['true_weight'])[0]
-
-# Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
-NLL_vals = []
-mu_vals = np.linspace(-1,3,100)
-for mu in mu_vals:
-    NLL_vals.append(calc_NLL(hists, mu))
+    fig, ax = plt.subplots(1,1, figsize=plot_size)
+    for cat in cats_unique:
+        print(f" --> Plotting: {v} in cat{cat}")
+        nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
+        # Loop over procs and add histogram
+        for proc in procs.keys():
+            label, color = procs[proc]
     
-# Plot NLL curve
-vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals)),1.)
-label = add_val_label(vals)
+            cat_mask = dfs[proc]['category']==cat
+    
+            x = np.array(dfs[proc][v][cat_mask])
+    
+            # Event weight
+            w = np.array(dfs[proc]['plot_weight'])[cat_mask]
+    
+            ax.hist(x, nbins, xrange, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
+    
+        ax.set_xlabel(sanitized_var_name)
+        ax.set_ylabel("Events")
+    
+        if is_log_scale:
+            ax.set_yscale("log")
+    
+        ax.legend(loc='best')
+    
+        hep.cms.label(f"_cat{cat}", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
+    
+        plt.tight_layout()
+        ext = f"_cat{cat}"
+        
+        if '/' in v:
+            v = v.replace('/', '_div_')
+        
+        #fig.savefig(f"{plot_path}/{v}{ext}.pdf", bbox_inches="tight")
+        fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
+        ax.cla()
+        plt.show()
+        
+        if '_div_' in v:
+            v = v.replace('_div_','/')
+        
 
-print(" --> Plotting 2NLL curve")
-fig, ax = plt.subplots(figsize=plot_size)
-ax.plot(mu_vals, TwoDeltaNLL(NLL_vals), label=label)
-ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
-ax.axhline(1, color='grey', alpha=0.5, ls='--')
-ax.axhline(4, color='grey', alpha=0.5, ls='--')
-ax.set_ylim(0,8)
-ax.legend(loc='best')
-ax.set_xlabel("$\\mu_{ttH}$")
-ax.set_ylabel("q = 2$\\Delta$NLL")
 
-plt.tight_layout()
-#fig.savefig(f"{plot_path}/2nll_vs_mu.pdf", bbox_inches="tight")
-fig.savefig(f"{plot_path}/2nll_vs_mu.png", bbox_inches="tight")
-ax.cla()
-plt.show()
