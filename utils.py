@@ -44,8 +44,8 @@ def add_val_label(val):
     return "$%.2f^{+%.2f}_{-%.2f}$"%(val[0],abs(val[1]),abs(val[2]))
 
 def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=True, return_all_intervals=False):
-    #print("graph 1: NLL vals = ", graph[1])
-    
+    print("graph 1: NLL vals = ", graph[1])
+    print("when 0 ", graph[1]==0, graph[0], len(graph[0]), len(graph[1]))
     # Build spline
     f = interp1d(graph[0],graph[1],kind=spline_type)
     x_spline = np.linspace(graph[0].min(),graph[0].max(),spline_points)
@@ -69,7 +69,10 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
 
     # Extract bestfit
     bestfit = graph[0][graph[1]==0]
-
+    
+    #NO CLUE WHY BESTFIT HAS 2 VALUES SO ONLY TAKING THE FIRST ONE.
+    bestfit=bestfit[0]
+    #print("Bestfit", bestfit)
     crossings, intervals = [], []
     current = None
 
