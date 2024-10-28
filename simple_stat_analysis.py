@@ -11,6 +11,7 @@ from utils import *
 # Constants
 total_lumi = 7.9804
 target_lumi = 300
+mass = 125
 
 # Processes to plot
 procs = {
@@ -22,8 +23,10 @@ procs = {
 }
 
 # Load dataframes
+
 dfs = {}
 for i, proc in enumerate(procs.keys()):
+    #if proc != "ttH": continue
     print(f" --> Loading process: {proc}")
     dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
 
@@ -54,17 +57,19 @@ for i, proc in enumerate(procs.keys()):
     
     # Apply selection: separate ttH from backgrounds + other H production modes
     yield_before_sel = dfs[proc]['true_weight'].sum()
-    #mask =  dfs[proc]['HT'] > 10
+    #print("HT pre cuts:", len(dfs[proc]["HT"]))
     mask = dfs[proc]['n_jets'] >= 4
-    print("HT pre cuts:", len(dfs[proc]["HT"]))
+    mask = mask & (dfs[proc]['HT'] > 200)
+    mask = mask & (dfs[proc]['max_b_tag_score'] > 0.8)
+    mask = mask & (dfs[proc]['second_max_b_tag_score'] > 0.4)
+    #print("HT post cuts:", len(dfs[proc]["HT"][mask]))
     #mask = mask & dfs[proc]['minDeltaPhiJMET']<1
-    mask = mask & dfs[proc]['max_b_tag_score'] > 0.8
-    mask = mask & dfs[proc]['second_max_b_tag_score'] > 0.4
+    #mask = mask & dfs[proc]['delta_eta_jj']<4
     #mask = mask& dfs[proc]['j3_pt']>10
-    mask = mask & (dfs[proc]['j1_eta']<=1) & (dfs[proc]['j1_eta']>=-1)
+    #mask = mask & (dfs[proc]['j1_eta']<=1) & (dfs[proc]['j1_eta']>=-1)
     #mask = mask & dfs[proc]['delta_phi_gg']>0.9
     #mask = mask & dfs[proc]['n_leptons'] >= 1
-    #mask = mask & dfs[proc]['Muo0_pt']>10
+    #exit(0)
     
     dfs[proc] = dfs[proc][mask]
     yield_after_sel = dfs[proc]['true_weight'].sum()
@@ -74,7 +79,16 @@ for i, proc in enumerate(procs.keys()):
 
     # Categorise events: separate regions of high EFT enhancement vs low EFT enhancement
     # e.g. number of leptons
-    dfs[proc]['category'] = np.array(dfs[proc]['n_leptons'] >= 1, dtype='int')
+    conditions = [
+    (dfs[proc]['pt/mass']*mass < 60),      # Category 0: low p_T
+    (dfs[proc]['pt/mass']*mass >= 60) & (dfs[proc]['pt/mass']*mass < 120),  # Category 1: medium p_T
+    (dfs[proc]['pt/mass']*mass >= 120) & (dfs[proc]['pt/mass']*mass < 200), # Category 2: higher p_T
+    (dfs[proc]['pt/mass']*mass >= 200) & (dfs[proc]['pt/mass']*mass < 300), # Category 3: even higher p_T
+    (dfs[proc]['pt/mass']*mass >= 300)     # Category 4: highest p_T
+    ]
+    #dfs[proc]['category'] = np.array(dfs[proc]['n_leptons'] >= 1, dtype='int')
+    dfs[proc]['category'] = np.select(conditions, [0, 1, 2, 3, 4])
+    print(np.select(conditions, [0,1,2,3,4]))
     
 # Extract different cat integers
 cats_unique = []
@@ -82,7 +96,7 @@ for proc in procs.keys():
     for cat in np.unique(dfs[proc]['category']):
         if cat not in cats_unique:
             cats_unique.append(cat)
-    
+print("Categories", np.unique(dfs[proc]['category']))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plot diphoton mass distribution in each category
 fig, ax = plt.subplots(1,1)
