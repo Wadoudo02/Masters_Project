@@ -138,7 +138,7 @@ for cat in cats_unique:
     
 
 #breakpoint()
-
+#%%
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Simple binned likelihood fit to mass histograms in signal window (120,130)
 hists = {}
@@ -154,7 +154,7 @@ for cat in cats_unique:
 #breakpoint()
 # Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
 NLL_vals = []
-mu_vals = np.linspace(-1,3,100)
+mu_vals = np.linspace(0,3,100)
 for mu in mu_vals:
     NLL_vals.append(calc_NLL(hists, mu))
 

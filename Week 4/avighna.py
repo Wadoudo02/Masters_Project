@@ -157,7 +157,7 @@ for cat in cats_unique:
 
 # Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
 NLL_vals = []
-mu_vals = np.linspace(-1,3,100)
+mu_vals = np.linspace(0,3,100)
 for mu in mu_vals:
     NLL_vals.append(calc_NLL(hists, mu))
     
@@ -177,6 +177,8 @@ ax.set_xlabel("$\\mu_{ttH}$")
 ax.set_ylabel("q = 2$\\Delta$NLL")
 
 plt.tight_layout()
+
+
 #fig.savefig(f"{plot_path}/2nll_vs_mu.pdf", bbox_inches="tight")
 fig.savefig(f"{plot_path}/2nll_vs_mu.png", bbox_inches="tight")
 ax.cla()
