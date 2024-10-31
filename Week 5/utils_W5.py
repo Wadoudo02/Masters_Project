@@ -1,12 +1,12 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
-sample_path = "/Users/wadoudcharbak/Downloads/Pass0"
+sample_path = "/Users/wadoudcharbak/Downloads/Pass1"
 plot_path = "/Users/wadoudcharbak/Downloads/plots"
 
 vars_plotting_dict = {
     "plot_weight": [50, (0, 5), False, "Plot weight"],
-    "mass": [80, (100, 180), False, "$m_{\\gamma\\gamma}$ [GeV]"],
+    "mass_sel": [80, (100, 180), False, "$m_{\\gamma\\gamma}$ [GeV]"],
     "minIDMVA-with-cut": [50, (0, 1), False, "Minimum IDMVA (with cut)"],
     "n_jets": [10, (0, 10), False, "Number of jets"],
     "lead_pixelSeed": [2, (0, 2), False, "Lead pixel seed"],
