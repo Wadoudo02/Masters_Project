@@ -18,7 +18,7 @@ procs = {
     "ggH" : ["ggH x 10", "cornflowerblue"],
     "VBF" : ["VBF x 10", "red"],
     "VH" : ["VH x 10", "orange"],
-    #"Data" : ["Data", "green"]
+    "Data" : ["Data", "green"]
 }
 
 plot_size = (12, 8)
@@ -31,6 +31,16 @@ for i, proc in enumerate(procs.keys()):
 
     # Remove nans from dataframe
     dfs[proc] = dfs[proc][(dfs[proc]['mass_sel'] == dfs[proc]['mass_sel'])]
+    
+    if proc == "Data":
+        dfs[proc]['pt_sel'] = dfs[proc]['pt-over-mass_sel'] * dfs[proc]['mass_sel']
+        
+        bins = [0, 60, 120, 200, 300, np.inf]  # Define the boundaries for pt
+        labels = ['0-60', '60-120', '120-200', '200-300', '>300']  # Labels for each category
+        dfs[proc]['category'] = pd.cut(dfs[proc]['pt_sel'], bins=bins, labels=labels, right=False)
+        
+        continue
+        
 
     # Reweight to target lumi
     dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']*(target_lumi/total_lumi)
@@ -40,6 +50,7 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
     else:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
+        
 
     # Add variables
     # Example: (second-)max-b-tag score
@@ -96,7 +107,13 @@ for proc in procs.keys():
     for cat in np.unique(dfs[proc]['category']):
         if cat not in cats_unique:
             cats_unique.append(cat)
-    
+  
+
+def exponential_decay(x, A, lambd):
+    return A * np.exp(-lambd * (x - 100))
+
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plot diphoton mass distribution in each category
 
@@ -105,7 +122,7 @@ for proc in procs.keys():
 fig, ax = plt.subplots(1,1, figsize=plot_size)
 v = "mass_sel"
 for cat in cats_unique:
-    print(f" --> Plotting: {v} in cat{cat}")
+    print(f" --> Plotting: {v} in category {cat}")
     nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
     # Loop over procs and add histogram
     for proc in procs.keys():
@@ -118,7 +135,29 @@ for cat in cats_unique:
         # Event weight
         w = np.array(dfs[proc]['plot_weight'])[cat_mask]
 
-        ax.hist(x, nbins, xrange, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
+        counts, bin_edges, _ = ax.hist(x, nbins, xrange, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
+        
+        
+        if proc == "Data":
+            bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
+            
+            # Perform curve fitting, ignoring empty bins (where counts == 0)
+            non_zero_indices = counts > 0
+            popt, pcov = curve_fit(exponential_decay, bin_centers[non_zero_indices], counts[non_zero_indices])
+            A, lambd = popt  # Unpack fitted parameters
+            
+            # Plot the fitted exponential decay curve
+            x_fit = np.linspace(xrange[0], xrange[1], 1000)
+            y_fit = exponential_decay(x_fit, A, lambd)
+            ax.plot(x_fit, y_fit, color="red", linestyle="--", 
+                    label=f"Exponential Fit\n$A={A:.2f}$, $\\lambda={lambd:.4f}$")
+            
+            x_BG = np.arange(120.5,130,1)
+            BG_estimate = exponential_decay(x_BG, A, lambd)
+            
+            print(f"For category {cat}, the estimate for the background count for the bins between 120-130 are {BG_estimate}")
+            
+        
 
     ax.set_xlabel(sanitized_var_name)
     ax.set_ylabel("Events")
@@ -126,12 +165,12 @@ for cat in cats_unique:
     if is_log_scale:
         ax.set_yscale("log")
 
-    ax.legend(loc='best')
+    ax.legend(loc='best', ncol=2)
 
     hep.cms.label(f"category {cat}", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 
     plt.tight_layout()
-    ext = f"_cat{cat}"
+    ext = f"_cat_{cat}"
     #fig.savefig(f"{plot_path}/{v}{ext}.pdf", bbox_inches="tight")
     fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
     ax.cla()
@@ -178,6 +217,71 @@ ax.set_ylabel("q = 2$\\Delta$NLL")
 plt.tight_layout()
 #fig.savefig(f"{plot_path}/2nll_vs_mu.pdf", bbox_inches="tight")
 fig.savefig(f"{plot_path}/2nll_vs_mu.png", bbox_inches="tight")
-ax.cla()
 plt.show()
+
+#%%
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Confusion Matrix
+
+# Define bins and labels for pt categories
+bins = [0, 60, 120, 200, 300, np.inf]
+labels = ['0-60', '60-120', '120-200', '200-300', '>300']
+
+# Categorise 'HTXS_Higgs_pt_sel' into the same pt categories
+for proc in procs.keys():
+    if proc == "Data":
+        continue  
+
+    dfs[proc]['truth_category'] = pd.cut(dfs[proc]['HTXS_Higgs_pt_sel'], bins=bins, labels=labels, right=False)
+
+# Create confusion matrices for each process
+
+
+
+confusion_matrices = {}
+for proc in procs.keys():
+    if proc in ["Data", "VBF", "VH", "background"]:
+        continue 
+    
+    #if proc == "Data":
+    #    continue  
+    
+    # Filter out rows where either category is NaN
+    valid_entries = dfs[proc].dropna(subset=['category', 'truth_category'])
+    
+    # Create a 2D histogram (confusion matrix) for observed vs. truth categories
+    confusion_matrix, _, _ = np.histogram2d(
+        valid_entries['category'].cat.codes,
+        valid_entries['truth_category'].cat.codes,
+        bins=[len(labels), len(labels)]
+    )
+
+    # Save confusion matrix to dictionary
+    confusion_matrices[proc] = confusion_matrix
+
+    # Plot the confusion matrix
+    fig, ax = plt.subplots(figsize=(8, 6))
+    cax = ax.matshow(confusion_matrix, cmap='viridis')
+    plt.colorbar(cax)
+    
+    # Set axis labels
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels, rotation=45)
+    ax.set_yticklabels(labels)
+    ax.set_xlabel("Observed pt Category")
+    ax.set_ylabel("Truth pt Category")
+    ax.set_title(f"Confusion Matrix for {proc}")
+    
+    # Annotate each cell with the count
+    for i in range(len(labels)):
+        for j in range(len(labels)):
+            count = int(confusion_matrix[i, j])
+            ax.text(j, i, f'{count}', ha='center', va='center', color='black')
+    
+
+    #fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
+    
+    plt.show()
 
