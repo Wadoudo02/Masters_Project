@@ -236,9 +236,6 @@ for proc in procs.keys():
     dfs[proc]['truth_category'] = pd.cut(dfs[proc]['HTXS_Higgs_pt_sel'], bins=bins, labels=labels, right=False)
 
 # Create confusion matrices for each process
-
-
-
 confusion_matrices = {}
 for proc in procs.keys():
     if proc in ["Data", "VBF", "VH", "background"]:
@@ -262,7 +259,7 @@ for proc in procs.keys():
 
     # Plot the confusion matrix
     fig, ax = plt.subplots(figsize=(8, 6))
-    cax = ax.matshow(confusion_matrix, cmap='viridis')
+    cax = ax.matshow(confusion_matrix, cmap='Oranges')
     plt.colorbar(cax)
     
     # Set axis labels
