@@ -1,12 +1,16 @@
 import numpy as np
+import pandas as pd
 from scipy.interpolate import interp1d
 
-sample_path = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass0"
+sample_path_old = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass0"
+sample_path = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass1"
+
 plot_path = "all_plots"
 analysis_path = "stat_anal"
 
 vars_plotting_dict = {
     # var_name : [nbins, range, log-scale]
+    "mass_sel" : [80, (100,180), False, "$m_{\\gamma\\gamma}$ [GeV]"],
     "mass" : [80, (100,180), False, "$m_{\\gamma\\gamma}$ [GeV]"],
     "n_jets" : [10, (0,10), False, "Number of jets"],
     "Muo0_pt" : [20, (0,100), False, "Lead Muon $p_T$ [GeV]"],
@@ -44,8 +48,8 @@ def add_val_label(val):
     return "$%.2f^{+%.2f}_{-%.2f}$"%(val[0],abs(val[1]),abs(val[2]))
 
 def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=True, return_all_intervals=False):
-    print("graph 1: NLL vals = ", graph[1])
-    print("when 0 ", graph[1]==0, graph[0], len(graph[0]), len(graph[1]))
+    #print("graph 1: NLL vals = ", graph[1])
+    #print("when 0 ", graph[1]==0, graph[0], len(graph[0]), len(graph[1]))
     # Build spline
     f = interp1d(graph[0],graph[1],kind=spline_type)
     x_spline = np.linspace(graph[0].min(),graph[0].max(),spline_points)
@@ -69,7 +73,7 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
 
     # Extract bestfit
     bestfit = graph[0][graph[1]==0]
-    
+    print(bestfit)
     #NO CLUE WHY BESTFIT HAS 2 VALUES SO ONLY TAKING THE FIRST ONE.
     bestfit=bestfit[0]
     #print("Bestfit", bestfit)
@@ -139,3 +143,37 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
         return val, intervals
     else:
         return val
+def get_pt_cat(data):
+    conditions = [
+    (data < 60),
+    (data >= 60) & (data < 120),
+    (data >= 120) & (data < 200), 
+    (data >= 200) & (data < 300), 
+    (data >= 300)     
+    ]
+    return conditions
+def get_conf_mat(data):
+    #print(data.columns[data.columns[:4]=="HTXS"])
+    truth = data["HTXS_Higgs_pt_sel"]
+    recon = data["pt-over-mass_sel"]*data["mass_sel"]
+
+    truth_cond = get_pt_cat(truth)
+    recon_cond = get_pt_cat(recon)
+    recon_cat = np.select(recon_cond, [0, 1, 2, 3, 4])
+    truth_cat = np.select(truth_cond, [0, 1, 2, 3, 4])
+    
+    #6x6 conf matrix where x axis is truth dimension and y axis is recon dimension
+    conf_mat = np.array([[0 for i in range(5)] for i in range(5)])
+    #print(suconf_mat[:,1]))
+
+    for i in range(len(recon_cat)):
+        conf_mat[recon_cat[i]][truth_cat[i]]+=1
+    conf_mat_truth_prop = [[conf_mat[i][j]/sum(conf_mat[:,j]) for j in range(5)] for i in range(5)]
+
+    print("conf matrix: ", conf_mat)
+    print("Conf matrix by proportion of truth", conf_mat_truth_prop)
+
+    return (conf_mat, conf_mat_truth_prop)
+
+# data = pd.read_parquet(f"{sample_path_1}/ttH_processed_selected.parquet")
+# get_conf_mat(data)

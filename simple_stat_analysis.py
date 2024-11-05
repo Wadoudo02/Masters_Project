@@ -22,6 +22,8 @@ procs = {
     "VH" : ["VH (x10)", "brown"]
 }
 
+col_name = "_sel"
+
 # Load dataframes
 
 dfs = {}
@@ -31,20 +33,20 @@ for i, proc in enumerate(procs.keys()):
     dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
 
     # Remove nans from dataframe
-    dfs[proc] = dfs[proc][(dfs[proc]['mass'] == dfs[proc]['mass'])]
+    dfs[proc] = dfs[proc][(dfs[proc]['mass'+col_name] == dfs[proc]['mass'+col_name])]
 
-    # Reweight to target lumi
+    # Reweight to target lumi 
     dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']*(target_lumi/total_lumi)
 
     # Calculate true weight: remove x10 multiplier for signal
     if proc in ['ggH', 'VBF', 'VH', 'ttH']:
-        dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
+        dfs[proc]['true_weight'+col_name] = dfs[proc]['plot_weight']/10
     else:
-        dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
+        dfs[proc]['true_weight'+col_name] = dfs[proc]['plot_weight']
 
     # Add variables
     # Example: (second-)max-b-tag score
-    b_tag_scores = np.array(dfs[proc][['j0_btagB', 'j1_btagB', 'j2_btagB', 'j3_btagB']])
+    b_tag_scores = np.array(dfs[proc][['j0_btagB'+col_name, 'j1_btagB'+col_name, 'j2_btagB'+col_name, 'j3_btagB'+col_name]])
     b_tag_scores = np.nan_to_num(b_tag_scores, nan=-1)
     max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,0]
     second_max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,1]
@@ -56,10 +58,10 @@ for i, proc in enumerate(procs.keys()):
     
     
     # Apply selection: separate ttH from backgrounds + other H production modes
-    yield_before_sel = dfs[proc]['true_weight'].sum()
+    yield_before_sel = dfs[proc]['true_weight'+col_name].sum()
     #print("HT pre cuts:", len(dfs[proc]["HT"]))
-    mask = dfs[proc]['n_jets'] >= 4
-    mask = mask & (dfs[proc]['HT'] > 200)
+    mask = dfs[proc]['n_jets'+col_name] >= 4
+    mask = mask & (dfs[proc]['HT'+col_name] > 200)
     mask = mask & (dfs[proc]['max_b_tag_score'] > 0.8)
     mask = mask & (dfs[proc]['second_max_b_tag_score'] > 0.4)
     #print("HT post cuts:", len(dfs[proc]["HT"][mask]))
@@ -72,20 +74,16 @@ for i, proc in enumerate(procs.keys()):
     #exit(0)
     
     dfs[proc] = dfs[proc][mask]
-    yield_after_sel = dfs[proc]['true_weight'].sum()
+    yield_after_sel = dfs[proc]['true_weight'+col_name].sum()
     eff = (yield_after_sel/yield_before_sel)*100
     print(f"{proc}: N = {yield_before_sel:.2f} --> {yield_after_sel:.2f}, eff = {eff:.1f}%")
-
-
+    mass = dfs[proc]["mass"+col_name]
+    pt_mass = dfs[proc]["pt-over-mass"+col_name]
+    pt = pt_mass*mass
+    #print(dfs[proc]["mass"])
     # Categorise events: separate regions of high EFT enhancement vs low EFT enhancement
     # e.g. number of leptons
-    conditions = [
-    (dfs[proc]['pt/mass']*mass < 60),      # Category 0: low p_T
-    (dfs[proc]['pt/mass']*mass >= 60) & (dfs[proc]['pt/mass']*mass < 120),  # Category 1: medium p_T
-    (dfs[proc]['pt/mass']*mass >= 120) & (dfs[proc]['pt/mass']*mass < 200), # Category 2: higher p_T
-    (dfs[proc]['pt/mass']*mass >= 200) & (dfs[proc]['pt/mass']*mass < 300), # Category 3: even higher p_T
-    (dfs[proc]['pt/mass']*mass >= 300)     # Category 4: highest p_T
-    ]
+    conditions = get_pt_cat(pt)
     #dfs[proc]['category'] = np.array(dfs[proc]['n_leptons'] >= 1, dtype='int')
     dfs[proc]['category'] = np.select(conditions, [0, 1, 2, 3, 4])
     print(np.select(conditions, [0,1,2,3,4]))
@@ -100,7 +98,7 @@ print("Categories", np.unique(dfs[proc]['category']))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plot diphoton mass distribution in each category
 fig, ax = plt.subplots(1,1)
-v = "mass"
+v = "mass"+col_name
 for cat in cats_unique:
     print(f" --> Plotting: {v} in cat{cat}")
     nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
@@ -139,17 +137,20 @@ for cat in cats_unique:
 hists = {}
 mass_range = (120,130)
 mass_bins = 5
-v = 'mass'
+v = 'mass'+col_name
 
 for cat in cats_unique:
     hists[cat] = {}
     for proc in procs.keys():
         cat_mask = dfs[proc]['category'] == cat
-        hists[cat][proc] = np.histogram(dfs[proc][cat_mask][v], mass_bins, mass_range, weights=dfs[proc][cat_mask]['true_weight'])[0]
+        hists[cat][proc] = np.histogram(dfs[proc][cat_mask][v], mass_bins, mass_range, weights=dfs[proc][cat_mask]['true_weight'+col_name])[0]
 
 # Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
 NLL_vals = []
 mu_vals = np.linspace(0,3,100)
+new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+conf_matrix =get_conf_mat(new_samples)
+print(conf_matrix)
 for mu in mu_vals:
     NLL_vals.append(calc_NLL(hists, mu))
     
