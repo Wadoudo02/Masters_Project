@@ -83,10 +83,9 @@ for i, proc in enumerate(procs.keys()):
     #print(dfs[proc]["mass"])
     # Categorise events: separate regions of high EFT enhancement vs low EFT enhancement
     # e.g. number of leptons
-    conditions = get_pt_cat(pt)
+    #conditions = get_pt_cat(pt)
     #dfs[proc]['category'] = np.array(dfs[proc]['n_leptons'] >= 1, dtype='int')
-    dfs[proc]['category'] = np.select(conditions, [0, 1, 2, 3, 4])
-    print(np.select(conditions, [0,1,2,3,4]))
+    dfs[proc]['category'] =  get_pt_cat(pt)
     
 # Extract different cat integers
 cats_unique = []
@@ -151,8 +150,9 @@ mu_vals = np.linspace(0,3,100)
 new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
 conf_matrix =get_conf_mat(new_samples)
 print(conf_matrix)
+print(hists)
 for mu in mu_vals:
-    NLL_vals.append(calc_NLL(hists, mu))
+    NLL_vals.append(calc_NLL(hists, mu, conf_matrix[1]))
     
 # Plot NLL curve
 vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals)),1.)

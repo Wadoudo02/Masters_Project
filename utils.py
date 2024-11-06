@@ -27,21 +27,39 @@ def TwoDeltaNLL(x):
     x = np.array(x)
     return 2*(x-x.min())
 
-def calc_NLL(hists, mu, signal='ttH'):
+def calc_NLL(hists, mu, conf_matrix = [],signal='ttH'):
     NLL_vals = []
     # Loop over categories
-    for yields in hists.values():
+    for cat, yields in hists.items():
         n_bins = len(list(yields.values())[0])
         e = np.zeros(n_bins)
         n = np.zeros(n_bins)
+        #Loop over prod modes
         for proc, bin_yields in yields.items():
+            #Stopping any negative bin yields from slipping in
+            bin_yields = [i if i>0 else 0 for i in bin_yields]
+            #print(bin_yields)
             if proc == signal:
-                e += mu*bin_yields
+                if len(conf_matrix)!=0:
+                    '''
+                    Iterating over all recon categories, getting the bin yields for the signal prod mode for each category
+                    multiplying the bin yeidls by the element in our conf matrix in the column of the truth category
+                    and this recon categories.
+                    '''
+                    for recon_cat in range(5):
+                        #print("   ", cat, recon_cat,conf_matrix[recon_cat][cat], hists[recon_cat][signal],mu*hists[recon_cat][signal]*conf_matrix[recon_cat][cat])
+                        e+=mu*hists[recon_cat][signal]*conf_matrix[recon_cat][cat]
+                else:
+                    e+=mu*bin_yields
+                #e += mu*bin_yields
             else:
                 e += bin_yields
             n += bin_yields
+        #print(e)
         nll = e-n*np.log(e)
+     #   print("nll",nll)
         NLL_vals.append(nll)
+    #print(NLL_vals, np.array(NLL_vals).sum())
     return np.array(NLL_vals).sum()
 
 def add_val_label(val):
@@ -151,16 +169,14 @@ def get_pt_cat(data):
     (data >= 200) & (data < 300), 
     (data >= 300)     
     ]
-    return conditions
+    return np.select(conditions, [0,1,2,3,4])
 def get_conf_mat(data):
     #print(data.columns[data.columns[:4]=="HTXS"])
     truth = data["HTXS_Higgs_pt_sel"]
     recon = data["pt-over-mass_sel"]*data["mass_sel"]
 
-    truth_cond = get_pt_cat(truth)
-    recon_cond = get_pt_cat(recon)
-    recon_cat = np.select(recon_cond, [0, 1, 2, 3, 4])
-    truth_cat = np.select(truth_cond, [0, 1, 2, 3, 4])
+    truth_cat = get_pt_cat(truth)
+    recon_cat = get_pt_cat(recon)
     
     #6x6 conf matrix where x axis is truth dimension and y axis is recon dimension
     conf_mat = np.array([[0 for i in range(5)] for i in range(5)])
