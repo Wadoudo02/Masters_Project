@@ -119,9 +119,10 @@ def exponential_decay(x, A, lambd):
 
 
 
-fig, ax = plt.subplots(1,1, figsize=plot_size)
+
 v = "mass_sel"
 for cat in cats_unique:
+    fig, ax = plt.subplots(1,1, figsize=plot_size)
     print(f" --> Plotting: {v} in category {cat}")
     nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
     # Loop over procs and add histogram
@@ -173,8 +174,9 @@ for cat in cats_unique:
     ext = f"_cat_{cat}"
     #fig.savefig(f"{plot_path}/{v}{ext}.pdf", bbox_inches="tight")
     fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
-    ax.cla()
     plt.show()
+    #ax.cla()
+    
     
 
 #breakpoint()
