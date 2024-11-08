@@ -247,40 +247,41 @@ for proc in procs.keys():
     #    continue  
     
     # Filter out rows where either category is NaN
-    valid_entries = dfs[proc].dropna(subset=['category', 'truth_category'])
+    valid_entries = dfs[proc].dropna(subset=['category', 'truth_category', 'plot_weight'])
     
-    # Create a 2D histogram (confusion matrix) for observed vs. truth categories
+    # Create a weighted 2D histogram for observed vs. truth categories
     confusion_matrix, _, _ = np.histogram2d(
         valid_entries['category'].cat.codes,
         valid_entries['truth_category'].cat.codes,
-        bins=[len(labels), len(labels)]
+        bins=[len(labels), len(labels)],
+        weights=valid_entries['plot_weight']
     )
 
-    # Save confusion matrix to dictionary
-    confusion_matrices[proc] = confusion_matrix
+    # Normalize the confusion matrix
+    confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum()
 
-    # Plot the confusion matrix
-    fig, ax = plt.subplots(figsize=(8, 6))
-    cax = ax.matshow(confusion_matrix, cmap='Oranges')
+    # Save normalized confusion matrix to dictionary
+    confusion_matrices[proc] = confusion_matrix_normalized
+
+    # Plot the normalized confusion matrix with weights
+    fig, ax = plt.subplots(figsize=(10, 8))  # Increase figure size for larger plot
+    cax = ax.matshow(confusion_matrix_normalized, cmap='Oranges')
     plt.colorbar(cax)
     
-    # Set axis labels
+    # Set axis labels and title
     ax.set_xticks(np.arange(len(labels)))
     ax.set_yticks(np.arange(len(labels)))
     ax.set_xticklabels(labels, rotation=45)
     ax.set_yticklabels(labels)
     ax.set_xlabel("Observed pt Category")
     ax.set_ylabel("Truth pt Category")
-    ax.set_title(f"Confusion Matrix for {proc}")
-    
-    # Annotate each cell with the count
+    ax.set_title(f"Normalised Weighted Confusion Matrix for {proc}")
+
+    # Annotate each cell with the normalized weighted count
     for i in range(len(labels)):
         for j in range(len(labels)):
-            count = int(confusion_matrix[i, j])
-            ax.text(j, i, f'{count}', ha='center', va='center', color='black')
-    
+            norm_weight_count = confusion_matrix_normalized[i, j]
+            ax.text(j, i, f'{norm_weight_count:.2%}', ha='center', va='center', color='black', fontsize=20)  # Reduce font size
 
     #fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
-    
     plt.show()
-
