@@ -22,6 +22,12 @@ procs = {
     "VH" : ["VH (x10)", "brown"]
 }
 
+cats = {0: "0-60",
+        1: "60-120",
+        2: "120-200",
+        3: "200-300",
+        4: "300-"}
+
 col_name = "_sel"
 
 # Load dataframes
@@ -60,9 +66,9 @@ for i, proc in enumerate(procs.keys()):
     # Apply selection: separate ttH from backgrounds + other H production modes
     yield_before_sel = dfs[proc]['true_weight'+col_name].sum()
     #print("HT pre cuts:", len(dfs[proc]["HT"]))
-    mask = dfs[proc]['n_jets'+col_name] >= 4
-    mask = mask & (dfs[proc]['HT'+col_name] > 200)
-    mask = mask & (dfs[proc]['max_b_tag_score'] > 0.8)
+    mask = dfs[proc]['n_jets'+col_name] >= 2
+   # mask = mask & (dfs[proc]['HT'+col_name] > 200)
+    mask = mask & (dfs[proc]['max_b_tag_score'] > 0.7)
     mask = mask & (dfs[proc]['second_max_b_tag_score'] > 0.4)
     #print("HT post cuts:", len(dfs[proc]["HT"][mask]))
     #mask = mask & dfs[proc]['minDeltaPhiJMET']<1
@@ -151,25 +157,30 @@ new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
 conf_matrix =get_conf_mat(new_samples)
 print(conf_matrix)
 print(hists)
-for mu in mu_vals:
-    NLL_vals.append(calc_NLL(hists, mu, conf_matrix[1]))
+for cat in cats_unique:
+    cat_vals = []
+    for mu in mu_vals:
+        cat_vals.append(calc_NLL(hists, mu, conf_matrix[1], cat))
+    NLL_vals.append(cat_vals)
     
 # Plot NLL curve
-vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals)),1.)
-label = add_val_label(vals)
+for cat in cats_unique:
+    #Best fit vals for category cat.
+    vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals[cat])),1.)
+    label = add_val_label(vals)
 
-print(" --> Plotting 2NLL curve")
-fig, ax = plt.subplots()
-ax.plot(mu_vals, TwoDeltaNLL(NLL_vals), label=label)
-ax.axvline(1., label="SM (expected)", color='black', alpha=0.5)
-ax.axhline(1, color='grey', alpha=0.5, ls='--')
-ax.axhline(4, color='grey', alpha=0.5, ls='--')
-ax.set_ylim(0,8)
-ax.legend(loc='best')
-ax.set_xlabel("$\\mu_{ttH}$")
-ax.set_ylabel("q = 2$\\Delta$NLL")
-
-plt.tight_layout()
-#fig.savefig(f"{analysis_path}/2nll_vs_mu.pdf", bbox_inches="tight")
-fig.savefig(f"{analysis_path}/2nll_vs_mu.png", bbox_inches="tight")
-ax.cla()
+    print(" --> Plotting 2NLL curve")
+    fig, ax = plt.subplots()
+    ax.plot(mu_vals, TwoDeltaNLL(NLL_vals[cat]), label=label)
+    ax.axvline(1., label="SM (expected)", color='black', alpha=0.5)
+    ax.axhline(1, color='grey', alpha=0.5, ls='--')
+    ax.axhline(4, color='grey', alpha=0.5, ls='--')
+    ax.set_ylim(0,8)
+    ax.legend(loc='best')
+    ax.set_xlabel("$\\mu_{ttH}$")
+    ax.set_ylabel("q = 2$\\Delta$NLL")
+    ax.set_title(f"Best fit for cat: {cats[cat]}")
+    plt.tight_layout()
+    #fig.savefig(f"{analysis_path}/2nll_vs_mu.pdf", bbox_inches="tight")
+    fig.savefig(f"{analysis_path}/2nll_vs_mu_{cats[cat]}.png", bbox_inches="tight")
+    ax.cla()

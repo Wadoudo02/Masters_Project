@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 sample_path_old = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass0"
 sample_path = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass1"
@@ -27,14 +29,15 @@ def TwoDeltaNLL(x):
     x = np.array(x)
     return 2*(x-x.min())
 
-def calc_NLL(hists, mu, conf_matrix = [],signal='ttH'):
+#Takes optional param cat which if provided only get NLL over that category
+def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
     NLL_vals = []
-    # Loop over categories
+    # Loop over recon categories
     for cat, yields in hists.items():
         n_bins = len(list(yields.values())[0])
         e = np.zeros(n_bins)
         n = np.zeros(n_bins)
-        #Loop over prod modes
+        #Loop over prod modes, truth bins so stuff inside log
         for proc, bin_yields in yields.items():
             #Stopping any negative bin yields from slipping in
             bin_yields = [i if i>0 else 0 for i in bin_yields]
@@ -42,13 +45,12 @@ def calc_NLL(hists, mu, conf_matrix = [],signal='ttH'):
             if proc == signal:
                 if len(conf_matrix)!=0:
                     '''
-                    Iterating over all recon categories, getting the bin yields for the signal prod mode for each category
-                    multiplying the bin yeidls by the element in our conf matrix in the column of the truth category
-                    and this recon categories.
+                    For the particular recon category "cat" we sum over each truth category * the mu belonging to that category
+                    which in this case is 1 for all categories other than the one we are looking at for which it is mu, as we 
+                    are performing a frozen fit.
                     '''
-                    for recon_cat in range(5):
-                        #print("   ", cat, recon_cat,conf_matrix[recon_cat][cat], hists[recon_cat][signal],mu*hists[recon_cat][signal]*conf_matrix[recon_cat][cat])
-                        e+=mu*hists[recon_cat][signal]*conf_matrix[recon_cat][cat]
+                    for truth_cat in range(5):
+                        e+=(mu if truth_cat==category else 1)*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
                 else:
                     e+=mu*bin_yields
                 #e += mu*bin_yields
@@ -180,16 +182,39 @@ def get_conf_mat(data):
     
     #6x6 conf matrix where x axis is truth dimension and y axis is recon dimension
     conf_mat = np.array([[0 for i in range(5)] for i in range(5)])
-    #print(suconf_mat[:,1]))
 
     for i in range(len(recon_cat)):
-        conf_mat[recon_cat[i]][truth_cat[i]]+=1
+        conf_mat[recon_cat[i]][truth_cat[i]]+=data["plot_weight"][i] #Not working not sure why
+    print(conf_mat)
     conf_mat_truth_prop = [[conf_mat[i][j]/sum(conf_mat[:,j]) for j in range(5)] for i in range(5)]
+    conf_mat_recon_prop = [[conf_mat[i][j]/sum(conf_mat[i]) for j in range(5)] for i in range(5)]
+
 
     print("conf matrix: ", conf_mat)
     print("Conf matrix by proportion of truth", conf_mat_truth_prop)
+    labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_mat, annot=True, fmt=".2f", cmap="Blues", cbar=True,
+                xticklabels=labels, yticklabels=labels)
 
-    return (conf_mat, conf_mat_truth_prop)
+    # Add labels to the plot
+    plt.ylabel("Reconstructed pt")
+    plt.xlabel("True pt")
+    plt.title("Weighted Confusion Matrix")
+    plt.savefig(f"{analysis_path}/conf.png")
 
-# data = pd.read_parquet(f"{sample_path_1}/ttH_processed_selected.parquet")
-# get_conf_mat(data)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_mat_recon_prop, annot=True, fmt=".2f", cmap="Blues", cbar=True,
+                xticklabels=labels, yticklabels=labels)
+
+    # Add labels to the plot
+    plt.ylabel("Reconstructed pt")
+    plt.xlabel("True pt")
+    plt.title("Weighted Confusion Matrix normalised by recon")
+    plt.savefig(f"{analysis_path}/conf.png")
+
+    return (conf_mat, conf_mat_truth_prop, conf_mat_recon_prop)
+
+data = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+
+get_conf_mat(data)

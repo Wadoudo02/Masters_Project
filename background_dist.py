@@ -7,7 +7,7 @@ from scipy.optimize import curve_fit
 def exp(x, lam, A):
     return A*np.exp(-lam*x)
 def get_background_dist():
-    back_data = pd.read_parquet(f"{sample_path_1}/Data_processed_selected.parquet")
+    back_data = pd.read_parquet(f"{sample_path}/Data_processed_selected.parquet")
     back_mass = back_data["mass_sel"][back_data["mass_sel"]==back_data["mass_sel"]]
 
     fig,ax = plt.subplots()
