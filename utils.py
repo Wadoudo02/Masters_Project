@@ -40,7 +40,7 @@ def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
         #Loop over prod modes, truth bins so stuff inside log
         for proc, bin_yields in yields.items():
             #Stopping any negative bin yields from slipping in
-            bin_yields = [i if i>0 else 0 for i in bin_yields]
+            #bin_yields = [i if i>0 else 0 for i in bin_yields]
             #print(bin_yields)
             if proc == signal:
                 if len(conf_matrix)!=0:
@@ -50,16 +50,17 @@ def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
                     are performing a frozen fit.
                     '''
                     for truth_cat in range(5):
-                        e+=(mu if truth_cat==category else 1)*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
+                        if truth_cat==category:
+                            e+=mu*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
+                        else:
+                            e+=hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
                 else:
                     e+=mu*bin_yields
-                #e += mu*bin_yields
+                
             else:
                 e += bin_yields
             n += bin_yields
-        #print(e)
         nll = e-n*np.log(e)
-     #   print("nll",nll)
         NLL_vals.append(nll)
     #print(NLL_vals, np.array(NLL_vals).sum())
     return np.array(NLL_vals).sum()
@@ -68,8 +69,8 @@ def add_val_label(val):
     return "$%.2f^{+%.2f}_{-%.2f}$"%(val[0],abs(val[1]),abs(val[2]))
 
 def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=True, return_all_intervals=False):
-    #print("graph 1: NLL vals = ", graph[1])
-    #print("when 0 ", graph[1]==0, graph[0], len(graph[0]), len(graph[1]))
+    print("graph 1: NLL vals = ", graph[1])
+    print("when 0 ", graph[1]==0, graph[0], len(graph[0]), len(graph[1]))
     # Build spline
     f = interp1d(graph[0],graph[1],kind=spline_type)
     x_spline = np.linspace(graph[0].min(),graph[0].max(),spline_points)
@@ -93,7 +94,7 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
 
     # Extract bestfit
     bestfit = graph[0][graph[1]==0]
-    print(bestfit)
+    #print(bestfit)
     #NO CLUE WHY BESTFIT HAS 2 VALUES SO ONLY TAKING THE FIRST ONE.
     bestfit=bestfit[0]
     #print("Bestfit", bestfit)
@@ -181,17 +182,20 @@ def get_conf_mat(data):
     recon_cat = get_pt_cat(recon)
     
     #6x6 conf matrix where x axis is truth dimension and y axis is recon dimension
-    conf_mat = np.array([[0 for i in range(5)] for i in range(5)])
+    conf_mat =np.zeros((5,5))
 
     for i in range(len(recon_cat)):
-        conf_mat[recon_cat[i]][truth_cat[i]]+=data["plot_weight"][i] #Not working not sure why
-    print(conf_mat)
+        #print(data["plot_weight"][i], recon_cat[i],truth_cat[i], conf_mat[recon_cat[i]][truth_cat[i]]+data["plot_weight"][i])
+        conf_mat[recon_cat[i]][truth_cat[i]]=conf_mat[recon_cat[i]][truth_cat[i]]+data["plot_weight"][i] #Not working not sure why
+        #print(conf_mat)
+    #print(conf_mat)
     conf_mat_truth_prop = [[conf_mat[i][j]/sum(conf_mat[:,j]) for j in range(5)] for i in range(5)]
     conf_mat_recon_prop = [[conf_mat[i][j]/sum(conf_mat[i]) for j in range(5)] for i in range(5)]
 
 
-    print("conf matrix: ", conf_mat)
-    print("Conf matrix by proportion of truth", conf_mat_truth_prop)
+    #print("conf matrix: ", conf_mat)
+    #print("Conf matrix by proportion of truth: ", conf_mat_truth_prop)
+    #print("Conf matrix by proportion of recon: ", conf_mat_recon_prop)
     labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
     plt.figure(figsize=(8, 6))
     sns.heatmap(conf_mat, annot=True, fmt=".2f", cmap="Blues", cbar=True,
@@ -211,7 +215,18 @@ def get_conf_mat(data):
     plt.ylabel("Reconstructed pt")
     plt.xlabel("True pt")
     plt.title("Weighted Confusion Matrix normalised by recon")
-    plt.savefig(f"{analysis_path}/conf.png")
+    plt.savefig(f"{analysis_path}/conf_recon.png")
+
+
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_mat_truth_prop, annot=True, fmt=".2f", cmap="Blues", cbar=True,
+                xticklabels=labels, yticklabels=labels)
+
+    # Add labels to the plot
+    plt.ylabel("Reconstructed pt")
+    plt.xlabel("True pt")
+    plt.title("Weighted Confusion Matrix normalised by truth")
+    plt.savefig(f"{analysis_path}/conf_truth.png")
 
     return (conf_mat, conf_mat_truth_prop, conf_mat_recon_prop)
 

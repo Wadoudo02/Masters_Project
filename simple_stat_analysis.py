@@ -148,19 +148,23 @@ for cat in cats_unique:
     hists[cat] = {}
     for proc in procs.keys():
         cat_mask = dfs[proc]['category'] == cat
-        hists[cat][proc] = np.histogram(dfs[proc][cat_mask][v], mass_bins, mass_range, weights=dfs[proc][cat_mask]['true_weight'+col_name])[0]
-
+        hist_counts = np.histogram(dfs[proc][cat_mask][v], mass_bins, mass_range, weights=dfs[proc][cat_mask]['true_weight'+col_name])[0]
+        
+        hist_counts[-2] += hist_counts[-1]  # Add last bin to the second last
+        hist_counts = hist_counts[:-1]      # Remove the last bin
+        hists[cat][proc] = hist_counts
 # Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
 NLL_vals = []
 mu_vals = np.linspace(0,3,100)
 new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
 conf_matrix =get_conf_mat(new_samples)
-print(conf_matrix)
-print(hists)
+#print(conf_matrix)
+#print(hists)
 for cat in cats_unique:
     cat_vals = []
     for mu in mu_vals:
         cat_vals.append(calc_NLL(hists, mu, conf_matrix[1], cat))
+    print("    NLL vals for cat: ",cat_vals)
     NLL_vals.append(cat_vals)
     
 # Plot NLL curve
