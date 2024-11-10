@@ -227,6 +227,8 @@ plt.show()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Confusion Matrix
 
+Normalised = True
+
 # Define bins and labels for pt categories
 bins = [0, 60, 120, 200, 300, np.inf]
 labels = ['0-60', '60-120', '120-200', '200-300', '>300']
@@ -247,7 +249,7 @@ for proc in procs.keys():
     #if proc == "Data":
     #    continue  
     
-   # Filter out rows where either category is NaN
+ # Filter out rows where either category is NaN
     valid_entries = dfs[proc].dropna(subset=['category', 'truth_category', 'plot_weight'])
     
     # Create a weighted 2D histogram for truth vs. reconstructed categories
@@ -258,15 +260,23 @@ for proc in procs.keys():
         weights=valid_entries['plot_weight']
     )
 
-    # Normalize each column to represent percentages
-    confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True)
+    # Apply normalization if the switch is set to True
+    if Normalised:
+        confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True)
+        matrix_to_plot = confusion_matrix_normalized
+        fmt = '.2%'  # Display as percentage
+        title_suffix = " (Normalised)"
+    else:
+        matrix_to_plot = confusion_matrix
+        fmt = '.2f'  # Display raw counts
+        title_suffix = " (Raw Counts)"
 
-    # Save normalized confusion matrix to dictionary
-    confusion_matrices[proc] = confusion_matrix_normalized
+    # Save matrix to dictionary
+    confusion_matrices[proc] = matrix_to_plot
 
-    # Plot the normalized confusion matrix with weights
+    # Plot the confusion matrix
     fig, ax = plt.subplots(figsize=(10, 8))  # Increase figure size for larger plot
-    cax = ax.matshow(confusion_matrix_normalized, cmap='Blues')
+    cax = ax.matshow(matrix_to_plot, cmap='Oranges')
     plt.colorbar(cax)
     
     # Set axis labels and title
@@ -276,12 +286,14 @@ for proc in procs.keys():
     ax.set_yticklabels(labels)
     ax.set_xlabel("Truth pt Category")
     ax.set_ylabel("Reconstructed pt Category")
-    ax.set_title(f"Column-Normalized Weighted Confusion Matrix for {proc}")
+    ax.set_title(f"Confusion Matrix for {proc}{title_suffix}")
 
-    # Annotate each cell with the normalized weighted count as a percentage
+    # Annotate each cell based on the format specified by the normalization switch
     for i in range(len(labels)):
         for j in range(len(labels)):
-            norm_weight_count = confusion_matrix_normalized[i, j]
-            ax.text(j, i, f'{norm_weight_count:.2%}', ha='center', va='center', color='black', fontsize=8)  # Reduce font size if needed
+            cell_value = matrix_to_plot[i, j]
+            ax.text(j, i, f'{cell_value:{fmt}}', ha='center', va='center', color='black', fontsize=20)
+
+    fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
 
     plt.show()
