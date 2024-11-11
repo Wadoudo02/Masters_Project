@@ -138,22 +138,55 @@ def TwoDeltaNLL(x):
     x = np.array(x)
     return 2*(x-x.min())
 
-def calc_NLL(hists, mu, signal='ttH'):
-    NLL_vals = []
-    # Loop over categories
-    for yields in hists.values():
-        n_bins = len(list(yields.values())[0])
-        e = np.zeros(n_bins)
-        n = np.zeros(n_bins)
+def calc_NLL(hists, mus, conf_matrix, signal='ttH', mass_bins=5):
+    """
+    Calculate the NLL using 5 signal strength modifiers (mus), with confusion matrix integration.
+    
+    Parameters:
+        hists (dict): Observed histogram data with categories.
+        mus (list or array): Signal strength modifiers, one for each truth category (length 5).
+        conf_matrix (ndarray): Confusion matrix for adjusting expected yields.
+        signal (str): Name of the signal process (default 'ttH').
+        mass_bins (int): Number of mass bins.
+        
+    Returns:
+        float: Total NLL.
+    """
+    # Ensure conf_matrix is a numpy array for indexing
+    conf_matrix = np.array(conf_matrix)
+    NLL_total = 0.0
+
+    # Loop over reconstructed categories (j)
+    for j, (recon_cat, yields) in enumerate(hists.items()):
+        e = np.zeros(mass_bins)
+        n = np.zeros(mass_bins)
+
+        # Convert `recon_cat` to an integer if it’s not already
+        recon_cat_idx = j  # or use mapping if `recon_cat` is not numeric
+        
+        # Loop over processes (signal or background)
         for proc, bin_yields in yields.items():
+            bin_yields = np.clip(bin_yields, 0, None)  # Ensure no negative yields
+
             if proc == signal:
-                e += mu*bin_yields
+                # Sum over truth categories (i) for signal contributions
+                for truth_cat_idx in range(5):
+                    mu = mus[truth_cat_idx]
+                    # Ensure `truth_cat` and `recon_cat_idx` are valid for conf_matrix
+                    e += mu * np.array(bin_yields) * conf_matrix[recon_cat_idx][truth_cat_idx]
             else:
                 e += bin_yields
+
             n += bin_yields
-        nll = e-n*np.log(e)
-        NLL_vals.append(nll)
-    return np.array(NLL_vals).sum()
+
+        # Calculate NLL contribution for this category
+        e = np.where(e > 0, e, 1e-10)
+        NLL_total += np.sum(n * np.log(e) - e)
+
+    return -NLL_total
+
+
+
 
 def add_val_label(val):
     return "$%.2f^{+%.2f}_{-%.2f}$"%(val[0],abs(val[1]),abs(val[2]))

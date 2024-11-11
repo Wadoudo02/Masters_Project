@@ -182,6 +182,7 @@ for cat in cats_unique:
 
 #breakpoint()
 #%%
+'''
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Simple binned likelihood fit to mass histograms in signal window (120,130)
 hists = {}
@@ -221,7 +222,7 @@ plt.tight_layout()
 #fig.savefig(f"{plot_path}/2nll_vs_mu.pdf", bbox_inches="tight")
 fig.savefig(f"{plot_path}/2nll_vs_mu.png", bbox_inches="tight")
 plt.show()
-
+'''
 #%%
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -294,6 +295,149 @@ for proc in procs.keys():
             cell_value = matrix_to_plot[i, j]
             ax.text(j, i, f'{cell_value:{fmt}}', ha='center', va='center', color='black', fontsize=20)
 
-    fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
+    #fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
 
     plt.show()
+    
+    
+#%%
+
+# Define signal window parameters
+hists = {}
+mass_range = (120, 130)
+mass_bins = 5
+v = 'mass_sel'
+
+# Initialize histogram data for each reconstructed category and process
+for cat in cats_unique:
+    hists[cat] = {}
+    for proc in procs.keys():
+        # Apply mask to categorize events by reconstructed category
+        cat_mask = dfs[proc]['category'] == cat
+        hists[cat][proc] = np.histogram(
+            dfs[proc][cat_mask][v], 
+            mass_bins, 
+            mass_range, 
+            weights=dfs[proc][cat_mask]['true_weight']
+        )[0]
+
+
+conf_matrix = confusion_matrices['ttH']
+
+# Calculate NLL as a function of the five \mu values for ttH signal strength modifiers
+NLL_vals = []
+mu_values = np.linspace(0, 3, 100)  # Example range for mu scan
+
+# Define initial \mu values for each of the five truth categories (all start at 1)
+mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
+frozen_scan_mus = mus_initial.copy()
+
+
+#breakpoint()
+
+for i in range(len(frozen_scan_mus)):
+    NLL_vals = []
+    for mu in mu_values:
+        # Adjust the first mu value in the array, keeping others fixed at their initial values
+        
+        frozen_scan_mus[i] = mu  
+    
+        # Calculate NLL using the updated calc_NLL function with five \mu values
+        NLL_vals.append(calc_NLL(hists, frozen_scan_mus, conf_matrix, signal='ttH', mass_bins=mass_bins))
+    
+    #breakpoint()
+    # Plot the NLL curve as a function of mu
+    vals = find_crossings((mu_values, TwoDeltaNLL(NLL_vals)), 1.)
+    frozen_scan_mus[i] = vals[0][0]
+    label = add_val_label(vals)
+
+    print(" --> Plotting 2NLL curve")
+    fig, ax = plt.subplots(figsize=plot_size)
+    ax.plot(mu_values, TwoDeltaNLL(NLL_vals), label=label)
+    ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
+    ax.axhline(1, color='grey', alpha=0.5, ls='--')
+    ax.axhline(4, color='grey', alpha=0.5, ls='--')
+    ax.set_ylim(0, 8)
+    ax.legend(loc='best')
+    ax.set_xlabel("$\\mu_{ttH}$")
+    ax.set_ylabel("q = 2$\\Delta$NLL")
+    ax.set_title(f"Optimising $\\mu_{i}$")
+    
+    plt.tight_layout()
+    #fig.savefig(f"{plot_path}/2nll_vs_mu_{i}.png", bbox_inches="tight")
+    plt.show()
+    
+print("The optimised values of mu are:", frozen_scan_mus)
+
+#%%
+
+
+from scipy.optimize import minimize
+
+# Define the objective function for NLL
+def objective_function(mus):
+    """
+    Objective function to compute NLL for given mu values.
+    
+    Parameters:
+        mus (array-like): Array of 5 mu values for each truth category.
+    
+    Returns:
+        float: NLL value for the given set of mu values.
+    """
+    # Calculate NLL with the current set of mu values
+    return calc_NLL(hists, mus, conf_matrix, signal='ttH', mass_bins=mass_bins)
+
+# Initial values for the five mu parameters
+mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
+
+# Define bounds for each mu parameter (e.g., between 0 and 3)
+bounds = [(0, 3) for _ in range(5)]
+
+# Perform the optimization
+result = minimize(objective_function, mus_initial, bounds=bounds, method='L-BFGS-B')
+
+# Extract the optimized mu values
+optimized_mus = result.x
+print("The optimized values of mu are:", optimized_mus)
+
+
+
+
+#%%
+
+# Define ranges for the heatmap
+mu_range = np.linspace(0.5, 1.5, 50)
+
+# Create heatmaps for pairs of mu values
+for i in range(5):
+    for j in range(i+1, 5):
+        NLL_grid = np.zeros((len(mu_range), len(mu_range)))
+        
+        # Fix all mu values to optimized values
+        mus = optimized_mus.copy()
+        
+        # Generate NLL values across the i, j mu grid
+        for idx_i, mu_i in enumerate(mu_range):
+            for idx_j, mu_j in enumerate(mu_range):
+                mus[i] = mu_i  # Vary mu_i
+                mus[j] = mu_j  # Vary mu_j
+                
+                # Calculate NLL with the adjusted mus
+                NLL_grid[idx_i, idx_j] = calc_NLL(hists, mus, conf_matrix, signal='ttH', mass_bins=mass_bins)
+        
+        # Plot the heatmap for this mu pair
+        plt.figure(figsize=(8, 6), dpi = 300)
+        plt.contourf(mu_range, mu_range, NLL_grid, levels=50, cmap="viridis")
+        plt.colorbar(label="NLL")
+        plt.xlabel(f"$\\mu_{i+1}$")
+        plt.ylabel(f"$\\mu_{j+1}$")
+        plt.title(f"NLL Heatmap for $\\mu_{i+1}$ and $\\mu_{j+1}$ with Other $\\mu$ Values Fixed", pad = 20)
+
+        # Add scatter points for both optimized and frozen scan results
+        plt.scatter(optimized_mus[i], optimized_mus[j], color='red', label="Simultaneous Optimum", s=100, edgecolor='black')
+        plt.scatter(frozen_scan_mus[i], frozen_scan_mus[j], color='blue', label="Frozen Scan Optimum", s=100, edgecolor='black')
+        
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
