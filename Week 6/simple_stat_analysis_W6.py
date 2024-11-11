@@ -260,7 +260,11 @@ for proc in procs.keys():
         bins=[len(labels), len(labels)],
         weights=valid_entries['plot_weight']
     )
-
+    
+    # Save matrix to dictionary
+    confusion_matrices[proc] = confusion_matrix
+    
+    
     # Apply normalization if the switch is set to True
     if Normalised:
         confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True)
@@ -272,8 +276,7 @@ for proc in procs.keys():
         fmt = '.2f'  # Display raw counts
         title_suffix = " (Raw Counts)"
 
-    # Save matrix to dictionary
-    confusion_matrices[proc] = matrix_to_plot
+    
 
     # Plot the confusion matrix
     fig, ax = plt.subplots(figsize=(10, 8))  # Increase figure size for larger plot
@@ -405,7 +408,7 @@ print("The optimized values of mu are:", optimized_mus)
 
 
 #%%
-
+'''
 # Define ranges for the heatmap
 mu_range = np.linspace(0.5, 1.5, 50)
 
@@ -441,3 +444,22 @@ for i in range(5):
         plt.legend()
         plt.tight_layout()
         plt.show()
+        
+  '''      
+#%%
+
+
+# Assuming `hists`, `mus`, `conf_matrix`, and other parameters are defined
+hessian_matrix = calc_Hessian(hists, optimized_mus, conf_matrix, signal='ttH', mass_bins=mass_bins)
+print("Hessian Matrix:\n", hessian_matrix)
+try:
+    covariant_matrix = np.linalg.inv(hessian_matrix)
+    print("Covariant Matrix:\n", covariant_matrix)
+except np.linalg.LinAlgError:
+    print("Error: Hessian matrix is singular and cannot be inverted. Check if the Hessian is non-singular.")
+    
+    
+    
+# Extract uncertainties for each mu parameter
+uncertainties = np.sqrt(np.diag(covariant_matrix))
+print("Uncertainties in mu parameters:", uncertainties)
