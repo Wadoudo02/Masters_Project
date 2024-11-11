@@ -228,7 +228,7 @@ plt.show()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Confusion Matrix
 
-Normalised = True
+Normalised = False
 
 # Define bins and labels for pt categories
 bins = [0, 60, 120, 200, 300, np.inf]
@@ -260,14 +260,14 @@ for proc in procs.keys():
         bins=[len(labels), len(labels)],
         weights=valid_entries['plot_weight']
     )
+
+    confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True)
     
     # Save matrix to dictionary
-    confusion_matrices[proc] = confusion_matrix
-    
-    
+    confusion_matrices[proc] = confusion_matrix_normalized
+
     # Apply normalization if the switch is set to True
     if Normalised:
-        confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True)
         matrix_to_plot = confusion_matrix_normalized
         fmt = '.2%'  # Display as percentage
         title_suffix = " (Normalised)"
@@ -276,7 +276,6 @@ for proc in procs.keys():
         fmt = '.2f'  # Display raw counts
         title_suffix = " (Raw Counts)"
 
-    
 
     # Plot the confusion matrix
     fig, ax = plt.subplots(figsize=(10, 8))  # Increase figure size for larger plot
