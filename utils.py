@@ -32,6 +32,7 @@ def TwoDeltaNLL(x):
 #Takes optional param cat which if provided only get NLL over that category
 def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
     NLL_vals = []
+    print("                                       Conf matrix: ", conf_matrix)
     # Loop over recon categories
     for cat, yields in hists.items():
         n_bins = len(list(yields.values())[0])
@@ -43,6 +44,7 @@ def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
             #bin_yields = [i if i>0 else 0 for i in bin_yields]
             #print(bin_yields)
             if proc == signal:
+                #Case where conf matrix provided
                 if len(conf_matrix)!=0:
                     '''
                     For the particular recon category "cat" we sum over each truth category * the mu belonging to that category
@@ -54,6 +56,7 @@ def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
                             e+=mu*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
                         else:
                             e+=hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
+                #If conf matrix not provided
                 else:
                     e+=mu*bin_yields
                 
@@ -69,8 +72,8 @@ def add_val_label(val):
     return "$%.2f^{+%.2f}_{-%.2f}$"%(val[0],abs(val[1]),abs(val[2]))
 
 def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=True, return_all_intervals=False):
-    print("graph 1: NLL vals = ", graph[1])
-    print("when 0 ", graph[1]==0, graph[0], len(graph[0]), len(graph[1]))
+    #print("graph 1: 2 delta NLL vals = ", graph[1])
+    #print("when 0 ", graph[1]==0, graph[0], len(graph[0]), len(graph[1]))
     # Build spline
     f = interp1d(graph[0],graph[1],kind=spline_type)
     x_spline = np.linspace(graph[0].min(),graph[0].max(),spline_points)

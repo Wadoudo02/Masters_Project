@@ -157,24 +157,27 @@ for cat in cats_unique:
 NLL_vals = []
 mu_vals = np.linspace(0,3,100)
 new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
-conf_matrix =get_conf_mat(new_samples)
-#print(conf_matrix)
-#print(hists)
+
+conf_matrix = get_conf_mat(new_samples) #conf_matrix[2] is the one normalised by recon
+
 for cat in cats_unique:
     cat_vals = []
     for mu in mu_vals:
-        cat_vals.append(calc_NLL(hists, mu, conf_matrix[1], cat))
-    print("    NLL vals for cat: ",cat_vals)
+        cat_vals.append(calc_NLL(hists, mu, conf_matrix[2], category=cat))
+    #print("________________________________")
+    #print(f"NLL vals for cat - {cat}: ",cat_vals)
     NLL_vals.append(cat_vals)
-    
+#%%
+fig, axes = plt.subplots(2, 3,figsize=(15, 10))
+print(ax)
 # Plot NLL curve
-for cat in cats_unique:
+for idx in range(len(cats_unique)):
+    cat = cats_unique[idx]
     #Best fit vals for category cat.
     vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals[cat])),1.)
     label = add_val_label(vals)
-
+    ax = axes[idx//3,idx%3]
     print(" --> Plotting 2NLL curve")
-    fig, ax = plt.subplots()
     ax.plot(mu_vals, TwoDeltaNLL(NLL_vals[cat]), label=label)
     ax.axvline(1., label="SM (expected)", color='black', alpha=0.5)
     ax.axhline(1, color='grey', alpha=0.5, ls='--')
@@ -183,8 +186,11 @@ for cat in cats_unique:
     ax.legend(loc='best')
     ax.set_xlabel("$\\mu_{ttH}$")
     ax.set_ylabel("q = 2$\\Delta$NLL")
-    ax.set_title(f"Best fit for cat: {cats[cat]}")
-    plt.tight_layout()
+    ax.set_title(f"Best fit for cat: {cats[cat]}", fontsize=15)
+    #plt.tight_layout()
     #fig.savefig(f"{analysis_path}/2nll_vs_mu.pdf", bbox_inches="tight")
-    fig.savefig(f"{analysis_path}/2nll_vs_mu_{cats[cat]}.png", bbox_inches="tight")
-    ax.cla()
+    #fig.savefig(f"{analysis_path}/2nll_vs_mu_{cats[cat]}.png", bbox_inches="tight")
+    #ax.cla()
+fig.delaxes(axes[1,2])
+fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot.png", bbox_inches="tight")
+fig.show()
