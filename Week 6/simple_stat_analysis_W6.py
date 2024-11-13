@@ -467,6 +467,7 @@ print("The optimized values of mu are:", optimized_mus)
 
 
 
+
 #%%
 '''
 # Define ranges for the heatmap
@@ -509,9 +510,12 @@ for i in range(5):
 #%%
 
 
-# Assuming `hists`, `mus`, `conf_matrix`, and other parameters are defined
-hessian_matrix = calc_Hessian(hists, optimized_mus, conf_matrix, signal='ttH', mass_bins=mass_bins)
+
+hessian_matrix = calc_Hessian_New(combined_histogram,optimized_mus)
 print("Hessian Matrix:\n", hessian_matrix)
+
+
+
 try:
     covariant_matrix = np.linalg.inv(hessian_matrix)
     print("Covariant Matrix:\n", covariant_matrix)
