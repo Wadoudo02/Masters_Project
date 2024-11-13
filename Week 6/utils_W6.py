@@ -138,53 +138,92 @@ def TwoDeltaNLL(x):
     x = np.array(x)
     return 2*(x-x.min())
 
-def calc_NLL(hists, mus, conf_matrix, signal='ttH', mass_bins=5):
+
+def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
     """
-    Calculate the NLL using 5 signal strength modifiers (mus), with confusion matrix integration.
-    
+    Builds a single 25-bin histogram by combining yields from all categories and scaling ttH yields
+    according to the confusion matrix.
+
     Parameters:
-        hists (dict): Observed histogram data with categories.
-        mus (list or array): Signal strength modifiers, one for each truth category (length 5).
+        hists (dict): Observed histogram data for each reconstructed category.
         conf_matrix (ndarray): Confusion matrix for adjusting expected yields.
-        signal (str): Name of the signal process (default 'ttH').
-        mass_bins (int): Number of mass bins.
-        
+        signal (str): The signal process (default 'ttH').
+
+    Returns:
+        combined_histogram (dict): Combined histogram for each process, without \mu scaling.
+        Note indexes 0,1,2,3,4 match the index of the labels ['0-60', '60-120', '120-200', '200-300', '>300']
+    """
+    num_reco_cats = len(hists)
+
+    combined_bins = num_reco_cats * mass_bins
+    num_truth_cats = conf_matrix.shape[1]  # Number of truth categories, based on confusion matrix
+    #breakpoint()
+    # Initialize a dictionary for each process with the combined bins
+    combined_histogram = {}
+    for proc in hists[next(iter(hists))].keys():
+        if proc == signal:
+            # Create separate entries for each truth category of the signal
+            for truth_cat_idx in range(num_truth_cats):
+                combined_histogram[f"{signal}_{truth_cat_idx}"] = np.zeros(combined_bins)
+        else:
+            # Single entry for background or other processes
+            combined_histogram[proc] = np.zeros(combined_bins)
+
+    # Populate the combined histogram without any \mu scaling
+    for j, (recon_cat, yields) in enumerate(hists.items()):
+        for proc, bin_yields in yields.items():
+            for truth_cat_idx in range(num_truth_cats):
+                for bin_idx in range(mass_bins):
+                    combined_bin_idx = j * mass_bins + bin_idx
+                    if proc == signal:
+                        # Adjust yield according to confusion matrix (but no \mu scaling)
+                        scaled_yield = bin_yields[bin_idx] * conf_matrix[j, truth_cat_idx]
+                        combined_histogram[f"{signal}_{truth_cat_idx}"][combined_bin_idx] += scaled_yield
+                    else:
+                        combined_histogram[proc][combined_bin_idx] += bin_yields[bin_idx]
+
+    return combined_histogram
+
+
+def calc_NLL(combined_histogram, mus, conf_matrix, signal='ttH'):
+    """
+    Calculate the NLL using the combined 25-bin histogram with variable \mu parameters.
+
+    Parameters:
+        combined_histogram (dict): Combined histogram for each process across 25 bins.
+        mus (list or array): Signal strength modifiers, one for each truth category.
+        conf_matrix (ndarray): Confusion matrix for adjusting expected yields.
+        signal (str): The signal process (default 'ttH').
+
     Returns:
         float: Total NLL.
     """
-    # Ensure conf_matrix is a numpy array for indexing
-    conf_matrix = np.array(conf_matrix)
     NLL_total = 0.0
+    num_bins = len(next(iter(combined_histogram.values())))  # Total bins (should be 25)
 
-    # Loop over reconstructed categories (j)
-    for j, (recon_cat, yields) in enumerate(hists.items()):
-        e = np.zeros(mass_bins)
-        n = np.zeros(mass_bins)
+    # Loop over each bin in the combined histogram
+    for bin_idx in range(num_bins):
+        expected_total = 0.0
+        observed_count = 0.0
 
-        # Convert `recon_cat` to an integer if it’s not already
-        recon_cat_idx = j  # or use mapping if `recon_cat` is not numeric
-        
-        # Loop over processes (signal or background)
-        for proc, bin_yields in yields.items():
-            bin_yields = np.clip(bin_yields, 0, None)  # Ensure no negative yields
-
-            if proc == signal:
-                # Sum over truth categories (i) for signal contributions
-                for truth_cat_idx in range(5):
-                    mu = mus[truth_cat_idx]
-                    # Ensure `truth_cat` and `recon_cat_idx` are valid for conf_matrix
-                    e += mu * np.array(bin_yields) * conf_matrix[recon_cat_idx][truth_cat_idx]
+        for proc, yields in combined_histogram.items():
+            if signal in proc:
+                # Extract the truth category index from the signal label, e.g., "ttH_0"
+                truth_cat_idx = int(proc.split('_')[1])
+                mu = mus[truth_cat_idx]  # Apply the appropriate \mu for this truth category
+                expected_total += mu * yields[bin_idx]
             else:
-                e += bin_yields
+                expected_total += yields[bin_idx]
 
-            n += bin_yields
+            observed_count += yields[bin_idx]  # Observed count from all processes in this bin
 
-        # Calculate NLL contribution for this category
-        e = np.where(e > 0, e, 1e-10)
-        NLL_total += np.sum(n * np.log(e) - e)
+        # Avoid division by zero in log calculation
+        expected_total = max(expected_total, 1e-10)
+        
+        # Calculate NLL contribution for this bin
+        NLL_total += observed_count * np.log(expected_total) - expected_total
 
     return -NLL_total
-
 
 
 
@@ -336,3 +375,86 @@ def calc_Hessian(hists, mus, conf_matrix, signal='ttH', mass_bins=5):
         hessian[i, i] = H_ii
 
     return hessian
+
+
+#%%
+'''
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+def get_pt_cat(data):
+    conditions = [
+    (data < 60),
+    (data >= 60) & (data < 120),
+    (data >= 120) & (data < 200), 
+    (data >= 200) & (data < 300), 
+    (data >= 300)     
+    ]
+    return np.select(conditions, [0,1,2,3,4])
+
+
+def get_conf_mat(data):
+    data = data[(data['mass_sel'] == data['mass_sel'])].reset_index(drop=True)
+    #print(data.columns[data.columns[:4]=="HTXS"])
+    truth = data["HTXS_Higgs_pt_sel"]
+    recon = data["pt-over-mass_sel"]*data["mass_sel"]
+    weights = data["plot_weight"]
+
+    truth_cat = get_pt_cat(truth)
+    recon_cat = get_pt_cat(recon)
+    
+    #6x6 conf matrix where x axis is truth dimension and y axis is recon dimension
+    conf_mat =np.zeros((5,5))
+    breakpoint()
+    for i in range(len(recon_cat)):
+        #print(data["plot_weight"][i], recon_cat[i],truth_cat[i], conf_mat[recon_cat[i]][truth_cat[i]]+data["plot_weight"][i])
+        conf_mat[recon_cat[i]][truth_cat[i]]=conf_mat[recon_cat[i]][truth_cat[i]]+weights[i] #Not working not sure why
+        #print(conf_mat)
+    #print(conf_mat)
+    conf_mat_truth_prop = [[conf_mat[i][j]/sum(conf_mat[:,j]) for j in range(5)] for i in range(5)]
+    conf_mat_recon_prop = [[conf_mat[i][j]/sum(conf_mat[i]) for j in range(5)] for i in range(5)]
+
+
+    #print("conf matrix: ", conf_mat)
+    #print("Conf matrix by proportion of truth: ", conf_mat_truth_prop)
+    #print("Conf matrix by proportion of recon: ", conf_mat_recon_prop)
+    labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_mat, annot=True, fmt=".2f", cmap="Blues", cbar=True,
+                xticklabels=labels, yticklabels=labels)
+
+    # Add labels to the plot
+    plt.ylabel("Reconstructed pt")
+    plt.xlabel("True pt")
+    plt.title("Weighted Confusion Matrix")
+    plt.savefig(f"{plot_path}/conf.png")
+
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_mat_recon_prop, annot=True, fmt=".2f", cmap="Blues", cbar=True,
+                xticklabels=labels, yticklabels=labels)
+
+    # Add labels to the plot
+    plt.ylabel("Reconstructed pt")
+    plt.xlabel("True pt")
+    plt.title("Weighted Confusion Matrix normalised by recon")
+    plt.savefig(f"{plot_path}/conf_recon.png")
+
+
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_mat_truth_prop, annot=True, fmt=".2f", cmap="Blues", cbar=True,
+                xticklabels=labels, yticklabels=labels)
+
+    # Add labels to the plot
+    plt.ylabel("Reconstructed pt")
+    plt.xlabel("True pt")
+    plt.title("Weighted Confusion Matrix normalised by truth")
+    plt.savefig(f"{plot_path}/conf_truth.png")
+
+    return (conf_mat, conf_mat_truth_prop, conf_mat_recon_prop)
+
+data = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+
+get_conf_mat(data)
+'''

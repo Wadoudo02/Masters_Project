@@ -228,7 +228,7 @@ plt.show()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Confusion Matrix
 
-Normalised = False
+Normalised = True
 
 # Define bins and labels for pt categories
 bins = [0, 60, 120, 200, 300, np.inf]
@@ -241,10 +241,11 @@ for proc in procs.keys():
 
     dfs[proc]['truth_category'] = pd.cut(dfs[proc]['HTXS_Higgs_pt_sel'], bins=bins, labels=labels, right=False)
 
+
 # Create confusion matrices for each process
 confusion_matrices = {}
 for proc in procs.keys():
-    if proc in ["Data", "VBF", "VH", "background"]:
+    if proc in ["Data", "VBF", "VH", "background", "ggH"]:
         continue 
     
     #if proc == "Data":
@@ -260,8 +261,8 @@ for proc in procs.keys():
         bins=[len(labels), len(labels)],
         weights=valid_entries['plot_weight']
     )
-
-    confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True)
+    #breakpoint()
+    confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True) # plot normalised by reco-pt row i.e. each row should sum to 1.
     
     # Save matrix to dictionary
     confusion_matrices[proc] = confusion_matrix_normalized
@@ -291,7 +292,7 @@ for proc in procs.keys():
     ax.set_ylabel("Reconstructed pt Category")
     ax.set_title(f"Confusion Matrix for {proc}{title_suffix}")
 
-    # Annotate each cell based on the format specified by the normalization switch
+    # Annotate each cell based on the format specified by the normalisation switch
     for i in range(len(labels)):
         for j in range(len(labels)):
             cell_value = matrix_to_plot[i, j]
@@ -301,7 +302,70 @@ for proc in procs.keys():
 
     plt.show()
     
-    
+#%%
+# Unfiltered ttH as a comparison
+'''
+tth_unfiltered = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+
+tth_unfiltered['pt_sel'] = tth_unfiltered['pt-over-mass_sel'] * tth_unfiltered['mass_sel']
+
+bins = [0, 60, 120, 200, 300, np.inf]  # Define the boundaries for pt
+labels = ['0-60', '60-120', '120-200', '200-300', '>300']  # Labels for each category
+tth_unfiltered['category'] = pd.cut(tth_unfiltered['pt_sel'], bins=bins, labels=labels, right=False)
+
+tth_unfiltered['truth_category'] = pd.cut(tth_unfiltered['HTXS_Higgs_pt_sel'], bins=bins, labels=labels, right=False)
+
+valid_entries = tth_unfiltered.dropna(subset=['mass_sel', 'plot_weight'])
+
+# Create a weighted 2D histogram for truth vs. reconstructed categories
+confusion_matrix, _, _ = np.histogram2d(
+    valid_entries['truth_category'].cat.codes,
+    valid_entries['category'].cat.codes,
+    bins=[len(labels), len(labels)],
+    weights=valid_entries['plot_weight']
+)
+#breakpoint()
+confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True) # plot normalised by reco-pt row i.e. each row should sum to 1.
+
+# Save matrix to dictionary
+confusion_matrices[proc] = confusion_matrix_normalized
+
+# Apply normalization if the switch is set to True
+if Normalised:
+    matrix_to_plot = confusion_matrix_normalized
+    fmt = '.2%'  # Display as percentage
+    title_suffix = " (Normalised)"
+else:
+    matrix_to_plot = confusion_matrix
+    fmt = '.2f'  # Display raw counts
+    title_suffix = " (Raw Counts)"
+
+
+# Plot the confusion matrix
+fig, ax = plt.subplots(figsize=(10, 8))  # Increase figure size for larger plot
+cax = ax.matshow(matrix_to_plot, cmap='Oranges')
+plt.colorbar(cax)
+
+# Set axis labels and title
+ax.set_xticks(np.arange(len(labels)))
+ax.set_yticks(np.arange(len(labels)))
+ax.set_xticklabels(labels, rotation=45)
+ax.set_yticklabels(labels)
+ax.set_xlabel("Truth pt Category")
+ax.set_ylabel("Reconstructed pt Category")
+ax.set_title(f"Confusion Matrix for Unfiltered ttH {title_suffix}")
+
+# Annotate each cell based on the format specified by the normalization switch
+for i in range(len(labels)):
+    for j in range(len(labels)):
+        cell_value = matrix_to_plot[i, j]
+        ax.text(j, i, f'{cell_value:{fmt}}', ha='center', va='center', color='black', fontsize=20)
+
+#fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
+
+plt.show()
+'''
+
 #%%
 
 # Define signal window parameters
@@ -326,6 +390,8 @@ for cat in cats_unique:
 
 conf_matrix = confusion_matrices['ttH']
 
+combined_histogram = build_combined_histogram(hists, conf_matrix, signal='ttH')
+
 # Calculate NLL as a function of the five \mu values for ttH signal strength modifiers
 NLL_vals = []
 mu_values = np.linspace(0, 3, 100)  # Example range for mu scan
@@ -337,37 +403,32 @@ frozen_scan_mus = mus_initial.copy()
 
 #breakpoint()
 
+
+fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi = 300, sharex=True)
+
 for i in range(len(frozen_scan_mus)):
     NLL_vals = []
     for mu in mu_values:
-        # Adjust the first mu value in the array, keeping others fixed at their initial values
-        
-        frozen_scan_mus[i] = mu  
+        frozen_scan_mus[i] = mu  # Set the i-th \mu to the scan value
+        # Calculate the NLL for the current set of \mu values
+        NLL_vals.append(calc_NLL(combined_histogram, frozen_scan_mus, conf_matrix, signal='ttH'))
+
     
-        # Calculate NLL using the updated calc_NLL function with five \mu values
-        NLL_vals.append(calc_NLL(hists, frozen_scan_mus, conf_matrix, signal='ttH', mass_bins=mass_bins))
-    
-    #breakpoint()
-    # Plot the NLL curve as a function of mu
     vals = find_crossings((mu_values, TwoDeltaNLL(NLL_vals)), 1.)
     frozen_scan_mus[i] = vals[0][0]
     label = add_val_label(vals)
-
-    print(" --> Plotting 2NLL curve")
-    fig, ax = plt.subplots(figsize=plot_size)
+    
+    # Plotting each NLL curve on a separate subplot
+    ax = axes[i]
     ax.plot(mu_values, TwoDeltaNLL(NLL_vals), label=label)
     ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
     ax.axhline(1, color='grey', alpha=0.5, ls='--')
     ax.axhline(4, color='grey', alpha=0.5, ls='--')
     ax.set_ylim(0, 8)
     ax.legend(loc='best')
-    ax.set_xlabel("$\\mu_{ttH}$")
     ax.set_ylabel("q = 2$\\Delta$NLL")
     ax.set_title(f"Optimising $\\mu_{i}$")
-    
-    plt.tight_layout()
-    #fig.savefig(f"{plot_path}/2nll_vs_mu_{i}.png", bbox_inches="tight")
-    plt.show()
+
     
 print("The optimised values of mu are:", frozen_scan_mus)
 
@@ -388,7 +449,7 @@ def objective_function(mus):
         float: NLL value for the given set of mu values.
     """
     # Calculate NLL with the current set of mu values
-    return calc_NLL(hists, mus, conf_matrix, signal='ttH', mass_bins=mass_bins)
+    return calc_NLL(combined_histogram, mus, conf_matrix, signal='ttH')
 
 # Initial values for the five mu parameters
 mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
@@ -426,7 +487,7 @@ for i in range(5):
                 mus[j] = mu_j  # Vary mu_j
                 
                 # Calculate NLL with the adjusted mus
-                NLL_grid[idx_i, idx_j] = calc_NLL(hists, mus, conf_matrix, signal='ttH', mass_bins=mass_bins)
+                NLL_grid[idx_i, idx_j] = calc_NLL(combined_histogram, mus, conf_matrix, signal='ttH')
         
         # Plot the heatmap for this mu pair
         plt.figure(figsize=(8, 6), dpi = 300)
@@ -443,8 +504,8 @@ for i in range(5):
         plt.legend()
         plt.tight_layout()
         plt.show()
-        
-  '''      
+'''        
+    
 #%%
 
 
