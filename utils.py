@@ -30,9 +30,8 @@ def TwoDeltaNLL(x):
     return 2*(x-x.min())
 
 #Takes optional param cat which if provided only get NLL over that category
-def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
+def calc_NLL(hists, mus, conf_matrix = [],signal='ttH'):
     NLL_vals = []
-    print("                                       Conf matrix: ", conf_matrix)
     # Loop over recon categories
     for cat, yields in hists.items():
         n_bins = len(list(yields.values())[0])
@@ -40,9 +39,6 @@ def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
         n = np.zeros(n_bins)
         #Loop over prod modes, truth bins so stuff inside log
         for proc, bin_yields in yields.items():
-            #Stopping any negative bin yields from slipping in
-            #bin_yields = [i if i>0 else 0 for i in bin_yields]
-            #print(bin_yields)
             if proc == signal:
                 #Case where conf matrix provided
                 if len(conf_matrix)!=0:
@@ -52,13 +48,9 @@ def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
                     are performing a frozen fit.
                     '''
                     for truth_cat in range(5):
-                        if truth_cat==category:
-                            e+=mu*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
-                        else:
-                            e+=hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
-                #If conf matrix not provided
+                        e+=mus[truth_cat]*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
                 else:
-                    e+=mu*bin_yields
+                    e+=mus[0]*bin_yields
                 
             else:
                 e += bin_yields
@@ -67,6 +59,32 @@ def calc_NLL(hists, mu, conf_matrix = [],signal='ttH', category=None):
         NLL_vals.append(nll)
     #print(NLL_vals, np.array(NLL_vals).sum())
     return np.array(NLL_vals).sum()
+
+#[i,j] element of hessian
+def get_hessian(i, j, hists, mu_vals, conf_matrix, signal="ttH"):
+    cat_vals = []
+    for cat,yields in hists.items():
+        n_bins = len(list(yields.values())[0])
+        n = np.zeros(n_bins)
+        e = np.zeros(n_bins)
+
+        #Loop over prod modes, gets me my sum over i
+        for proc, bin_yields in yields.items():
+            if proc == signal:
+                for truth_cat in range(5):
+                    #print(mu_vals[truth_cat], hists[truth_cat][signal], conf_matrix[cat][truth_cat])
+                    e+=mu_vals[truth_cat]*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]                
+            else:
+                e += bin_yields
+            n += bin_yields
+        
+
+        s_i = conf_matrix[cat][i]*yields[signal]
+        s_j = conf_matrix[cat][j]*yields[signal]
+        cat_vals.append((s_i*s_j)/(e))
+    return np.array(cat_vals).sum()
+
+
 
 def add_val_label(val):
     return "$%.2f^{+%.2f}_{-%.2f}$"%(val[0],abs(val[1]),abs(val[2]))
@@ -178,6 +196,7 @@ def get_pt_cat(data):
     return np.select(conditions, [0,1,2,3,4])
 def get_conf_mat(data):
     #print(data.columns[data.columns[:4]=="HTXS"])
+    data = data[data["pt-over-mass_sel"]==data["pt-over-mass_sel"]].reset_index(drop=True)
     truth = data["HTXS_Higgs_pt_sel"]
     recon = data["pt-over-mass_sel"]*data["mass_sel"]
 

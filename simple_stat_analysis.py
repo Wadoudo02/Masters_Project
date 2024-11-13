@@ -99,7 +99,7 @@ for proc in procs.keys():
     for cat in np.unique(dfs[proc]['category']):
         if cat not in cats_unique:
             cats_unique.append(cat)
-print("Categories", np.unique(dfs[proc]['category']))
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plot diphoton mass distribution in each category
 fig, ax = plt.subplots(1,1)
@@ -158,23 +158,30 @@ NLL_vals = []
 mu_vals = np.linspace(0,3,100)
 new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
 
+'''
+Frozen scan over mu
+'''
 conf_matrix = get_conf_mat(new_samples) #conf_matrix[2] is the one normalised by recon
-
+init_mu = [1,1,1,1,1]
 for cat in cats_unique:
     cat_vals = []
     for mu in mu_vals:
-        cat_vals.append(calc_NLL(hists, mu, conf_matrix[2], category=cat))
+        init_mu[cat]=mu
+        cat_vals.append(calc_NLL(hists, init_mu, conf_matrix[2]))
+    print(cat_vals)
+    init_mu[cat]=1
     #print("________________________________")
     #print(f"NLL vals for cat - {cat}: ",cat_vals)
     NLL_vals.append(cat_vals)
 #%%
 fig, axes = plt.subplots(2, 3,figsize=(15, 10))
-print(ax)
+all_mu = []
 # Plot NLL curve
 for idx in range(len(cats_unique)):
     cat = cats_unique[idx]
     #Best fit vals for category cat.
     vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals[cat])),1.)
+    all_mu.append(vals[0])
     label = add_val_label(vals)
     ax = axes[idx//3,idx%3]
     print(" --> Plotting 2NLL curve")
@@ -194,3 +201,8 @@ for idx in range(len(cats_unique)):
 fig.delaxes(axes[1,2])
 fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot.png", bbox_inches="tight")
 fig.show()
+#%%
+print("All mus:", all_mu)
+
+print(get_hessian(0,0, hists, all_mu, conf_matrix[2]))
+# %%
