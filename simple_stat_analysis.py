@@ -136,8 +136,8 @@ for cat in cats_unique:
     fig.savefig(f"{analysis_path}/{v}{ext}.png", bbox_inches="tight")
     ax.cla()
 
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#%%
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Simple binned likelihood fit to mass histograms in signal window (120,130)
 hists = {}
 mass_range = (120,130)
@@ -168,12 +168,15 @@ for cat in cats_unique:
     for mu in mu_vals:
         init_mu[cat]=mu
         cat_vals.append(calc_NLL(hists, init_mu, conf_matrix[2]))
-    print(cat_vals)
+    #print(cat_vals)
     init_mu[cat]=1
     #print("________________________________")
     #print(f"NLL vals for cat - {cat}: ",cat_vals)
     NLL_vals.append(cat_vals)
-#%%
+
+'''
+Plotting NLL curves
+'''
 fig, axes = plt.subplots(2, 3,figsize=(15, 10))
 all_mu = []
 # Plot NLL curve
@@ -199,10 +202,65 @@ for idx in range(len(cats_unique)):
     #fig.savefig(f"{analysis_path}/2nll_vs_mu_{cats[cat]}.png", bbox_inches="tight")
     #ax.cla()
 fig.delaxes(axes[1,2])
-fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot.png", bbox_inches="tight")
+fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot_comb.png", bbox_inches="tight")
 fig.show()
 #%%
-print("All mus:", all_mu)
+'''
+Scanning using combined hist
+'''
+comb_hist = build_combined_histogram(hists, conf_matrix[2], mass_bins=4)
+#NLL_vals = []
+init_mu = [1,1,1,1,1]
 
-print(get_hessian(0,0, hists, all_mu, conf_matrix[2]))
+fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi = 300, sharex=True)
+
+for i in range(len(init_mu)):
+    NLL_vals = []
+    for mu in mu_vals:
+        init_mu[i] = mu  # Set the i-th \mu to the scan value
+        # Calculate the NLL for the current set of \mu values
+        NLL_vals.append(calc_NLL_comb(comb_hist, init_mu,signal='ttH'))
+
+    print(len(mu_vals), len(TwoDeltaNLL(NLL_vals)))
+    vals = find_crossings((mu_vals, TwoDeltaNLL(NLL_vals)), 1.)
+    init_mu[i] = vals[0]#[0]
+    label = add_val_label(vals)
+    
+    # Plotting each NLL curve on a separate subplot
+    ax = axes[i]
+    ax.plot(mu_vals, TwoDeltaNLL(NLL_vals), label=label)
+    ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
+    ax.axhline(1, color='grey', alpha=0.5, ls='--')
+    ax.axhline(4, color='grey', alpha=0.5, ls='--')
+    ax.set_ylim(0, 8)
+    ax.legend(loc='best')
+    ax.set_ylabel("q = 2$\\Delta$NLL")
+    ax.set_title(f"Optimising $\\mu_{i}$")
+
+all_mu = init_mu
+print("The optimised values of mu are:", init_mu)
+#%%
+'''
+Profiled fit for NLL 
+'''
+best_mus = np.ones(5)
+fig, ax = plt.subplots(1, 5, figsize=(25, 7))
+for idx in range(5):
+    best_mus[idx], nll_mu = profiled_NLL_fit(comb_hist,conf_matrix[2], idx)
+    ax[idx].plot(mu_vals, nll_mu)
+    ax[idx].set_title(f"NLL variation for mu idx: {idx}")
+    ax[idx].set_ylabel("NLL")
+    ax[idx].set_xlabel("mu")
+
+fig.savefig("nll_profiled_fit.png")
+
+
+#%%
+print("All mus:", all_mu)
+hessian = np.zeros((5, 5))
+#hessian = [[0 for i in range(5)] for j in range(5)]
+for i in range(5):
+    for j in range(5):
+        hessian[i][j] = get_hessian(i,j, hists, all_mu, conf_matrix[2])
+print("Hessian: \n", hessian)
 # %%

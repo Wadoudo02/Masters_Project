@@ -3,6 +3,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy.optimize import minimize
 
 sample_path_old = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass0"
 sample_path = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass1"
@@ -25,6 +26,53 @@ vars_plotting_dict = {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Useful function definitions
 # Function to extract 2NLL from array of NLL values
+
+def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
+    """
+    Builds a single 25-bin histogram by combining yields from all categories and scaling ttH yields
+    according to the confusion matrix.
+
+    Parameters:
+        hists (dict): Observed histogram data for each reconstructed category.
+        conf_matrix (ndarray): Confusion matrix for adjusting expected yields.
+        signal (str): The signal process (default 'ttH').
+
+    Returns:
+        combined_histogram (dict): Combined histogram for each process, without \mu scaling.
+        Note indexes 0,1,2,3,4 match the index of the labels ['0-60', '60-120', '120-200', '200-300', '>300']
+    """
+    num_reco_cats = len(hists)
+
+    combined_bins = num_reco_cats * mass_bins
+    #print(conf_matrix)
+    num_truth_cats = len(conf_matrix[0])  # Number of truth categories, based on confusion matrix
+    #breakpoint()
+    # Initialize a dictionary for each process with the combined bins
+    combined_histogram = {}
+    for proc in hists[next(iter(hists))].keys():
+        if proc == signal:
+            # Create separate entries for each truth category of the signal
+            for truth_cat_idx in range(num_truth_cats):
+                combined_histogram[f"{signal}_{truth_cat_idx}"] = np.zeros(combined_bins)
+        else:
+            # Single entry for background or other processes
+            combined_histogram[proc] = np.zeros(combined_bins)
+
+    # Populate the combined histogram without any \mu scaling
+    for j, (recon_cat, yields) in enumerate(hists.items()):
+        for proc, bin_yields in yields.items():
+            for truth_cat_idx in range(num_truth_cats):
+                for bin_idx in range(mass_bins):
+                    combined_bin_idx = j * mass_bins + bin_idx
+                    if proc == signal:
+                        # Adjust yield according to confusion matrix (but no \mu scaling)
+                        scaled_yield = bin_yields[bin_idx] * conf_matrix[j][truth_cat_idx]
+                        combined_histogram[f"{signal}_{truth_cat_idx}"][combined_bin_idx] += scaled_yield
+                    else:
+                        combined_histogram[proc][combined_bin_idx] += bin_yields[bin_idx]
+
+    return combined_histogram
+
 def TwoDeltaNLL(x):
     x = np.array(x)
     return 2*(x-x.min())
@@ -60,8 +108,93 @@ def calc_NLL(hists, mus, conf_matrix = [],signal='ttH'):
     #print(NLL_vals, np.array(NLL_vals).sum())
     return np.array(NLL_vals).sum()
 
+#Taken from Wadoud
+def calc_NLL_comb(combined_histogram, mus, signal='ttH'):
+    """
+    Calculate the NLL using the combined 25-bin histogram with variable \mu parameters.
+
+    Parameters:
+        combined_histogram (dict): Combined histogram for each process across 25 bins.
+        mus (list or array): Signal strength modifiers, one for each truth category.
+        conf_matrix (ndarray): Confusion matrix for adjusting expected yields.
+        signal (str): The signal process (default 'ttH').
+
+    Returns:
+        float: Total NLL.
+    """
+    NLL_total = 0.0
+    num_bins = len(next(iter(combined_histogram.values())))  # Total bins (should be 25)
+
+    # Loop over each bin in the combined histogram
+    for bin_idx in range(num_bins):
+        expected_total = 0.0
+        observed_count = 0.0
+
+        for proc, yields in combined_histogram.items():
+            if signal in proc:
+                # Extract the truth category index from the signal label, e.g., "ttH_0"
+                truth_cat_idx = int(proc.split('_')[1])
+                #print(mus, truth_cat_idx)
+                mu = mus[truth_cat_idx]  # Apply the appropriate \mu for this truth category
+                expected_total += mu * yields[bin_idx]
+            else:
+                expected_total += yields[bin_idx]
+
+            observed_count += yields[bin_idx]  # Observed count from all processes in this bin
+        
+        # Calculate NLL contribution for this bin
+        NLL_total += observed_count * np.log(expected_total) - expected_total
+
+    return -NLL_total
+
 #[i,j] element of hessian
 def get_hessian(i, j, hists, mu_vals, conf_matrix, signal="ttH"):
+    cat_vals = []
+    for cat, yields in hists.items():
+        n_bins = len(list(yields.values())[0])
+        n = np.zeros(n_bins)
+        e = np.zeros(n_bins)
+
+        #Loop over prod modes, gets me my sum over i
+        for proc, bin_yields in yields.items():
+            if proc == signal:
+                for truth_cat in range(5):
+                    #print(mu_vals[truth_cat], hists[truth_cat][signal], conf_matrix[cat][truth_cat])
+                    e+=mu_vals[truth_cat]*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]                
+            else:
+                e += bin_yields
+            n += bin_yields
+        
+
+        s_i = conf_matrix[cat][i]*yields[signal]
+        s_j = conf_matrix[cat][j]*yields[signal]
+        cat_vals.append((s_i*s_j)/(e))
+    return np.array(cat_vals).sum()
+
+#Unfinished not sure
+def get_hessian_comb(i, j, combined_histogram, mu_vals, conf_matrix, signal="ttH"):
+
+    num_bins = len(next(iter(combined_histogram.values())))  # Total bins (should be 25)
+
+    for bin_idx in range(num_bins):
+        expected_total = 0.0
+        observed_count = 0.0
+
+        for proc, yields in combined_histogram.items():
+            if signal in proc:
+                # Extract the truth category index from the signal label, e.g., "ttH_0"
+                truth_cat_idx = int(proc.split('_')[1])
+                mu = mu_vals[truth_cat_idx]  # Apply the appropriate \mu for this truth category
+                expected_total += mu * yields[bin_idx]
+            else:
+                expected_total += yields[bin_idx]
+
+            observed_count += yields[bin_idx]  # Observed count from all processes in this bin
+        
+        # Calculate NLL contribution for this bin
+        NLL_total += observed_count * np.log(expected_total) - expected_total
+
+    
     cat_vals = []
     for cat,yields in hists.items():
         n_bins = len(list(yields.values())[0])
@@ -83,8 +216,6 @@ def get_hessian(i, j, hists, mu_vals, conf_matrix, signal="ttH"):
         s_j = conf_matrix[cat][j]*yields[signal]
         cat_vals.append((s_i*s_j)/(e))
     return np.array(cat_vals).sum()
-
-
 
 def add_val_label(val):
     return "$%.2f^{+%.2f}_{-%.2f}$"%(val[0],abs(val[1]),abs(val[2]))
@@ -252,6 +383,33 @@ def get_conf_mat(data):
 
     return (conf_mat, conf_mat_truth_prop, conf_mat_recon_prop)
 
-data = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+#data = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
 
-get_conf_mat(data)
+#get_conf_mat(data)
+
+# Scans over 1 mu index and at each step minimises all others so gives best fit for that mu value
+def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx):
+    num_truth = len(conf_matrix[0])
+
+    mu_vals = np.linspace(0, 3, 100)
+    nll = []
+
+    def calc_nll_fixed_mu(fixed, others):
+        mus = np.array(others)
+        mus = np.insert(mus, mu_idx, fixed)
+        return calc_NLL_comb(combined_histogram, mus)
+    
+    for mu in mu_vals:
+        #Generating ones for all but 1 mu
+        guess = np.ones(num_truth-1)
+
+        res = minimize(
+            lambda other_mus: calc_nll_fixed_mu(mu, other_mus),
+            guess,
+            method="L-BFGS-B"
+        )
+
+        nll.append(res.fun)
+    
+    vals = find_crossings((mu_vals, TwoDeltaNLL(nll)), 1.)
+    return (vals[0], nll)
