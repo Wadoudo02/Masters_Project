@@ -7,7 +7,7 @@ plt.style.use(hep.style.CMS)
 from scipy.optimize import curve_fit
 from scipy.optimize import minimize
 
-from utils_W6 import *
+from utils_W7 import *
 
 # Constants
 total_lumi = 7.9804
@@ -393,35 +393,68 @@ conf_matrix = confusion_matrices['ttH']
 
 combined_histogram = build_combined_histogram(hists, conf_matrix, signal='ttH')
 
-# Calculate NLL as a function of the five \mu values for ttH signal strength modifiers
-NLL_vals = []
-mu_values = np.linspace(0, 3, 100)  # Example range for mu scan
 
-# Define initial \mu values for each of the five truth categories (all start at 1)
-mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
-frozen_scan_mus = mus_initial.copy()
-
-
-#breakpoint()
-
-
-fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi = 300, sharex=True)
-
-for i in range(len(frozen_scan_mus)):
-    NLL_vals = []
-    for mu in mu_values:
-        frozen_scan_mus[i] = mu  # Set the i-th \mu to the scan value
-        # Calculate the NLL for the current set of \mu values
-        NLL_vals.append(calc_NLL(combined_histogram, frozen_scan_mus, conf_matrix, signal='ttH'))
-
+# Define the objective function for NLL
+def objective_function(mus, fixed_mu_index, fixed_mu_value):
+    """
+    Objective function to compute NLL for given mu values, fixing one mu.
     
-    vals = find_crossings((mu_values, TwoDeltaNLL(NLL_vals)), 1.)
-    frozen_scan_mus[i] = vals[0][0]
-    label = add_val_label(vals)
+    Parameters:
+        mus (array-like): Array of 4 mu values to optimize.
+        fixed_mu_index (int): Index of the mu being scanned (fixed during optimization).
+        fixed_mu_value (float): The fixed value for the scanned mu.
+    
+    Returns:
+        float: NLL value for the given set of mu values.
+    """
+    full_mus = np.insert(mus, fixed_mu_index, fixed_mu_value)  # Reconstruct full mu array
+    return calc_NLL(combined_histogram, full_mus, conf_matrix, signal='ttH')
+
+# Configuration
+mu_values = np.linspace(0, 3, 100)  # Range for scanning a single mu
+mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
+bounds = [(0, 3) for _ in range(4)]  # Bounds for the other mu parameters
+
+frozen_mus = mus_initial.copy()
+
+# Prepare the plots
+fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi=300, sharex=True)
+
+# Perform both frozen scan and profile scan
+for i in range(5):
+    frozen_NLL_vals = []
+    profile_NLL_vals = []
+    
+    for mu in mu_values:
+        # Frozen scan: keep other mu values constant
+        
+        frozen_mus[i] = mu
+        frozen_NLL_vals.append(calc_NLL(combined_histogram, frozen_mus, conf_matrix, signal='ttH'))
+        
+        # Profile scan: optimize the other mu values
+        initial_guess = [mus_initial[j] for j in range(5) if j != i]
+        obj_func = lambda reduced_mus: objective_function(reduced_mus, fixed_mu_index=i, fixed_mu_value=mu)
+        result = minimize(obj_func, initial_guess, bounds=bounds, method='L-BFGS-B')
+        profile_NLL_vals.append(result.fun)
+    
+    # Convert to 2ΔNLL
+    frozen_NLL_vals = TwoDeltaNLL(frozen_NLL_vals)
+    profile_NLL_vals = TwoDeltaNLL(profile_NLL_vals)
+    
+    # Find crossings
+    frozen_vals = find_crossings((mu_values, frozen_NLL_vals), 1.)
+    profile_vals = find_crossings((mu_values, profile_NLL_vals), 1.)
+    frozen_label = add_val_label(frozen_vals)
+    profile_label = add_val_label(profile_vals)
+    
+    # Keep optimal Frozen
+    
+    frozen_mus[i] = frozen_vals[0][0]
     
     # Plotting each NLL curve on a separate subplot
     ax = axes[i]
-    ax.plot(mu_values, TwoDeltaNLL(NLL_vals), label=label)
+    ax.plot(mu_values, frozen_NLL_vals, label=f"Frozen Scan: {frozen_label}", color='blue')
+    ax.plot(mu_values, profile_NLL_vals, label=f"Profile Scan: {profile_label}", color='red', linestyle='--')
     ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
     ax.axhline(1, color='grey', alpha=0.5, ls='--')
     ax.axhline(4, color='grey', alpha=0.5, ls='--')
@@ -430,8 +463,10 @@ for i in range(len(frozen_scan_mus)):
     ax.set_ylabel("q = 2$\\Delta$NLL")
     ax.set_title(f"Optimising $\\mu_{i}$")
 
-    
-print("The optimised values of mu are:", frozen_scan_mus)
+# Show the plot
+plt.xlabel("$\\mu$ Value")
+plt.tight_layout()
+plt.show()
 
 #%%
 
