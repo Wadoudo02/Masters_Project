@@ -320,58 +320,64 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
     else:
         return val
 
-
-
-
-
 def calc_Hessian(combined_histogram, mus, signal='ttH'):
     """
-    Calculate the Hessian matrix of the NLL with respect to signal strength parameters (mus).
-    
+    Calculate the full Hessian matrix of the NLL with respect to signal strength parameters (mus).
+
     Parameters:
         combined_histogram (dict): Combined histogram for each process across 25 bins.
         mus (list or array): Signal strength modifiers, one for each truth category.
         signal (str): Name of the signal process (default 'ttH').
 
     Returns:
-        ndarray: A diagonal Hessian matrix of the second derivatives of the NLL, with size based on the number of truth categories.
+        ndarray: A full Hessian matrix of the second derivatives of the NLL, 
+                 with size based on the number of truth categories.
     """
     num_categories = len(mus)  # Number of truth categories
     hessian = np.zeros((num_categories, num_categories))  # Initialize Hessian matrix
-    
-    # Loop over each truth category to compute diagonal elements H_ii
-    for i in range(num_categories):
-        H_ii = 0.0  # Diagonal element for the i-th truth category
-        
-        # Loop over each bin in combined_histogram
-        for bin_idx in range(len(next(iter(combined_histogram.values())))):
-            expected_total = 0.0
-            observed_count = 0.0
 
-            # Calculate expected and observed counts for this bin
-            for proc, yields in combined_histogram.items():
+    # Loop over each bin in the combined_histogram
+    for bin_idx in range(len(next(iter(combined_histogram.values())))):
+        # Compute expected total and contributions for this bin
+        expected_total = 0.0
+        observed_count = 0.0
+        s_ijk_dict = {i: 0.0 for i in range(num_categories)}  # Store s_ijk for each category
+
+        # Calculate expected total and s_ijk for each category
+        for proc, yields in combined_histogram.items():
+            for i in range(num_categories):
                 if f"{signal}_{i}" in proc:
-                    # Signal yield for i-th truth category, scaled by mu_i
                     s_ijk = yields[bin_idx]
                     mu_i = mus[i]
+                    s_ijk_dict[i] += mu_i * s_ijk
                     expected_total += mu_i * s_ijk
                 else:
                     # Background process, no scaling by mu
                     expected_total += yields[bin_idx]
+            
+            # Accumulate observed count (all processes)
+            observed_count += yields[bin_idx]
 
-                # Accumulate observed count (all processes)
-                observed_count += yields[bin_idx]
-            
-            # Avoid division by zero in the Hessian calculation
-            expected_total = max(expected_total, 1e-10)
-            
-            # Calculate the second derivative for this bin
-            H_ii += np.sum((s_ijk ** 2 * observed_count) / (expected_total ** 2))
-        
-        # Store the diagonal element in the Hessian matrix
-        hessian[i, i] = H_ii
+        # Avoid division by zero in Hessian calculation
+        expected_total = max(expected_total, 1e-10)
+
+        # Compute diagonal and off-diagonal Hessian elements for this bin
+        for i in range(num_categories):
+            for j in range(num_categories):
+                if i == j:
+                    # Diagonal term
+                    s_ijk_i = s_ijk_dict[i]
+                    hessian[i, i] += (s_ijk_i ** 2 * observed_count) / (expected_total ** 2)
+                else:
+                    # Off-diagonal term
+                    s_ijk_i = s_ijk_dict[i]
+                    s_ijk_j = s_ijk_dict[j]
+                    hessian[i, j] -= (s_ijk_i * s_ijk_j * observed_count) / (expected_total ** 2)
 
     return hessian
+
+
+
 
 
 #%%

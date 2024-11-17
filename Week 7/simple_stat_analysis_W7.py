@@ -6,6 +6,7 @@ import mplhep as hep
 plt.style.use(hep.style.CMS)
 from scipy.optimize import curve_fit
 from scipy.optimize import minimize
+from scipy.integrate import quad
 
 from utils_W7 import *
 
@@ -119,7 +120,10 @@ def exponential_decay(x, A, lambd):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plot diphoton mass distribution in each category
 
+background_estimates = {}
 
+mass_range = (120, 130) # Beeded here to get BG estimate
+mass_bins = 5
 
 
 v = "mass_sel"
@@ -155,10 +159,18 @@ for cat in cats_unique:
             ax.plot(x_fit, y_fit, color="red", linestyle="--", 
                     label=f"Exponential Fit\n$A={A:.2f}$, $\\lambda={lambd:.4f}$")
             
-            x_BG = np.arange(120.5,130,1)
-            BG_estimate = exponential_decay(x_BG, A, lambd)
+            BG_estimate_bin_edges = np.linspace(mass_range[0], mass_range[1], mass_bins + 1)
+            bin_estimates = []
+            for i in range(len(BG_estimate_bin_edges) - 1):
+                integral, _ = quad(exponential_decay, bin_edges[i], bin_edges[i + 1], args=(A, lambd))
+                bin_estimates.append(integral)
             
-            print(f"For category {cat}, the estimate for the background count for the bins between 120-130 are {BG_estimate}")
+            print(f"Background estimates for category {cat}: {bin_estimates}")
+            
+            # Store the result
+            if cat not in background_estimates:
+                background_estimates[cat] = {}
+            background_estimates[cat][proc] = bin_estimates
             
         
 
@@ -371,7 +383,7 @@ plt.show()
 
 # Define signal window parameters
 hists = {}
-mass_range = (120, 130)
+
 mass_bins = 5
 v = 'mass_sel'
 
@@ -380,13 +392,16 @@ for cat in cats_unique:
     hists[cat] = {}
     for proc in procs.keys():
         # Apply mask to categorize events by reconstructed category
-        cat_mask = dfs[proc]['category'] == cat
-        hists[cat][proc] = np.histogram(
-            dfs[proc][cat_mask][v], 
-            mass_bins, 
-            mass_range, 
-            weights=dfs[proc][cat_mask]['true_weight']
-        )[0]
+        if proc == "background":
+            hists[cat][proc] = np.array(background_estimates[cat][proc])
+        else:
+            cat_mask = dfs[proc]['category'] == cat
+            hists[cat][proc] = np.histogram(
+                dfs[proc][cat_mask][v], 
+                mass_bins, 
+                mass_range, 
+                weights=dfs[proc][cat_mask]['true_weight']
+            )[0]
 
 
 conf_matrix = confusion_matrices['ttH']
@@ -545,7 +560,7 @@ for i in range(5):
 
 
 
-hessian_matrix = calc_Hessian_New(combined_histogram,optimized_mus)
+hessian_matrix = calc_Hessian(combined_histogram,optimized_mus)
 print("Hessian Matrix:\n", hessian_matrix)
 
 
