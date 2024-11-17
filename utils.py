@@ -81,6 +81,7 @@ def TwoDeltaNLL(x):
 def calc_NLL(hists, mus, conf_matrix = [],signal='ttH'):
     NLL_vals = []
     # Loop over recon categories
+    #print(hists)
     for cat, yields in hists.items():
         n_bins = len(list(yields.values())[0])
         e = np.zeros(n_bins)
@@ -328,6 +329,27 @@ def get_pt_cat(data):
 def get_conf_mat(data):
     #print(data.columns[data.columns[:4]=="HTXS"])
     data = data[data["pt-over-mass_sel"]==data["pt-over-mass_sel"]].reset_index(drop=True)
+    
+    b_tag_scores = np.array(data[['j0_btagB_sel', 'j1_btagB_sel', 'j2_btagB_sel', 'j3_btagB_sel']])
+    b_tag_scores = np.nan_to_num(b_tag_scores, nan=-1)
+    max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,0]
+    second_max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,1]
+    data['max_b_tag_score'] = max_b_tag_score
+    data['second_max_b_tag_score'] = second_max_b_tag_score
+
+
+    #Applying selection cuts
+    yield_before_sel = data['plot_weight'].sum()
+    mask = data['n_jets_sel'] >= 2
+    mask = mask & (data['max_b_tag_score'] > 0.7)
+    mask = mask & (data['second_max_b_tag_score'] > 0.4)
+    data = data[mask].reset_index(drop=True)
+    yield_after_sel = data['plot_weight'].sum()
+    eff = (yield_after_sel/yield_before_sel)*100
+    print(f"N = {yield_before_sel:.2f} --> {yield_after_sel:.2f}, eff = {eff:.1f}%")
+
+    #print(data)
+
     truth = data["HTXS_Higgs_pt_sel"]
     recon = data["pt-over-mass_sel"]*data["mass_sel"]
 

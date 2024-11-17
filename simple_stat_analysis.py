@@ -7,6 +7,7 @@ import mplhep as hep
 plt.style.use(hep.style.CMS)
 
 from utils import *
+from background_dist import *
 
 # Constants
 total_lumi = 7.9804
@@ -143,16 +144,20 @@ hists = {}
 mass_range = (120,130)
 mass_bins = 5
 v = 'mass'+col_name
-
 for cat in cats_unique:
     hists[cat] = {}
     for proc in procs.keys():
-        cat_mask = dfs[proc]['category'] == cat
-        hist_counts = np.histogram(dfs[proc][cat_mask][v], mass_bins, mass_range, weights=dfs[proc][cat_mask]['true_weight'+col_name])[0]
+        #Adding background events from background distribution
+        if proc=="background":
+            hist_counts=get_back_int(cat, mass_range, mass_bins)
+        else:
+            cat_mask = dfs[proc]['category'] == cat
+            hist_counts = np.histogram(dfs[proc][cat_mask][v], mass_bins, mass_range, weights=dfs[proc][cat_mask]['true_weight'+col_name])[0]
         
-        hist_counts[-2] += hist_counts[-1]  # Add last bin to the second last
-        hist_counts = hist_counts[:-1]      # Remove the last bin
+        # hist_counts[-2] += hist_counts[-1]  # Add last bin to the second last
+        # hist_counts = hist_counts[:-1]      # Remove the last bin
         hists[cat][proc] = hist_counts
+#print(hists)
 # Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
 NLL_vals = []
 mu_vals = np.linspace(0,3,100)
@@ -212,7 +217,7 @@ comb_hist = build_combined_histogram(hists, conf_matrix[2], mass_bins=4)
 #NLL_vals = []
 init_mu = [1,1,1,1,1]
 
-fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi = 300, sharex=True)
+fig, axes = plt.subplots(ncols=5, figsize=(25, 5), dpi = 300, sharex=True)
 
 for i in range(len(init_mu)):
     NLL_vals = []
@@ -244,7 +249,7 @@ print("The optimised values of mu are:", init_mu)
 Profiled fit for NLL 
 '''
 best_mus = np.ones(5)
-fig, ax = plt.subplots(1, 5, figsize=(25, 7))
+fig, ax = plt.subplots(1, 5, figsize=(40, 7))
 for idx in range(5):
     best_mus[idx], nll_mu = profiled_NLL_fit(comb_hist,conf_matrix[2], idx)
     ax[idx].plot(mu_vals, nll_mu)
