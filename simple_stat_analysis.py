@@ -140,6 +140,9 @@ for cat in cats_unique:
 #%%
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Simple binned likelihood fit to mass histograms in signal window (120,130)
+print('''
+NLL FROZEN SCAN USING INDIVIDUAL HISTOGRAMS
+''')
 hists = {}
 mass_range = (120,130)
 mass_bins = 5
@@ -207,12 +210,16 @@ for idx in range(len(cats_unique)):
     #fig.savefig(f"{analysis_path}/2nll_vs_mu_{cats[cat]}.png", bbox_inches="tight")
     #ax.cla()
 fig.delaxes(axes[1,2])
-fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot_comb.png", bbox_inches="tight")
+fig.suptitle("Frozen NLL scan for each mu using ind hist")
+fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot_fro.png", bbox_inches="tight")
 fig.show()
 #%%
 '''
 Scanning using combined hist
 '''
+print('''
+NLL FROZEN SCAN USING COMBINED HISTOGRAM
+''')
 comb_hist = build_combined_histogram(hists, conf_matrix[2], mass_bins=4)
 #NLL_vals = []
 init_mu = [1,1,1,1,1]
@@ -241,22 +248,33 @@ for i in range(len(init_mu)):
     ax.legend(loc='best')
     ax.set_ylabel("q = 2$\\Delta$NLL")
     ax.set_title(f"Optimising $\\mu_{i}$")
-
+fig.suptitle("Frozen NLL scan for each mu using comb hist")
 all_mu = init_mu
 print("The optimised values of mu are:", init_mu)
 #%%
 '''
 Profiled fit for NLL 
 '''
+print('''
+NLL PROFILED SCAN USING COMBINED HISTOGRAM
+''')
 best_mus = np.ones(5)
 fig, ax = plt.subplots(1, 5, figsize=(40, 7))
 for idx in range(5):
     best_mus[idx], nll_mu = profiled_NLL_fit(comb_hist,conf_matrix[2], idx)
-    ax[idx].plot(mu_vals, nll_mu)
+    vals = find_crossings((mu_vals, TwoDeltaNLL(nll_mu)), 1.)
+    print("Best mu for idx:", idx, "is", vals[0] ,"+/-", vals[1:])
+    label = add_val_label(vals)
+    ax[idx].plot(mu_vals, TwoDeltaNLL(nll_mu), label=label)
     ax[idx].set_title(f"NLL variation for mu idx: {idx}")
-    ax[idx].set_ylabel("NLL")
+    ax[idx].set_ylabel("2 delta NLL")
     ax[idx].set_xlabel("mu")
-
+    ax[idx].axvline(1., label="SM (expected)", color='green', alpha=0.5)
+    ax[idx].axhline(1, color='grey', alpha=0.5, ls='--')
+    ax[idx].axhline(4, color='grey', alpha=0.5, ls='--')
+    ax[idx].set_ylim(0, 8)
+    ax[idx].legend(loc='best')
+fig.suptitle("Profiled NLL fit for each mu")
 fig.savefig("nll_profiled_fit.png")
 
 
