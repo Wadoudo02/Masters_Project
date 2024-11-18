@@ -13,7 +13,7 @@ def get_background_dist():
     back_data = pd.read_parquet(f"{sample_path}/Data_processed_selected.parquet")
     back_mass = back_data["mass_sel"]#.dropna().reset_index(drop=True)
     back_pt = back_data["pt-over-mass_sel"]*back_mass
-    print(back_pt)
+    #print(back_pt)
     back_data["categories"] = get_pt_cat(back_pt)
     back_data["categories"].dropna()
     #print(back_data["categories"])

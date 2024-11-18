@@ -11,6 +11,9 @@ sample_path = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass1"
 plot_path = "all_plots"
 analysis_path = "stat_anal"
 
+total_lumi = 7.9804
+target_lumi = 300
+
 vars_plotting_dict = {
     # var_name : [nbins, range, log-scale]
     "mass_sel" : [80, (100,180), False, "$m_{\\gamma\\gamma}$ [GeV]"],
@@ -176,7 +179,7 @@ def get_hessian(i, j, hists, mu_vals, conf_matrix, signal="ttH"):
 def get_hessian_comb(i, j, combined_histogram, mu_vals, conf_matrix, signal="ttH"):
 
     num_bins = len(next(iter(combined_histogram.values())))  # Total bins (should be 25)
-
+ 
     for bin_idx in range(num_bins):
         expected_total = 0.0
         observed_count = 0.0
@@ -329,7 +332,7 @@ def get_pt_cat(data):
 def get_conf_mat(data):
     #print(data.columns[data.columns[:4]=="HTXS"])
     data = data[data["pt-over-mass_sel"]==data["pt-over-mass_sel"]].reset_index(drop=True)
-    
+    data["plot_weight"] = data["plot_weight"]*(target_lumi/total_lumi)
     b_tag_scores = np.array(data[['j0_btagB_sel', 'j1_btagB_sel', 'j2_btagB_sel', 'j3_btagB_sel']])
     b_tag_scores = np.nan_to_num(b_tag_scores, nan=-1)
     max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,0]
@@ -435,3 +438,18 @@ def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx):
     
     vals = find_crossings((mu_vals, TwoDeltaNLL(nll)), 1.)
     return (vals[0], nll)
+
+def global_nll_fit(combined_histogram, conf_matrix):
+    num_truth = len(conf_matrix[0])
+
+    def calc_nll_mus_only(mus):
+        return calc_NLL_comb(combined_histogram, mus)
+    guess = np.ones(num_truth)
+    res = minimize(
+        calc_nll_mus_only,
+        guess,
+        method="L-BFGS-B"
+    )
+    hessian_inv = res.hess_inv.todense() if hasattr(res.hess_inv, 'todense') else res.hess_inv
+    hessian = np.linalg.inv(hessian_inv)
+    return (res.x, res.fun, hessian_inv, hessian)

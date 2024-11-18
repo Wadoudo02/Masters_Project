@@ -233,7 +233,6 @@ for i in range(len(init_mu)):
         # Calculate the NLL for the current set of \mu values
         NLL_vals.append(calc_NLL_comb(comb_hist, init_mu,signal='ttH'))
 
-    print(len(mu_vals), len(TwoDeltaNLL(NLL_vals)))
     vals = find_crossings((mu_vals, TwoDeltaNLL(NLL_vals)), 1.)
     init_mu[i] = vals[0]#[0]
     label = add_val_label(vals)
@@ -276,6 +275,17 @@ for idx in range(5):
     ax[idx].legend(loc='best')
 fig.suptitle("Profiled NLL fit for each mu")
 fig.savefig("nll_profiled_fit.png")
+#%%
+print('''
+      NLL Global fit
+''')
+
+global_mu, global_nll, hessian, cov = global_nll_fit(comb_hist, conf_matrix[2])
+print(f"""
+      Global best fit for mu: {global_mu}
+        Hessian: {hessian}
+        Covariance: {cov}
+""")
 
 
 #%%
