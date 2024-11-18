@@ -8,6 +8,7 @@ plt.style.use(hep.style.CMS)
 
 from utils import *
 from background_dist import *
+from nll import *
 
 # Constants
 total_lumi = 7.9804
@@ -151,7 +152,7 @@ for cat in cats_unique:
     hists[cat] = {}
     for proc in procs.keys():
         #Adding background events from background distribution
-        if proc=="background":
+        if proc=="backgrounda":
             hist_counts=get_back_int(cat, mass_range, mass_bins)
         else:
             cat_mask = dfs[proc]['category'] == cat
@@ -220,7 +221,7 @@ Scanning using combined hist
 print('''
 NLL FROZEN SCAN USING COMBINED HISTOGRAM
 ''')
-comb_hist = build_combined_histogram(hists, conf_matrix[2], mass_bins=4)
+comb_hist = build_combined_histogram(hists, conf_matrix[2], mass_bins=5)
 #NLL_vals = []
 init_mu = [1,1,1,1,1]
 
@@ -289,6 +290,9 @@ print(f"""
 
 
 #%%
+print('''
+Getting Hessian matrix
+''')
 print("All mus:", all_mu)
 hessian = np.zeros((5, 5))
 #hessian = [[0 for i in range(5)] for j in range(5)]
@@ -296,4 +300,18 @@ for i in range(5):
     for j in range(5):
         hessian[i][j] = get_hessian(i,j, hists, all_mu, conf_matrix[2])
 print("Hessian: \n", hessian)
+show_matrix(hessian, "Hessian matrix")
+show_matrix(get_cov(hessian), "Covariance matrix")
+# %%
+print('''
+Getting Hessian matrix from combined hist
+''')
+hessian_comb = np.zeros((5, 5))
+
+for i in range(5):
+    for j in range(5):
+        hessian_comb[i][j] = get_hessian_comb(i,j, comb_hist, all_mu)
+print("Hessian from comb hist: \n", hessian_comb)
+show_matrix(hessian_comb, "Hessian matrix from comb hist")
+show_matrix(get_cov(hessian_comb), "Covariance matrix from comb hist")
 # %%
