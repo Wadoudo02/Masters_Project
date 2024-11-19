@@ -241,7 +241,7 @@ plt.show()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Confusion Matrix
 
-Normalised = False
+Normalised = True
 
 # Define bins and labels for pt categories
 bins = [0, 60, 120, 200, 300, np.inf]
@@ -316,6 +316,7 @@ for proc in procs.keys():
     plt.show()
     
 #%%
+'''
 # Unfiltered ttH as a comparison
 
 tth_unfiltered = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
@@ -377,7 +378,7 @@ for i in range(len(labels)):
 #fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
 
 plt.show()
-
+'''
 
 #%%
 
@@ -423,7 +424,7 @@ def objective_function(mus, fixed_mu_index, fixed_mu_value):
         float: NLL value for the given set of mu values.
     """
     full_mus = np.insert(mus, fixed_mu_index, fixed_mu_value)  # Reconstruct full mu array
-    return calc_NLL(combined_histogram, full_mus, conf_matrix, signal='ttH')
+    return calc_NLL(combined_histogram, full_mus, signal='ttH')
 
 # Configuration
 mu_values = np.linspace(0, 3, 100)  # Range for scanning a single mu
@@ -444,7 +445,7 @@ for i in range(5):
         # Frozen scan: keep other mu values constant
         
         frozen_mus[i] = mu
-        frozen_NLL_vals.append(calc_NLL(combined_histogram, frozen_mus, conf_matrix, signal='ttH'))
+        frozen_NLL_vals.append(calc_NLL(combined_histogram, frozen_mus, signal='ttH'))
         
         # Profile scan: optimize the other mu values
         initial_guess = [mus_initial[j] for j in range(5) if j != i]
@@ -498,7 +499,7 @@ def objective_function(mus):
         float: NLL value for the given set of mu values.
     """
     # Calculate NLL with the current set of mu values
-    return calc_NLL(combined_histogram, mus, conf_matrix, signal='ttH')
+    return calc_NLL(combined_histogram, mus, signal='ttH')
 
 # Initial values for the five mu parameters
 mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
@@ -508,6 +509,8 @@ bounds = [(0, 3) for _ in range(5)]
 
 # Perform the optimization
 result = minimize(objective_function, mus_initial, bounds=bounds, method='L-BFGS-B')
+
+#print(np.array(result.hess_inv.todense()))
 
 # Extract the optimized mu values
 optimized_mus = result.x
@@ -537,7 +540,7 @@ for i in range(5):
                 mus[j] = mu_j  # Vary mu_j
                 
                 # Calculate NLL with the adjusted mus
-                NLL_grid[idx_i, idx_j] = calc_NLL(combined_histogram, mus, conf_matrix, signal='ttH')
+                NLL_grid[idx_i, idx_j] = calc_NLL(combined_histogram, mus, signal='ttH')
         
         # Plot the heatmap for this mu pair
         plt.figure(figsize=(8, 6), dpi = 300)
@@ -558,9 +561,9 @@ for i in range(5):
     
 #%%
 
+labels = ['0-60', '60-120', '120-200', '200-300', '>300'] # define labels again for hists
 
-
-hessian_matrix = calc_Hessian(combined_histogram,optimized_mus)
+hessian_matrix = calc_Hessian(combined_histogram, optimized_mus)
 print("Hessian Matrix:\n", hessian_matrix)
 
 

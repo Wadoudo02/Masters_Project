@@ -185,14 +185,13 @@ def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
     return combined_histogram
 
 
-def calc_NLL(combined_histogram, mus, conf_matrix, signal='ttH'):
+def calc_NLL(combined_histogram, mus, signal='ttH'):
     """
     Calculate the NLL using the combined 25-bin histogram with variable \mu parameters.
 
     Parameters:
         combined_histogram (dict): Combined histogram for each process across 25 bins.
         mus (list or array): Signal strength modifiers, one for each truth category.
-        conf_matrix (ndarray): Confusion matrix for adjusting expected yields.
         signal (str): The signal process (default 'ttH').
 
     Returns:
@@ -205,7 +204,7 @@ def calc_NLL(combined_histogram, mus, conf_matrix, signal='ttH'):
     for bin_idx in range(num_bins):
         expected_total = 0.0
         observed_count = 0.0
-
+        #breakpoint()
         for proc, yields in combined_histogram.items():
             if signal in proc:
                 # Extract the truth category index from the signal label, e.g., "ttH_0"
@@ -322,61 +321,61 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
 
 def calc_Hessian(combined_histogram, mus, signal='ttH'):
     """
-    Calculate the full Hessian matrix of the NLL with respect to signal strength parameters (mus).
-
+    Calculate the Hessian matrix for signal strength parameters.
+    
     Parameters:
-        combined_histogram (dict): Combined histogram for each process across 25 bins.
-        mus (list or array): Signal strength modifiers, one for each truth category.
-        signal (str): Name of the signal process (default 'ttH').
-
+        combined_histogram (dict): Combined histogram for each process across bins.
+        mus (list or array): Signal strength modifiers for each truth category.
+        signal (str): The signal process (default 'ttH').
+    
     Returns:
-        ndarray: A full Hessian matrix of the second derivatives of the NLL, 
-                 with size based on the number of truth categories.
+        numpy.ndarray: Hessian matrix for signal strength parameters.
     """
-    num_categories = len(mus)  # Number of truth categories
-    hessian = np.zeros((num_categories, num_categories))  # Initialize Hessian matrix
-
-    # Loop over each bin in the combined_histogram
-    for bin_idx in range(len(next(iter(combined_histogram.values())))):
-        # Compute expected total and contributions for this bin
-        expected_total = 0.0
-        observed_count = 0.0
-        s_ijk_dict = {i: 0.0 for i in range(num_categories)}  # Store s_ijk for each category
-
-        # Calculate expected total and s_ijk for each category
-        for proc, yields in combined_histogram.items():
-            for i in range(num_categories):
-                if f"{signal}_{i}" in proc:
-                    s_ijk = yields[bin_idx]
-                    mu_i = mus[i]
-                    s_ijk_dict[i] += mu_i * s_ijk
-                    expected_total += mu_i * s_ijk
-                else:
-                    # Background process, no scaling by mu
-                    expected_total += yields[bin_idx]
+    # Determine the number of signal truth categories
+    signal_categories = [proc for proc in combined_histogram.keys() if proc.startswith(signal + '_')]
+    num_categories = len(signal_categories)
+    
+    # Initialize Hessian matrix
+    Hessian = np.zeros((num_categories, num_categories))
+    
+    # Total number of bins
+    num_bins = len(next(iter(combined_histogram.values())))  # Assume all histograms have the same length
+    
+    # Calculate Hessian matrix elements
+    for i in range(num_categories):
+        for m in range(num_categories):
+            hessian_sum = 0.0
             
-            # Accumulate observed count (all processes)
-            observed_count += yields[bin_idx]
-
-        # Avoid division by zero in Hessian calculation
-        expected_total = max(expected_total, 1e-10)
-
-        # Compute diagonal and off-diagonal Hessian elements for this bin
-        for i in range(num_categories):
-            for j in range(num_categories):
-                if i == j:
-                    # Diagonal term
-                    s_ijk_i = s_ijk_dict[i]
-                    hessian[i, i] += (s_ijk_i ** 2 * observed_count) / (expected_total ** 2)
-                else:
-                    # Off-diagonal term
-                    s_ijk_i = s_ijk_dict[i]
-                    s_ijk_j = s_ijk_dict[j]
-                    hessian[i, j] -= (s_ijk_i * s_ijk_j * observed_count) / (expected_total ** 2)
-
-    return hessian
-
-
+            for bin_idx in range(num_bins):
+                # Get background contribution for this bin
+                background = sum(
+                    combined_histogram[proc][bin_idx]
+                    for proc in combined_histogram
+                    if not proc.startswith(signal + '_')
+                )
+                
+                # Signal yields for this bin
+                s_i = combined_histogram[signal_categories[i]][bin_idx]
+                s_m = combined_histogram[signal_categories[m]][bin_idx]
+                
+                # Expected total: scaled signal + background
+                expected_total = sum(
+                    mus[k] * combined_histogram[signal_categories[k]][bin_idx]
+                    for k in range(num_categories)
+                ) + background
+                
+                # Ensure positive expected total to avoid division by zero
+                expected_total = max(expected_total, 1e-10)
+                
+                # Total observed count in this bin
+                observed_count = sum(combined_histogram[proc][bin_idx] for proc in combined_histogram)
+                
+                # Hessian contribution for this bin
+                hessian_sum += (observed_count * s_i * s_m) / (expected_total ** 2)
+            
+            Hessian[i, m] = hessian_sum
+    
+    return Hessian
 
 
 
