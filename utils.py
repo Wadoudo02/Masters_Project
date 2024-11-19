@@ -77,7 +77,7 @@ def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
     return combined_histogram
 
 #[i,j] element of hessian
-def get_hessian(i, j, hists, mu_vals, conf_matrix, signal="ttH"):
+def get_hessian(p, q, hists, mu_vals, conf_matrix, signal="ttH"):
     cat_vals = []
     for cat, yields in hists.items():
         n_bins = len(list(yields.values())[0])
@@ -87,7 +87,7 @@ def get_hessian(i, j, hists, mu_vals, conf_matrix, signal="ttH"):
         #Loop over prod modes, gets me my sum over i
         for proc, bin_yields in yields.items():
             if proc == signal:
-                for truth_cat in range(5):
+                for truth_cat in range(len(conf_matrix[0])):
                     #print(mu_vals[truth_cat], hists[truth_cat][signal], conf_matrix[cat][truth_cat])
                     e+=mu_vals[truth_cat]*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]                
             else:
@@ -95,16 +95,16 @@ def get_hessian(i, j, hists, mu_vals, conf_matrix, signal="ttH"):
             n += bin_yields
         
 
-        s_i = conf_matrix[cat][i]*yields[signal]
-        s_j = conf_matrix[cat][j]*yields[signal]
+        s_i = conf_matrix[cat][p]*yields[signal]
+        s_j = conf_matrix[cat][q]*yields[signal]
         cat_vals.append((s_i*s_j)/(e))
     return np.array(cat_vals).sum()
 
-#Unfinished not sure
+
 def get_hessian_comb(p, q, combined_histogram, mu_vals, signal ="ttH"):
-    #Iterate through recon cats
     hess = 0
-    for j in range(5):
+    #Iterate through recon cats
+    for j in range(len(mu_vals)):
         expected_total=np.zeros(5)
         observed_count=np.zeros(5)
         #Iterate through truth cats
@@ -220,15 +220,19 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
         return val, intervals
     else:
         return val
-def get_pt_cat(data):
-    conditions = [
-    (data < 60),
-    (data >= 60) & (data < 120),
-    (data >= 120) & (data < 200), 
-    (data >= 200) & (data < 300), 
-    (data >= 300)     
-    ]
-    return np.select(conditions, [0,1,2,3,4])
+def get_pt_cat(data, bins = [0,60,120,200,300]):
+    conditions = [(data>=bins[i]) & (data<bins[i+1]) for i in range(len(bins)-1)]
+    conditions.append(data>=bins[-1])
+    # conditions = [
+    # (data < bins[1]),
+    # (data >= bins[1]) & (data < bins[2]),
+    # (data >= bins[2]) & (data < bins[3]), 
+    # (data >= bins[3]) & (data < bins[4]), 
+    # (data >= bins[4])     
+    # ]
+    #return np.select(conditions, [0,1,2,3,4])
+    return np.select(conditions, [i for i in range(len(bins))])
+
 def get_conf_mat(data):
     #print(data.columns[data.columns[:4]=="HTXS"])
     data = data[data["pt-over-mass_sel"]==data["pt-over-mass_sel"]].reset_index(drop=True)
@@ -256,25 +260,26 @@ def get_conf_mat(data):
     truth = data["HTXS_Higgs_pt_sel"]
     recon = data["pt-over-mass_sel"]*data["mass_sel"]
 
-    truth_cat = get_pt_cat(truth)
-    recon_cat = get_pt_cat(recon)
+    truth_cat = get_pt_cat(truth, bins = [0,60,120,200])
+    recon_cat = get_pt_cat(recon, bins = [0,60,120,200])
     
     #6x6 conf matrix where x axis is truth dimension and y axis is recon dimension
-    conf_mat =np.zeros((5,5))
+    conf_mat =np.zeros((4,4))
 
     for i in range(len(recon_cat)):
         #print(data["plot_weight"][i], recon_cat[i],truth_cat[i], conf_mat[recon_cat[i]][truth_cat[i]]+data["plot_weight"][i])
         conf_mat[recon_cat[i]][truth_cat[i]]=conf_mat[recon_cat[i]][truth_cat[i]]+data["plot_weight"][i] #Not working not sure why
         #print(conf_mat)
     #print(conf_mat)
-    conf_mat_truth_prop = [[conf_mat[i][j]/sum(conf_mat[:,j]) for j in range(5)] for i in range(5)]
-    conf_mat_recon_prop = [[conf_mat[i][j]/sum(conf_mat[i]) for j in range(5)] for i in range(5)]
+    conf_mat_truth_prop = [[conf_mat[i][j]/sum(conf_mat[:,j]) for j in range(len(conf_mat[0]))] for i in range(len(conf_mat))]
+    conf_mat_recon_prop = [[conf_mat[i][j]/sum(conf_mat[i]) for j in range(len(conf_mat[0]))] for i in range(len(conf_mat))]
 
 
     #print("conf matrix: ", conf_mat)
     #print("Conf matrix by proportion of truth: ", conf_mat_truth_prop)
     #print("Conf matrix by proportion of recon: ", conf_mat_recon_prop)
-    labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
+    #labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
+    labels = ["0-60", "60-120", "120-200", "200-inf"]
     plt.figure(figsize=(8, 6))
     sns.heatmap(conf_mat, annot=True, fmt=".2f", cmap="Blues", cbar=True,
                 xticklabels=labels, yticklabels=labels)

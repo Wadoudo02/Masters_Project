@@ -9,8 +9,9 @@ from utils import get_pt_cat
 
 def exp(x, lam, A):
     return A*np.exp(-lam*x)
-def get_background_dist():
-    back_data = pd.read_parquet(f"{sample_path}/Data_processed_selected.parquet")
+def get_background_dist(back_data, num_cats=5):
+    #back_data = pd.read_parquet(f"{sample_path}/Data_processed_selected.parquet")
+    #print("back_data: ", back_data)
     back_mass = back_data["mass_sel"]#.dropna().reset_index(drop=True)
     back_pt = back_data["pt-over-mass_sel"]*back_mass
     #print(back_pt)
@@ -21,7 +22,7 @@ def get_background_dist():
     #print(np.unique(back_data["categories"]))
 
     fits = []
-    for cat in range(5):
+    for cat in range(num_cats):
         #Combining categories 4 and 5
         # if cat==4:
         #     mask = (back_data["categories"]==cat) or (back_data["categories"]==cat+1)
@@ -46,8 +47,8 @@ def get_background_dist():
     #fig.savefig(f"{analysis_path}/back_mass.png", bbox_inches="tight")
     return fits
 
-def get_back_int(cat, bounds, n_bins):
-    p_fit = get_background_dist()[cat]
+def get_back_int(data, cat, bounds, n_bins, num_cats=5):
+    p_fit = get_background_dist(data,num_cats)[cat]
     lam, A = p_fit
 
     events = []
@@ -62,7 +63,7 @@ def get_back_int(cat, bounds, n_bins):
 
 
 
-get_background_dist()
-print(get_back_int(3, (120, 130), 5))
+#get_background_dist()
+#print(get_back_int(3, (120, 130), 5))
 
 # %%

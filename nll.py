@@ -29,7 +29,7 @@ def calc_NLL(hists, mus, conf_matrix = [],signal='ttH'):
                     which in this case is 1 for all categories other than the one we are looking at for which it is mu, as we 
                     are performing a frozen fit.
                     '''
-                    for truth_cat in range(5):
+                    for truth_cat in range(len(conf_matrix[0])):
                         e+=mus[truth_cat]*hists[truth_cat][signal]*conf_matrix[cat][truth_cat]
                 else:
                     e+=mus[0]*bin_yields
