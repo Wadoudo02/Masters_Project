@@ -564,18 +564,14 @@ for i in range(5):
 labels = ['0-60', '60-120', '120-200', '200-300', '>300'] # define labels again for hists
 
 hessian_matrix = calc_Hessian(combined_histogram, optimized_mus)
-print("Hessian Matrix:\n", hessian_matrix)
-
-
+print("Hessian Matrix:\n", np.array2string(hessian_matrix, precision=4, separator=', ', suppress_small=True))
 
 try:
     covariant_matrix = np.linalg.inv(hessian_matrix)
-    print("Covariant Matrix:\n", covariant_matrix)
+    print("\nCovariant Matrix:\n", np.array2string(covariant_matrix, precision=4, separator=', ', suppress_small=True))
 except np.linalg.LinAlgError:
     print("Error: Hessian matrix is singular and cannot be inverted. Check if the Hessian is non-singular.")
-    
-    
-    
+
 # Extract uncertainties for each mu parameter
 uncertainties = np.sqrt(np.diag(covariant_matrix))
-print("Uncertainties in mu parameters:", uncertainties)
+print("\nUncertainties in mu parameters:\n", np.array2string(uncertainties, precision=4, separator=', ', suppress_small=True))
