@@ -93,7 +93,7 @@ for i, proc in enumerate(procs.keys()):
     # e.g. number of leptons
     #conditions = get_pt_cat(pt)
     #dfs[proc]['category'] = np.array(dfs[proc]['n_leptons'] >= 1, dtype='int')
-    dfs[proc]['category'] =  get_pt_cat(pt, bins=[0,60,120,200])
+    dfs[proc]['category'] =  get_pt_cat(pt, bins=[0,60,120,200,300])
     
 # Extract different cat integers
 cats_unique = []
@@ -164,19 +164,19 @@ for cat in cats_unique:
 #print(hists)
 # Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
 NLL_vals = []
-mu_vals = np.linspace(0,3,100)
+mu_vals = np.linspace(-1,20,100)
 new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
-
+#%%
 '''
 Frozen scan over mu
 '''
-conf_matrix = get_conf_mat(new_samples) #conf_matrix[2] is the one normalised by recon
-init_mu = [1,1,1,1]
+conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(new_samples) #conf_matrix[2] is the one normalised by recon
+init_mu = [1 for i in range(len(conf_matrix))]
 for cat in cats_unique:
     cat_vals = []
     for mu in mu_vals:
         init_mu[cat]=mu
-        cat_vals.append(calc_NLL(hists, init_mu, conf_matrix[2]))
+        cat_vals.append(calc_NLL(hists, init_mu, conf_matrix))
     #print(cat_vals)
     init_mu[cat]=1
     #print("________________________________")
@@ -221,9 +221,21 @@ Scanning using combined hist
 print('''
 NLL FROZEN SCAN USING COMBINED HISTOGRAM
 ''')
-comb_hist = build_combined_histogram(hists, conf_matrix[2], mass_bins=5)
+print(f'''Before combining
+      {hists}
+      ''')
+comb_hist = build_combined_histogram(hists, conf_matrix, mass_bins=5)
 #NLL_vals = []
-init_mu = np.ones(len(conf_matrix[2]))
+print(f'''
+After combining
+      {comb_hist}
+''')
+bin_edges = np.arange(len(next(iter(comb_hist.values()))))
+for cat, hist in comb_hist.items():
+    plt.bar(bin_edges,hist, label=cat)
+    plt.title(f"Cat: {cat}")
+    plt.show()
+init_mu = np.ones(len(conf_matrix))
 
 fig, axes = plt.subplots(ncols=5, figsize=(25, 5), dpi = 300, sharex=True)
 
@@ -260,8 +272,8 @@ NLL PROFILED SCAN USING COMBINED HISTOGRAM
 ''')
 best_mus = np.ones(5)
 fig, ax = plt.subplots(1, 5, figsize=(40, 7))
-for idx in range(len(conf_matrix[2])):
-    best_mus[idx], nll_mu = profiled_NLL_fit(comb_hist,conf_matrix[2], idx)
+for idx in range(len(conf_matrix)):
+    best_mus[idx], nll_mu = profiled_NLL_fit(comb_hist,conf_matrix, idx, mu_vals)
     vals = find_crossings((mu_vals, TwoDeltaNLL(nll_mu)), 1.)
     print("Best mu for idx:", idx, "is", vals[0] ,"+/-", vals[1:])
     label = add_val_label(vals)
@@ -281,7 +293,7 @@ print('''
       NLL Global fit
 ''')
 
-global_mu, global_nll, hessian, cov = global_nll_fit(comb_hist, conf_matrix[2])
+global_mu, global_nll, hessian, cov = global_nll_fit(comb_hist, conf_matrix)
 print(f"""
       Global best fit for mu: {global_mu}
         Hessian: {hessian}
@@ -294,11 +306,11 @@ print('''
 Getting Hessian matrix
 ''')
 print("All mus:", all_mu)
-hessian = np.zeros((len(conf_matrix[2]), len(conf_matrix[2])))
+hessian = np.zeros((len(conf_matrix), len(conf_matrix)))
 #hessian = [[0 for i in range(5)] for j in range(5)]
-for i in range(len(conf_matrix[2])):
-    for j in range(len(conf_matrix[2])):
-        hessian[i][j] = get_hessian(i,j, hists, all_mu, conf_matrix[2])
+for i in range(len(conf_matrix)):
+    for j in range(len(conf_matrix)):
+        hessian[i][j] = get_hessian(i,j, hists, all_mu, conf_matrix)
 print("Hessian: \n", hessian)
 show_matrix(hessian, "Hessian matrix")
 show_matrix(get_cov(hessian), "Covariance matrix")
@@ -306,12 +318,16 @@ show_matrix(get_cov(hessian), "Covariance matrix")
 print('''
 Getting Hessian matrix from combined hist
 ''')
-hessian_comb = np.zeros((len(conf_matrix[2]), len(conf_matrix[2])))
+fig, ax = plt.subplots(1, 3, figsize=(25, 5))
+hessian_comb = np.zeros((len(conf_matrix), len(conf_matrix)))
 
-for i in range(len(conf_matrix[2])):
-    for j in range(len(conf_matrix[2])):
+for i in range(len(conf_matrix)):
+    for j in range(len(conf_matrix)):
         hessian_comb[i][j] = get_hessian_comb(i,j, comb_hist, all_mu)
 print("Hessian from comb hist: \n", hessian_comb)
-show_matrix(hessian_comb, "Hessian matrix from comb hist")
-show_matrix(get_cov(hessian_comb), "Covariance matrix from comb hist")
+show_matrix(hessian_comb, "Hessian matrix from comb hist", ax[0])
+show_matrix(get_cov(hessian_comb), "Covariance matrix from comb hist", ax[1])
+correlation_matrix = get_correlation_matrix(get_cov(hessian_comb))
+show_matrix(correlation_matrix, "Correlation matrix", ax[2])
+print(get_uncertainties(get_cov(hessian_comb)))
 # %%

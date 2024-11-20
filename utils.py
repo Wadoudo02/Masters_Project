@@ -254,17 +254,18 @@ def get_conf_mat(data):
     yield_after_sel = data['plot_weight'].sum()
     eff = (yield_after_sel/yield_before_sel)*100
     print(f"N = {yield_before_sel:.2f} --> {yield_after_sel:.2f}, eff = {eff:.1f}%")
-
+    bins = [0,60,120,200,300]
     #print(data)
 
     truth = data["HTXS_Higgs_pt_sel"]
     recon = data["pt-over-mass_sel"]*data["mass_sel"]
 
-    truth_cat = get_pt_cat(truth, bins = [0,60,120,200])
-    recon_cat = get_pt_cat(recon, bins = [0,60,120,200])
-    
+    truth_cat = get_pt_cat(truth, bins = bins)
+    recon_cat = get_pt_cat(recon, bins = bins)
+    #conf_matrix_hist, xedges, yedges = np.histogram2d(truth_cat, recon_cat, bins=[4, 4], weights=data["plot_weight"])
+    #print(conf_matrix_hist)
     #6x6 conf matrix where x axis is truth dimension and y axis is recon dimension
-    conf_mat =np.zeros((4,4))
+    conf_mat =np.zeros((len(bins),len(bins)))
 
     for i in range(len(recon_cat)):
         #print(data["plot_weight"][i], recon_cat[i],truth_cat[i], conf_mat[recon_cat[i]][truth_cat[i]]+data["plot_weight"][i])
@@ -279,7 +280,7 @@ def get_conf_mat(data):
     #print("Conf matrix by proportion of truth: ", conf_mat_truth_prop)
     #print("Conf matrix by proportion of recon: ", conf_mat_recon_prop)
     #labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
-    labels = ["0-60", "60-120", "120-200", "200-inf"]
+    labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
     plt.figure(figsize=(8, 6))
     sns.heatmap(conf_mat, annot=True, fmt=".2f", cmap="Blues", cbar=True,
                 xticklabels=labels, yticklabels=labels)
@@ -291,7 +292,7 @@ def get_conf_mat(data):
     plt.savefig(f"{analysis_path}/conf.png")
 
     plt.figure(figsize=(8, 6))
-    sns.heatmap(conf_mat_recon_prop, annot=True, fmt=".2f", cmap="Blues", cbar=True,
+    sns.heatmap(conf_mat_recon_prop, annot=True, fmt=".3f", cmap="Blues", cbar=True,
                 xticklabels=labels, yticklabels=labels)
 
     # Add labels to the plot
@@ -302,7 +303,7 @@ def get_conf_mat(data):
 
 
     plt.figure(figsize=(8, 6))
-    sns.heatmap(conf_mat_truth_prop, annot=True, fmt=".2f", cmap="Blues", cbar=True,
+    sns.heatmap(conf_mat_truth_prop, annot=True, fmt=".3f", cmap="Blues", cbar=True,
                 xticklabels=labels, yticklabels=labels)
 
     # Add labels to the plot
@@ -313,19 +314,30 @@ def get_conf_mat(data):
 
     return (conf_mat, conf_mat_truth_prop, conf_mat_recon_prop)
 
-#data = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+data = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
 
-#get_conf_mat(data)
+get_conf_mat(data)
 
 def get_cov(hessian):
     return np.linalg.inv(hessian)
 
-def show_matrix(matrix, title):
-    plt.figure(figsize=(8, 6))
+def show_matrix(matrix, title, ax="plt"):
+    #ax.figure(figsize=(8, 6))
     #plt.imshow(matrix, cmap='viridis', interpolation='none')
-    sns.heatmap(matrix, annot=True, fmt=".4f", cmap='viridis', cbar=False, annot_kws={"size": 10})
-    #plt.colorbar(label='Value')
-    plt.title(title)
+    if ax=="plt":
+        sns.heatmap(matrix, annot=True, fmt=".4f", cmap='viridis', cbar=False, annot_kws={"size": 10})
+        plt.title(title)
+    else:
+        sns.heatmap(matrix, annot=True, fmt=".4f", cmap='viridis', cbar=False, annot_kws={"size": 10}, ax=ax)
+        ax.set_title(title)
     #plt.xlabel('Column')
     #plt.ylabel('Row')
-    plt.show()
+    #ax.show()
+
+def get_correlation_matrix(cov_matrix):
+    std_dev = np.sqrt(np.diag(cov_matrix))
+    correlation_matrix = cov_matrix / np.outer(std_dev, std_dev)
+    correlation_matrix[cov_matrix == 0] = 0  # Handle division by zero
+    return correlation_matrix
+def get_uncertainties(cov_matrix):
+    return np.sqrt(np.diag(cov_matrix))

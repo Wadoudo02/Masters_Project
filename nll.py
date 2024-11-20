@@ -82,10 +82,10 @@ def calc_NLL_comb(combined_histogram, mus, signal='ttH'):
     return -NLL_total
 
 # Scans over 1 mu index and at each step minimises all others so gives best fit for that mu value
-def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx):
+def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx, mu_vals):
     num_truth = len(conf_matrix[0])
 
-    mu_vals = np.linspace(0, 3, 100)
+    #mu_vals = np.linspace(0, 3, 100)
     nll = []
 
     def calc_nll_fixed_mu(fixed, others):
