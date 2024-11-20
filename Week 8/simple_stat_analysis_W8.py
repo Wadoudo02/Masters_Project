@@ -8,7 +8,7 @@ from scipy.optimize import curve_fit
 from scipy.optimize import minimize
 from scipy.integrate import quad
 
-from utils_W7 import *
+from utils_W8 import *
 
 plot_entire_chain = True
 
