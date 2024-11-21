@@ -377,5 +377,15 @@ def calc_Hessian(combined_histogram, mus, signal='ttH'):
     
     return Hessian
 
+def covariance_to_correlation(cov_matrix):
+    # Get the standard deviations (square root of diagonal elements)
+    std_devs = np.sqrt(np.diag(cov_matrix))
+    # Outer product of standard deviations to create the normalization matrix
+    normalization_matrix = np.outer(std_devs, std_devs)
+    # Element-wise division to compute the correlation matrix
+    correlation_matrix = cov_matrix / normalization_matrix
+    # Fill diagonal with 1s to ensure it's properly normalized
+    np.fill_diagonal(correlation_matrix, 1.0)
+    return correlation_matrix
 
 
