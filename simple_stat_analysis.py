@@ -164,56 +164,57 @@ for cat in cats_unique:
 #print(hists)
 # Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
 NLL_vals = []
-mu_vals = np.linspace(-1,20,100)
+mu_vals = np.linspace(-2,5,100)
 new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
-#%%
-'''
-Frozen scan over mu
-'''
 conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(new_samples) #conf_matrix[2] is the one normalised by recon
 init_mu = [1 for i in range(len(conf_matrix))]
-for cat in cats_unique:
-    cat_vals = []
-    for mu in mu_vals:
-        init_mu[cat]=mu
-        cat_vals.append(calc_NLL(hists, init_mu, conf_matrix))
-    #print(cat_vals)
-    init_mu[cat]=1
-    #print("________________________________")
-    #print(f"NLL vals for cat - {cat}: ",cat_vals)
-    NLL_vals.append(cat_vals)
+#%%
+# '''
+# Frozen scan over mu
+# '''
 
-'''
-Plotting NLL curves
-'''
-fig, axes = plt.subplots(2, 3,figsize=(15, 10))
-all_mu = []
-# Plot NLL curve
-for idx in range(len(cats_unique)):
-    cat = cats_unique[idx]
-    #Best fit vals for category cat.
-    vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals[cat])),1.)
-    all_mu.append(vals[0])
-    label = add_val_label(vals)
-    ax = axes[idx//3,idx%3]
-    print(" --> Plotting 2NLL curve")
-    ax.plot(mu_vals, TwoDeltaNLL(NLL_vals[cat]), label=label)
-    ax.axvline(1., label="SM (expected)", color='black', alpha=0.5)
-    ax.axhline(1, color='grey', alpha=0.5, ls='--')
-    ax.axhline(4, color='grey', alpha=0.5, ls='--')
-    ax.set_ylim(0,8)
-    ax.legend(loc='best')
-    ax.set_xlabel("$\\mu_{ttH}$")
-    ax.set_ylabel("q = 2$\\Delta$NLL")
-    ax.set_title(f"Best fit for cat: {cats[cat]}", fontsize=15)
-    #plt.tight_layout()
-    #fig.savefig(f"{analysis_path}/2nll_vs_mu.pdf", bbox_inches="tight")
-    #fig.savefig(f"{analysis_path}/2nll_vs_mu_{cats[cat]}.png", bbox_inches="tight")
-    #ax.cla()
-fig.delaxes(axes[1,2])
-fig.suptitle("Frozen NLL scan for each mu using ind hist")
-fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot_fro.png", bbox_inches="tight")
-#fig.show()
+# for cat in cats_unique:
+#     cat_vals = []
+#     for mu in mu_vals:
+#         init_mu[cat]=mu
+#         cat_vals.append(calc_NLL(hists, init_mu, conf_matrix))
+#     #print(cat_vals)
+#     init_mu[cat]=1
+#     #print("________________________________")
+#     #print(f"NLL vals for cat - {cat}: ",cat_vals)
+#     NLL_vals.append(cat_vals)
+
+# '''
+# Plotting NLL curves
+# '''
+# fig, axes = plt.subplots(2, 3,figsize=(15, 10))
+# all_mu = []
+# # Plot NLL curve
+# for idx in range(len(cats_unique)):
+#     cat = cats_unique[idx]
+#     #Best fit vals for category cat.
+#     vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals[cat])),1.)
+#     all_mu.append(vals[0])
+#     label = add_val_label(vals)
+#     ax = axes[idx//3,idx%3]
+#     print(" --> Plotting 2NLL curve")
+#     ax.plot(mu_vals, TwoDeltaNLL(NLL_vals[cat]), label=label)
+#     ax.axvline(1., label="SM (expected)", color='black', alpha=0.5)
+#     ax.axhline(1, color='grey', alpha=0.5, ls='--')
+#     ax.axhline(4, color='grey', alpha=0.5, ls='--')
+#     ax.set_ylim(0,8)
+#     ax.legend(loc='best')
+#     ax.set_xlabel("$\\mu_{ttH}$")
+#     ax.set_ylabel("q = 2$\\Delta$NLL")
+#     ax.set_title(f"Best fit for cat: {cats[cat]}", fontsize=15)
+#     #plt.tight_layout()
+#     #fig.savefig(f"{analysis_path}/2nll_vs_mu.pdf", bbox_inches="tight")
+#     #fig.savefig(f"{analysis_path}/2nll_vs_mu_{cats[cat]}.png", bbox_inches="tight")
+#     #ax.cla()
+# fig.delaxes(axes[1,2])
+# fig.suptitle("Frozen NLL scan for each mu using ind hist")
+# fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot_fro.png", bbox_inches="tight")
+# #fig.show()
 #%%
 '''
 Scanning using combined hist
@@ -263,6 +264,128 @@ for i in range(len(init_mu)):
 fig.suptitle("Frozen NLL scan for each mu using comb hist")
 all_mu = init_mu
 print("The optimised values of mu are:", init_mu)
+#%%
+#'''
+# Wadoud profiled nll
+# '''
+# plot_entire_chain = True
+# def calc_NLL(combined_histogram, mus, signal='ttH'):
+#     """
+#     Calculate the NLL using the combined 25-bin histogram with variable \mu parameters.
+
+#     Parameters:
+#         combined_histogram (dict): Combined histogram for each process across 25 bins.
+#         mus (list or array): Signal strength modifiers, one for each truth category.
+#         signal (str): The signal process (default 'ttH').
+
+#     Returns:
+#         float: Total NLL.
+#     """
+#     NLL_total = 0.0
+#     num_bins = len(next(iter(combined_histogram.values())))  # Total bins (should be 25)
+
+#     # Loop over each bin in the combined histogram
+#     for bin_idx in range(num_bins):
+#         expected_total = 0.0
+#         observed_count = 0.0
+#         #breakpoint()
+#         for proc, yields in combined_histogram.items():
+#             if signal in proc:
+#                 # Extract the truth category index from the signal label, e.g., "ttH_0"
+#                 truth_cat_idx = int(proc.split('_')[1])
+#                 mu = mus[truth_cat_idx]  # Apply the appropriate \mu for this truth category
+#                 expected_total += mu * yields[bin_idx]
+#             else:
+#                 expected_total += yields[bin_idx]
+
+#             observed_count += yields[bin_idx]  # Observed count from all processes in this bin
+
+#         # Avoid division by zero in log calculation
+#         expected_total = max(expected_total, 1e-10)
+        
+#         # Calculate NLL contribution for this bin
+#         NLL_total += observed_count * np.log(expected_total) - expected_total
+
+#     return -NLL_total
+
+# # Define the objective function for NLL
+# def objective_function(mus, fixed_mu_index, fixed_mu_value):
+#     """
+#     Objective function to compute NLL for given mu values, fixing one mu.
+    
+#     Parameters:
+#         mus (array-like): Array of 4 mu values to optimize.
+#         fixed_mu_index (int): Index of the mu being scanned (fixed during optimization).
+#         fixed_mu_value (float): The fixed value for the scanned mu.
+    
+#     Returns:
+#         float: NLL value for the given set of mu values.
+#     """
+#     full_mus = np.insert(mus, fixed_mu_index, fixed_mu_value)  # Reconstruct full mu array
+#     return calc_NLL(comb_hist, full_mus, signal='ttH')
+
+# # Configuration
+# mu_values = np.linspace(-2, 5, 100)  # Range for scanning a single mu
+# mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
+# bounds = [(0, 3) for _ in range(4)]  # Bounds for the other mu parameters
+
+# frozen_mus = mus_initial.copy()
+
+# # Prepare the plots
+# if plot_entire_chain:
+#     fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi=300, sharex=True)
+
+# # Perform both frozen scan and profile scan
+# for i in range(5):
+#     frozen_NLL_vals = []
+#     profile_NLL_vals = []
+    
+#     for mu in mu_values:
+#         # Frozen scan: keep other mu values constant
+        
+#         frozen_mus[i] = mu
+#         frozen_NLL_vals.append(calc_NLL(comb_hist, frozen_mus, signal='ttH'))
+        
+#         # Profile scan: optimize the other mu values
+#         initial_guess = [mus_initial[j] for j in range(5) if j != i]
+#         obj_func = lambda reduced_mus: objective_function(reduced_mus, fixed_mu_index=i, fixed_mu_value=mu)
+#         result = minimize(obj_func, initial_guess, bounds=bounds, method='L-BFGS-B')
+        
+#         profile_NLL_vals.append(result.fun)
+    
+#     # Convert to 2ΔNLL
+#     frozen_NLL_vals = TwoDeltaNLL(frozen_NLL_vals)
+#     profile_NLL_vals = TwoDeltaNLL(profile_NLL_vals)
+    
+#     # Find crossings
+#     frozen_vals = find_crossings((mu_values, frozen_NLL_vals), 1.)
+#     profile_vals = find_crossings((mu_values, profile_NLL_vals), 1.)
+#     frozen_label = add_val_label(frozen_vals)
+#     profile_label = add_val_label(profile_vals)
+    
+#     # Keep optimal Frozen
+    
+#     frozen_mus[i] = frozen_vals[0]
+    
+#     if plot_entire_chain:
+#     # Plotting each NLL curve on a separate subplot
+#         ax = axes[i]
+#         ax.plot(mu_values, frozen_NLL_vals, label=f"Frozen Scan: {frozen_label}", color='blue')
+#         ax.plot(mu_values, profile_NLL_vals, label=f"Profile Scan: {profile_label}", color='red', linestyle='--')
+#         ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
+#         ax.axhline(1, color='grey', alpha=0.5, ls='--')
+#         ax.axhline(4, color='grey', alpha=0.5, ls='--')
+#         ax.set_ylim(0, 8)
+#         ax.legend(loc='best')
+#         ax.set_ylabel("q = 2$\\Delta$NLL")
+#         ax.set_title(f"Optimising $\\mu_{i}$")
+
+# if plot_entire_chain:
+#     # Show the plot
+#     plt.xlabel("$\\mu$ Value")
+#     plt.tight_layout()
+#     plt.show()
+
 #%%
 '''
 Profiled fit for NLL 
