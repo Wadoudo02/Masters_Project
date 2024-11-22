@@ -1,3 +1,4 @@
+#%%
 import numpy as np
 import pandas as pd
 from IPython.display import display
@@ -9,6 +10,7 @@ plt.style.use(hep.style.CMS)
 from utils import *
 from background_dist import *
 from nll import *
+import json
 
 # Constants
 total_lumi = 7.9804
@@ -168,53 +170,7 @@ mu_vals = np.linspace(-2,5,100)
 new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
 conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(new_samples) #conf_matrix[2] is the one normalised by recon
 init_mu = [1 for i in range(len(conf_matrix))]
-#%%
-# '''
-# Frozen scan over mu
-# '''
 
-# for cat in cats_unique:
-#     cat_vals = []
-#     for mu in mu_vals:
-#         init_mu[cat]=mu
-#         cat_vals.append(calc_NLL(hists, init_mu, conf_matrix))
-#     #print(cat_vals)
-#     init_mu[cat]=1
-#     #print("________________________________")
-#     #print(f"NLL vals for cat - {cat}: ",cat_vals)
-#     NLL_vals.append(cat_vals)
-
-# '''
-# Plotting NLL curves
-# '''
-# fig, axes = plt.subplots(2, 3,figsize=(15, 10))
-# all_mu = []
-# # Plot NLL curve
-# for idx in range(len(cats_unique)):
-#     cat = cats_unique[idx]
-#     #Best fit vals for category cat.
-#     vals = find_crossings((mu_vals,TwoDeltaNLL(NLL_vals[cat])),1.)
-#     all_mu.append(vals[0])
-#     label = add_val_label(vals)
-#     ax = axes[idx//3,idx%3]
-#     print(" --> Plotting 2NLL curve")
-#     ax.plot(mu_vals, TwoDeltaNLL(NLL_vals[cat]), label=label)
-#     ax.axvline(1., label="SM (expected)", color='black', alpha=0.5)
-#     ax.axhline(1, color='grey', alpha=0.5, ls='--')
-#     ax.axhline(4, color='grey', alpha=0.5, ls='--')
-#     ax.set_ylim(0,8)
-#     ax.legend(loc='best')
-#     ax.set_xlabel("$\\mu_{ttH}$")
-#     ax.set_ylabel("q = 2$\\Delta$NLL")
-#     ax.set_title(f"Best fit for cat: {cats[cat]}", fontsize=15)
-#     #plt.tight_layout()
-#     #fig.savefig(f"{analysis_path}/2nll_vs_mu.pdf", bbox_inches="tight")
-#     #fig.savefig(f"{analysis_path}/2nll_vs_mu_{cats[cat]}.png", bbox_inches="tight")
-#     #ax.cla()
-# fig.delaxes(axes[1,2])
-# fig.suptitle("Frozen NLL scan for each mu using ind hist")
-# fig.savefig(f"{analysis_path}/2nll_vs_mu_subplot_fro.png", bbox_inches="tight")
-# #fig.show()
 #%%
 '''
 Scanning using combined hist
@@ -227,6 +183,71 @@ print(f'''Before combining
       ''')
 comb_hist = build_combined_histogram(hists, conf_matrix, mass_bins=5)
 #NLL_vals = []
+
+comb_hist = {
+    'background': np.array([
+        182.82081702, 176.80413301, 170.98545975, 165.35828065, 159.91629358, 
+        23.11442279, 23.00059749, 22.88733272, 22.77462572, 22.66247373, 
+        7.62507397, 7.5749568, 7.52516903, 7.4757085, 7.42657305, 
+        159.83801979, 156.1854996, 152.61644456, 149.12894737, 145.72114432, 
+        2.49905835, 2.51170773, 2.52442114, 2.5371989, 2.55004134
+    ]),
+    'ttH_0': np.array([
+        0.588479407, 1.55947081, 3.43222315, 1.09065098, 0.310908472, 
+        0.00794613479, 0.0299798693, 0.0553777472, 0.0176453116, 0.00405728034, 
+        -2.13918807e-05, -5.99256445e-05, -0.000156925244, -4.43437995e-05, -5.16696147e-06, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+    ]),
+    'ttH_1': np.array([
+        0.0154903808, 0.041049519, 0.0903454614, 0.0287089043, 0.00818395778, 
+        0.539333711, 2.03484519, 3.75869359, 1.1976529, 0.275382701, 
+        0.00522329879, 0.0146321658, 0.0383167544, 0.0108275152, 0.00126162744, 
+        0.00131031321, 0.00454335077, 0.0087317118, 0.00306175703, 0.000540615021, 
+        0.0, 0.0, 0.0, 0.0, 0.0
+    ]),
+    'ttH_2': np.array([
+        0.000201894649, 0.000535020949, 0.00117752207, 0.000374178932, 0.000106666021, 
+        0.0145943014, 0.0550626512, 0.101709769, 0.0324083348, 0.00745182076, 
+        0.349467143, 0.978971604, 2.5635996, 0.724419751, 0.0844097482, 
+        0.00131784575, 0.00456946892, 0.00878190739, 0.00307935801, 0.00054372283, 
+        0.0, 0.0, 0.0, 0.0, 0.0
+    ]),
+    'ttH_3': np.array([
+        0.000732579966, 0.00194133738, 0.00427266934, 0.00135771796, 0.000387040422, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0148684075, 0.0416512655, 0.10907075, 0.0308211181, 0.00359129194, 
+        0.700762651, 2.42980877, 4.66976709, 1.63744435, 0.289123861, 
+        0.00169796184, 0.00577659973, 0.0151301349, 0.00507510743, -9.80953016e-05
+    ]),
+    'ttH_4': np.array([
+        0.000704046813, 0.00186572451, 0.00410625375, 0.00130483639, 0.00037196564, 
+        0.000494843492, 0.00186698862, 0.00344863491, 0.00109885723, 0.000252666086, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0144667932, 0.0501618358, 0.0964043314, 0.0338039832, 0.00596877575, 
+        0.153745289, 0.523053564, 1.36998777, 0.459535567, -0.00888223168
+    ]),
+    'ggH': np.array([
+        0.23288571, 2.5353613, 4.41319377, 0.34706271, 1.07463477, 
+        -0.1555497, 2.31917903, 7.1250048, 4.41924358, -0.55071549, 
+        0.0, 2.33300283, 3.77420237, -0.05797646, 0.2020542, 
+        0.79001682, 4.1536631, 11.10985672, 4.2121388, 0.16886213, 
+        1.12744866, -0.06879719, 5.75953519, 0.8858527, 0.22497163
+    ]),
+    'VBF': np.array([
+        -0.22840382, 0.89222305, 0.90632075, 0.13482125, 0.22081918, 
+        0.0, 1.41008532, 0.93113996, 0.81970175, 0.07599229, 
+        0.0, -0.02358482, 0.47035143, -0.04192673, 0.0, 
+        -0.13461457, 1.23484665, 0.39540575, -0.75678962, -0.05131634, 
+        0.0, 0.13093512, 0.4658585, 0.0, 0.0
+    ]),
+    'VH': np.array([
+        0.55585534, 0.56338391, 2.77280101, 0.78260608, 0.19200281, 
+        0.32423708, 2.6854984, 3.57705075, 0.95410452, 0.18154009, 
+        0.51443547, 1.28835586, 2.53036035, 0.71996919, 0.23016383, 
+        0.86270873, 2.37392004, 3.55170604, 0.94415424, 0.27967364, 
+        -0.05862386, 0.28587711, 0.994218, 0.49600509, 0.0
+    ])
+}
 print(f'''
 After combining
       {comb_hist}
@@ -236,8 +257,9 @@ for cat, hist in comb_hist.items():
     plt.bar(bin_edges,hist, label=cat)
     plt.title(f"Cat: {cat}")
     plt.show()
-init_mu = np.ones(len(conf_matrix))
 
+init_mu = np.ones(len(conf_matrix))
+best_mus = np.ones(len(conf_matrix))
 fig, axes = plt.subplots(ncols=5, figsize=(25, 5), dpi = 300, sharex=True)
 
 for i in range(len(init_mu)):
@@ -248,7 +270,8 @@ for i in range(len(init_mu)):
         NLL_vals.append(calc_NLL_comb(comb_hist, init_mu,signal='ttH'))
 
     vals = find_crossings((mu_vals, TwoDeltaNLL(NLL_vals)), 1.)
-    init_mu[i] = vals[0]#[0]
+    init_mu[i] = 1
+    best_mus[i] = vals[0]#[0]
     label = add_val_label(vals)
     
     # Plotting each NLL curve on a separate subplot
@@ -262,129 +285,8 @@ for i in range(len(init_mu)):
     ax.set_ylabel("q = 2$\\Delta$NLL")
     ax.set_title(f"Optimising $\\mu_{i}$")
 fig.suptitle("Frozen NLL scan for each mu using comb hist")
-all_mu = init_mu
-print("The optimised values of mu are:", init_mu)
-#%%
-#'''
-# Wadoud profiled nll
-# '''
-# plot_entire_chain = True
-# def calc_NLL(combined_histogram, mus, signal='ttH'):
-#     """
-#     Calculate the NLL using the combined 25-bin histogram with variable \mu parameters.
-
-#     Parameters:
-#         combined_histogram (dict): Combined histogram for each process across 25 bins.
-#         mus (list or array): Signal strength modifiers, one for each truth category.
-#         signal (str): The signal process (default 'ttH').
-
-#     Returns:
-#         float: Total NLL.
-#     """
-#     NLL_total = 0.0
-#     num_bins = len(next(iter(combined_histogram.values())))  # Total bins (should be 25)
-
-#     # Loop over each bin in the combined histogram
-#     for bin_idx in range(num_bins):
-#         expected_total = 0.0
-#         observed_count = 0.0
-#         #breakpoint()
-#         for proc, yields in combined_histogram.items():
-#             if signal in proc:
-#                 # Extract the truth category index from the signal label, e.g., "ttH_0"
-#                 truth_cat_idx = int(proc.split('_')[1])
-#                 mu = mus[truth_cat_idx]  # Apply the appropriate \mu for this truth category
-#                 expected_total += mu * yields[bin_idx]
-#             else:
-#                 expected_total += yields[bin_idx]
-
-#             observed_count += yields[bin_idx]  # Observed count from all processes in this bin
-
-#         # Avoid division by zero in log calculation
-#         expected_total = max(expected_total, 1e-10)
-        
-#         # Calculate NLL contribution for this bin
-#         NLL_total += observed_count * np.log(expected_total) - expected_total
-
-#     return -NLL_total
-
-# # Define the objective function for NLL
-# def objective_function(mus, fixed_mu_index, fixed_mu_value):
-#     """
-#     Objective function to compute NLL for given mu values, fixing one mu.
-    
-#     Parameters:
-#         mus (array-like): Array of 4 mu values to optimize.
-#         fixed_mu_index (int): Index of the mu being scanned (fixed during optimization).
-#         fixed_mu_value (float): The fixed value for the scanned mu.
-    
-#     Returns:
-#         float: NLL value for the given set of mu values.
-#     """
-#     full_mus = np.insert(mus, fixed_mu_index, fixed_mu_value)  # Reconstruct full mu array
-#     return calc_NLL(comb_hist, full_mus, signal='ttH')
-
-# # Configuration
-# mu_values = np.linspace(-2, 5, 100)  # Range for scanning a single mu
-# mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
-# bounds = [(0, 3) for _ in range(4)]  # Bounds for the other mu parameters
-
-# frozen_mus = mus_initial.copy()
-
-# # Prepare the plots
-# if plot_entire_chain:
-#     fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi=300, sharex=True)
-
-# # Perform both frozen scan and profile scan
-# for i in range(5):
-#     frozen_NLL_vals = []
-#     profile_NLL_vals = []
-    
-#     for mu in mu_values:
-#         # Frozen scan: keep other mu values constant
-        
-#         frozen_mus[i] = mu
-#         frozen_NLL_vals.append(calc_NLL(comb_hist, frozen_mus, signal='ttH'))
-        
-#         # Profile scan: optimize the other mu values
-#         initial_guess = [mus_initial[j] for j in range(5) if j != i]
-#         obj_func = lambda reduced_mus: objective_function(reduced_mus, fixed_mu_index=i, fixed_mu_value=mu)
-#         result = minimize(obj_func, initial_guess, bounds=bounds, method='L-BFGS-B')
-        
-#         profile_NLL_vals.append(result.fun)
-    
-#     # Convert to 2ΔNLL
-#     frozen_NLL_vals = TwoDeltaNLL(frozen_NLL_vals)
-#     profile_NLL_vals = TwoDeltaNLL(profile_NLL_vals)
-    
-#     # Find crossings
-#     frozen_vals = find_crossings((mu_values, frozen_NLL_vals), 1.)
-#     profile_vals = find_crossings((mu_values, profile_NLL_vals), 1.)
-#     frozen_label = add_val_label(frozen_vals)
-#     profile_label = add_val_label(profile_vals)
-    
-#     # Keep optimal Frozen
-    
-#     frozen_mus[i] = frozen_vals[0]
-    
-#     if plot_entire_chain:
-#     # Plotting each NLL curve on a separate subplot
-#         ax = axes[i]
-#         ax.plot(mu_values, frozen_NLL_vals, label=f"Frozen Scan: {frozen_label}", color='blue')
-#         ax.plot(mu_values, profile_NLL_vals, label=f"Profile Scan: {profile_label}", color='red', linestyle='--')
-#         ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
-#         ax.axhline(1, color='grey', alpha=0.5, ls='--')
-#         ax.axhline(4, color='grey', alpha=0.5, ls='--')
-#         ax.set_ylim(0, 8)
-#         ax.legend(loc='best')
-#         ax.set_ylabel("q = 2$\\Delta$NLL")
-#         ax.set_title(f"Optimising $\\mu_{i}$")
-
-# if plot_entire_chain:
-#     # Show the plot
-#     plt.xlabel("$\\mu$ Value")
-#     plt.tight_layout()
-#     plt.show()
+#all_mu = init_mu
+print("The optimised values of mu are:", best_mus)
 
 #%%
 '''
@@ -410,7 +312,7 @@ for idx in range(len(conf_matrix)):
     ax[idx].set_ylim(0, 8)
     ax[idx].legend(loc='best')
 fig.suptitle("Profiled NLL fit for each mu")
-fig.savefig("nll_profiled_fit.png")
+fig.savefig(f"{analysis_path}/nll_profiled_fit.png")
 #%%
 print('''
       NLL Global fit
@@ -428,12 +330,12 @@ print(f"""
 print('''
 Getting Hessian matrix
 ''')
-print("All mus:", all_mu)
+print("All mus:", best_mus)
 hessian = np.zeros((len(conf_matrix), len(conf_matrix)))
 #hessian = [[0 for i in range(5)] for j in range(5)]
 for i in range(len(conf_matrix)):
     for j in range(len(conf_matrix)):
-        hessian[i][j] = get_hessian(i,j, hists, all_mu, conf_matrix)
+        hessian[i][j] = get_hessian(i,j, hists, best_mus, conf_matrix)
 print("Hessian: \n", hessian)
 show_matrix(hessian, "Hessian matrix")
 show_matrix(get_cov(hessian), "Covariance matrix")
@@ -446,11 +348,120 @@ hessian_comb = np.zeros((len(conf_matrix), len(conf_matrix)))
 
 for i in range(len(conf_matrix)):
     for j in range(len(conf_matrix)):
-        hessian_comb[i][j] = get_hessian_comb(i,j, comb_hist, all_mu)
+        hessian_comb[i][j] = get_hessian_comb(i,j, comb_hist, best_mus)
 print("Hessian from comb hist: \n", hessian_comb)
 show_matrix(hessian_comb, "Hessian matrix from comb hist", ax[0])
 show_matrix(get_cov(hessian_comb), "Covariance matrix from comb hist", ax[1])
 correlation_matrix = get_correlation_matrix(get_cov(hessian_comb))
 show_matrix(correlation_matrix, "Correlation matrix", ax[2])
 print(get_uncertainties(get_cov(hessian_comb)))
+# %%
+'''
+Chi squared fit of mu(c)
+'''
+tth_json_path = "TTH.json"
+with open(tth_json_path, "r") as file:
+    wilson_data = json.load(file)
+
+c_g_coef = wilson_data["data"]["central"]["a_cg"]
+c_tg_coef = wilson_data["data"]["central"]["a_ctgre"]
+order = [2, 5,3,4, 6]
+c_g_coef_ordered = [c_g_coef[i] for i in order]
+c_tg_coef_ordered = [c_tg_coef[i] for i in order]
+
+#print(c_g_coef, c_tg_coef)
+
+def mu_c(c_g, c_tg):
+    mus = []
+    for i in range(len(c_g_coef_ordered)):
+        mus.append(float(1 + c_g*c_g_coef_ordered[i] + c_tg*c_tg_coef_ordered[i]))
+    return mus
+def get_chi_squared(mu, c_g, c_tg, hessian):
+#    print("input ", mu, c_g, c_tg)
+    del_mu = mu - mu_c(c_g, c_tg)
+    chi2= del_mu.T @ hessian @ del_mu
+
+    return chi2
+c_vals = np.linspace(-1, 1, 100)
+c_tg=0
+chi_squared = []
+
+for c_g in c_vals:
+    chi2 = get_chi_squared(best_mus, c_g, c_tg, hessian_comb)
+    #print(chi2)
+    chi_squared.append(chi2)
+
+plt.figure(figsize=(8, 6))
+plt.plot(c_vals, chi_squared, label=f"$\\chi^2(c_g, c_{{tg}} = {c_tg})$")
+plt.axhline(2.3, color='red', linestyle='--', label='Threshold')
+plt.xlabel(r"Wilson coefficient $c_{g}$")
+plt.ylabel(r"$\chi^2(c_{g}, c_{tg})$")
+plt.title("$\chi^2$ as a function of Wilson coefficient $c_{g}$")
+plt.legend()
+plt.grid()
+plt.show()
+
+
+# %%
+'''
+Chi Squared minimisation
+'''
+init_guess = 0
+c_g, c_tg = 0,0
+
+chi_2_c_g = []
+chi_2_c_tg = []
+
+for c_g in c_vals:
+    res = minimize(lambda x: get_chi_squared(best_mus, c_g, x, hessian_comb),
+                    init_guess, method='Nelder-Mead')
+    chi_2_c_g.append(res.fun)
+
+for c_tg in c_vals:
+    res = minimize(lambda x: get_chi_squared(best_mus, x, c_tg, hessian_comb),
+                    init_guess, method='Nelder-Mead')
+    chi_2_c_tg.append(res.fun)
+
+best_c_g = c_vals[np.argmin(chi_2_c_g)].round(2)
+best_c_tg = c_vals[np.argmin(chi_2_c_tg)].round(2)
+
+def find_confidence_interval(chi_2, c_vals, min_chi_2, delta_chi_2):
+    lower_bound = None
+    upper_bound = None
+    for i, chi in enumerate(chi_2):
+        if chi <= min_chi_2 + delta_chi_2:
+            if lower_bound is None:
+                lower_bound = c_vals[i]
+            upper_bound = c_vals[i]
+    return lower_bound, upper_bound
+
+conf_interval_68_c_g = find_confidence_interval(chi_2_c_g, c_vals, vals_c_g, 1)
+conf_interval_68_c_tg = find_confidence_interval(chi_2_c_tg, c_vals, vals_c_tg, 1)
+
+print(f"Best fit for c_g: {best_c_g}")
+print(f"68% confidence interval for c_g: {conf_interval_68_c_g}")
+print(f"Best fit for c_tg: {best_c_tg}")
+print(f"68% confidence interval for c_tg: {conf_interval_68_c_tg}")
+
+# Plot the results
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+plt.plot(c_vals, chi_2_c_g, label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_g[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_g[0]:.2f}}}$")
+plt.xlabel('c_g')
+plt.ylabel('Chi-squared')
+plt.title('Profiled Scan over c_g')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(c_vals, chi_2_c_tg,label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_g[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_g[0]:.2f}}}$")
+plt.xlabel('c_g')
+plt.xlabel('c_tg')
+plt.ylabel('Chi-squared')
+plt.title('Profiled Scan over c_tg')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
 # %%
