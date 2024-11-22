@@ -576,20 +576,39 @@ or
 
 optimized_mus = np.array([1,1,1,1,1])
 
+a_cg = ttH_coefficients_data['data']["central"]["a_cg"]
+a_ctgre = ttH_coefficients_data['data']["central"]["a_ctgre"]
+
+b_cg_cg = ttH_coefficients_data['data']["central"]["b_cg_cg"]
+b_cg_ctgre = ttH_coefficients_data['data']["central"]["b_cg_ctgre"]
+b_ctgre_ctgre = ttH_coefficients_data['data']["central"]["b_ctgre_ctgre"]
+
 # CHANGE TO C_G AND C_TG
-def mu_c(cg, ctg):
+def mu_c(cg, ctg, quadratic = True):
     """Theoretical model for mu as a function of Wilson coefficient c."""
     
-    mu_0 = 1 + cg * ttH_coefficients_data['data']["central"]["a_cg"][2] + ctg * ttH_coefficients_data['data']["central"]["a_ctgre"][2]
     
-    mu_1 = 1 + cg * ttH_coefficients_data['data']["central"]["a_cg"][5] + ctg * ttH_coefficients_data['data']["central"]["a_ctgre"][5]
+    mu_0 = 1 + cg * a_cg[2] + ctg * a_ctgre[2]
     
-    mu_2 = 1 + cg * ttH_coefficients_data['data']["central"]["a_cg"][3] + ctg * ttH_coefficients_data['data']["central"]["a_ctgre"][3]
+    mu_1 = 1 + cg * a_cg[5] + ctg * a_ctgre[5]
     
-    mu_3 = 1 + cg * ttH_coefficients_data['data']["central"]["a_cg"][4] + ctg * ttH_coefficients_data['data']["central"]["a_ctgre"][4]
+    mu_2 = 1 + cg * a_cg[3] + ctg * a_ctgre[3]
     
-    mu_4 = 1 + cg * ttH_coefficients_data['data']["central"]["a_cg"][6] + ctg * ttH_coefficients_data['data']["central"]["a_ctgre"][6]
+    mu_3 = 1 + cg * a_cg[4] + ctg * a_ctgre[4]
     
+    mu_4 = 1 + cg * a_cg[6] + ctg * a_ctgre[6]
+    
+    if quadratic:
+        mu_0 += (cg ** 2) * b_cg_cg[2] + cg * ctg * b_cg_ctgre[2] + (ctg ** 2) * b_ctgre_ctgre[2]
+        
+        mu_1 += (cg ** 2) * b_cg_cg[5] + cg * ctg * b_cg_ctgre[5] + (ctg ** 2) * b_ctgre_ctgre[5]
+        
+        mu_2 += (cg ** 2) * b_cg_cg[3] + cg * ctg * b_cg_ctgre[3] + (ctg ** 2) * b_ctgre_ctgre[3]
+        
+        mu_3 += (cg ** 2) * b_cg_cg[4] + cg * ctg * b_cg_ctgre[4] + (ctg ** 2) * b_ctgre_ctgre[4]
+        
+        mu_4 += (cg ** 2) * b_cg_cg[6] + cg * ctg * b_cg_ctgre[6] + (ctg ** 2) * b_ctgre_ctgre[6]
+        
     
     return np.array([mu_0 , mu_1,  mu_2,  mu_3,  mu_4])
 
@@ -611,7 +630,7 @@ for cg in c_values:
 # Plot
 plt.figure(figsize=(8, 6))
 plt.plot(c_values, chi_squared, label=f"$\\chi^2(c_g, c_{{tg}} = {ctg})$")
-plt.axhline(1, color='red', linestyle='--', label='Threshold')
+
 plt.xlabel(r"Wilson coefficient $c_{g}$")
 plt.ylabel(r"$\chi^2(c_{g}, c_{tg})$")
 plt.title("$\chi^2$ as a function of Wilson coefficient $c_{g}$")
@@ -635,7 +654,7 @@ for ctg in c_values:
 # Plot
 plt.figure(figsize=(8, 6))
 plt.plot(c_values, chi_squared, label=f"$\\chi^2(c_g = {cg}, c_{{tg}})$")
-plt.axhline(1, color='red', linestyle='--', label='Threshold')
+
 plt.xlabel(r"Wilson coefficient $c_{tg}$")
 plt.ylabel(r"$\chi^2(c_{g}, c_{tg})$")
 plt.title("$\chi^2$ as a function of Wilson coefficient $c_{tg}$")
@@ -668,8 +687,8 @@ print(f"Minimum chi-squared: {min_chi_squared}")
 
 
 
-cg_values = np.linspace(-15, 15, 100)  # Adjust range as needed
-ctg_values = np.linspace(-15, 15, 100)  # Adjust range as needed
+cg_values = np.linspace(-2, 2, 100)  # Adjust range as needed
+ctg_values = np.linspace(-2, 2, 100)  # Adjust range as needed
 
 # Initialize a 2D grid for chi-squared values
 chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))
@@ -698,7 +717,7 @@ plt.scatter(optimal_cg, optimal_ctg, color='red', label='Minimum $\chi^2$', zord
 
 plt.xlabel(r"Wilson coefficient $c_{g}$")
 plt.ylabel(r"Wilson coefficient $c_{tg}$")
-plt.title(r"Heatmap of $\chi^2(c_g, c_{tg}) [First Order]$")
+plt.title(r"Heatmap of $\chi^2(c_g, c_{tg}) [Quad Order]$")
 plt.legend(frameon=True, edgecolor='black', loc='best')
 plt.grid()
 plt.show()
