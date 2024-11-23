@@ -10,7 +10,7 @@ plt.style.use(hep.style.CMS)
 from utils import *
 from background_dist import *
 from nll import *
-import json
+from EFT import *
 
 # Constants
 total_lumi = 7.9804
@@ -359,30 +359,9 @@ print(get_uncertainties(get_cov(hessian_comb)))
 '''
 Chi squared fit of mu(c)
 '''
-tth_json_path = "TTH.json"
-with open(tth_json_path, "r") as file:
-    wilson_data = json.load(file)
-
-c_g_coef = wilson_data["data"]["central"]["a_cg"]
-c_tg_coef = wilson_data["data"]["central"]["a_ctgre"]
-order = [2, 5,3,4, 6]
-c_g_coef_ordered = [c_g_coef[i] for i in order]
-c_tg_coef_ordered = [c_tg_coef[i] for i in order]
-
 #print(c_g_coef, c_tg_coef)
 
-def mu_c(c_g, c_tg):
-    mus = []
-    for i in range(len(c_g_coef_ordered)):
-        mus.append(float(1 + c_g*c_g_coef_ordered[i] + c_tg*c_tg_coef_ordered[i]))
-    return mus
-def get_chi_squared(mu, c_g, c_tg, hessian):
-#    print("input ", mu, c_g, c_tg)
-    del_mu = mu - mu_c(c_g, c_tg)
-    chi2= del_mu.T @ hessian @ del_mu
-
-    return chi2
-c_vals = np.linspace(-1, 1, 100)
+c_vals = np.linspace(-10, 10, 1000)
 c_tg=0
 chi_squared = []
 
@@ -423,20 +402,12 @@ for c_tg in c_vals:
     chi_2_c_tg.append(res.fun)
 
 best_c_g = c_vals[np.argmin(chi_2_c_g)].round(2)
+min_chi2_c_g = min(chi_2_c_g)
 best_c_tg = c_vals[np.argmin(chi_2_c_tg)].round(2)
+min_chi2_c_tg = min(chi_2_c_tg)
 
-def find_confidence_interval(chi_2, c_vals, min_chi_2, delta_chi_2):
-    lower_bound = None
-    upper_bound = None
-    for i, chi in enumerate(chi_2):
-        if chi <= min_chi_2 + delta_chi_2:
-            if lower_bound is None:
-                lower_bound = c_vals[i]
-            upper_bound = c_vals[i]
-    return lower_bound, upper_bound
-
-conf_interval_68_c_g = find_confidence_interval(chi_2_c_g, c_vals, vals_c_g, 1)
-conf_interval_68_c_tg = find_confidence_interval(chi_2_c_tg, c_vals, vals_c_tg, 1)
+conf_interval_68_c_g = find_confidence_interval(chi_2_c_g, c_vals, min_chi2_c_g, 1)
+conf_interval_68_c_tg = find_confidence_interval(chi_2_c_tg, c_vals, min_chi2_c_tg, 1)
 
 print(f"Best fit for c_g: {best_c_g}")
 print(f"68% confidence interval for c_g: {conf_interval_68_c_g}")
@@ -444,19 +415,25 @@ print(f"Best fit for c_tg: {best_c_tg}")
 print(f"68% confidence interval for c_tg: {conf_interval_68_c_tg}")
 
 # Plot the results
-plt.figure(figsize=(12, 6))
+fig, ax=plt.subplots(1,2,figsize=(12, 6))
 
 plt.subplot(1, 2, 1)
 plt.plot(c_vals, chi_2_c_g, label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_g[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_g[0]:.2f}}}$")
 plt.xlabel('c_g')
+#Delta chi2 = 1 for 68% CI and 3.84 for 95% CI as technically only 1 degree of freedom here
+plt.axhline(min_chi2_c_tg+1, color='red', linestyle='--', label='68% CI')
+plt.axhline(min_chi2_c_tg+3.84, color='red', linestyle='--', label='95% CI')
+plt.ylim(0,10)
 plt.ylabel('Chi-squared')
 plt.title('Profiled Scan over c_g')
 plt.legend()
 
 plt.subplot(1, 2, 2)
-plt.plot(c_vals, chi_2_c_tg,label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_g[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_g[0]:.2f}}}$")
+plt.plot(c_vals, chi_2_c_tg,label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_tg[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_tg[0]:.2f}}}$")
 plt.xlabel('c_g')
-plt.xlabel('c_tg')
+plt.ylim(0,10)
+plt.axhline(min_chi2_c_g+1, color='red', linestyle='--', label='68% CI')
+plt.axhline(min_chi2_c_g+3.84, color='red', linestyle='--', label='95% CI')
 plt.ylabel('Chi-squared')
 plt.title('Profiled Scan over c_tg')
 plt.legend()
@@ -465,3 +442,42 @@ plt.tight_layout()
 plt.show()
 
 # %%
+'''
+Grid minimisation
+'''
+
+cg_values = np.linspace(-15, 15, 100)  # Adjust range as needed
+ctg_values = np.linspace(-15, 15, 100)  # Adjust range as needed
+
+# Initialize a 2D grid for chi-squared values
+chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))  
+
+for i, cg in enumerate(cg_values):
+    for j, ctg in enumerate(ctg_values):
+        chi_squared_grid[i][j] = get_chi_squared(best_mus, cg, ctg, hessian_comb)
+
+plt.figure(figsize=(10, 8))
+
+
+cg_grid, ctg_grid = np.meshgrid(cg_values, ctg_values)  # Create grid for plotting
+
+contour_plot = plt.contour(cg_grid, ctg_grid, chi_squared_grid.T, levels=[2.3, 5.99], colors=['yellow', 'green'], linestyles=['--', '-'])
+plt.clabel(contour_plot, fmt={2.3: '68%', 5.99: '95%'}, inline=True, fontsize=20)  # Add labels to the contours
+
+
+plt.contourf(cg_grid, ctg_grid, chi_squared_grid.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
+plt.colorbar(label=r"$\chi^2$")
+
+plt.scatter(best_c_g, best_c_tg, color='red', label='Minimum $\chi^2$', zorder=5)
+
+plt.xlabel(r"Wilson coefficient $c_{g}$")
+plt.ylabel(r"Wilson coefficient $c_{tg}$")
+plt.title(r"Heatmap of $\chi^2(c_g, c_{tg}) [First Order]$")
+plt.legend(frameon=True, edgecolor='black', loc='best')
+plt.grid()
+plt.show()
+
+#%%
+'''
+Second order contribution
+'''
