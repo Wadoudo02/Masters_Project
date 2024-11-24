@@ -11,7 +11,7 @@ import json
 
 from utils_W8 import *
 
-plot_entire_chain = True
+plot_entire_chain = False
 
 # Constants
 total_lumi = 7.9804
@@ -614,52 +614,58 @@ def mu_c(cg, ctg, quadratic = True):
 
 
 
-# Define range of c
-c_values = np.linspace(-1, 2, 100)  # Adjust range as needed
-ctg = 0
-# Calculate chi-squared values
-chi_squared = []
-for cg in c_values:
-    delta_mu = optimized_mus - mu_c(cg, ctg)
-    chi2 = delta_mu.T @ hessian_matrix @ delta_mu
-    chi_squared.append(chi2)
+def chi_squared_func(cg, ctg):
+    # Extract scalar values if arrays are passed
+    cg_val = cg[0] if isinstance(cg, np.ndarray) else cg
+    ctg_val = ctg[0] if isinstance(ctg, np.ndarray) else ctg
+    
+    delta_mu = optimized_mus - mu_c(cg_val, ctg_val)
+    return float(delta_mu.T @ hessian_matrix @ delta_mu)
 
-#chi2_vals = find_crossings((c_values, chi_squared), 1.)
-#chi2_label = add_val_label(chi2_vals)
+cg_values = np.linspace(-3, 3, 100)
+profile_chi_squared_cg = []
+fixed_ctg = 0
 
-# Plot
-plt.figure(figsize=(8, 6))
-plt.plot(c_values, chi_squared, label=f"$\\chi^2(c_g, c_{{tg}} = {ctg})$")
+#breakpoint()
 
+for cg in cg_values:
+    result = minimize(lambda ctg: chi_squared_func(cg, ctg), x0=0)
+    profile_chi_squared_cg.append(result.fun)
+
+ctg_values = np.linspace(-3, 3, 100)
+profile_chi_squared_ctg = []
+fixed_cg = 0
+
+for ctg in ctg_values:
+    result = minimize(lambda cg: chi_squared_func(cg, ctg), x0=0)
+    profile_chi_squared_ctg.append(result.fun)
+
+frozen_chi_squared_cg = [chi_squared_func(cg, fixed_ctg) for cg in cg_values]
+frozen_chi_squared_ctg = [chi_squared_func(fixed_cg, ctg) for ctg in ctg_values]
+
+plt.figure(figsize=(8, 12))
+
+plt.suptitle("Frozen and Profile $\chi^2$ Scans (Quadratic Order)", fontsize=30)
+
+plt.subplot(2, 1, 1)
+plt.plot(cg_values, frozen_chi_squared_cg, label=f"Frozen $\\chi^2(c_g, c_{{tg}} = {fixed_ctg})$")
+plt.plot(cg_values, profile_chi_squared_cg, label="Profile $\\chi^2(c_g)$ (minimized over $c_{tg}$)")
+plt.axhline(2.3, color='red', linestyle='--', label="68% CL ($\\chi^2 = 2.3$)")
 plt.xlabel(r"Wilson coefficient $c_{g}$")
-plt.ylabel(r"$\chi^2(c_{g}, c_{tg})$")
-plt.title("$\chi^2$ as a function of Wilson coefficient $c_{g}$")
+plt.ylabel(r"$\chi^2$")
 plt.legend()
 plt.grid()
-plt.show()
 
-
-
-cg = 0
-# Calculate chi-squared values
-chi_squared = []
-for ctg in c_values:
-    delta_mu = optimized_mus - mu_c(cg, ctg)
-    chi2 = delta_mu.T @ hessian_matrix @ delta_mu
-    chi_squared.append(chi2)
-
-#chi2_vals = find_crossings((c_values, chi_squared), 1.)
-#chi2_label = add_val_label(chi2_vals)
-
-# Plot
-plt.figure(figsize=(8, 6))
-plt.plot(c_values, chi_squared, label=f"$\\chi^2(c_g = {cg}, c_{{tg}})$")
-
+plt.subplot(2, 1, 2)
+plt.plot(ctg_values, frozen_chi_squared_ctg, label=f"Frozen $\\chi^2(c_{{tg}}, c_g = {fixed_cg})$")
+plt.plot(ctg_values, profile_chi_squared_ctg, label="Profile $\\chi^2(c_{tg})$ (minimized over $c_{g}$)")
+plt.axhline(2.3, color='red', linestyle='--', label="68% CL ($\\chi^2 = 2.3$)")
 plt.xlabel(r"Wilson coefficient $c_{tg}$")
-plt.ylabel(r"$\chi^2(c_{g}, c_{tg})$")
-plt.title("$\chi^2$ as a function of Wilson coefficient $c_{tg}$")
+plt.ylabel(r"$\chi^2$")
 plt.legend()
 plt.grid()
+
+plt.tight_layout()
 plt.show()
 
 #%%
