@@ -125,75 +125,87 @@ def exponential_decay(x, A, lambd):
 
 background_estimates = {}
 
-mass_range = (120, 130) # Beeded here to get BG estimate
+mass_range = (120, 130)  # Needed here to get BG estimate
 mass_bins = 5
-
 
 v = "mass_sel"
 for cat in cats_unique:
-    fig, ax = plt.subplots(1,1, figsize=plot_size)
-    print(f" --> Plotting: {v} in category {cat}")
+    print(f" --> Processing: {v} in category {cat}")
     nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
+
     # Loop over procs and add histogram
     for proc in procs.keys():
         label, color = procs[proc]
 
-        cat_mask = dfs[proc]['category']==cat
+        cat_mask = dfs[proc]['category'] == cat
 
         x = np.array(dfs[proc][v][cat_mask])
 
         # Event weight
         w = np.array(dfs[proc]['plot_weight'])[cat_mask]
 
-        counts, bin_edges, _ = ax.hist(x, nbins, xrange, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
-        
-        
+        counts, bin_edges = np.histogram(x, bins=nbins, range=xrange, weights=w)
+
         if proc == "background":
             bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-            
+
             # Perform curve fitting, ignoring empty bins (where counts == 0)
             non_zero_indices = counts > 0
             popt, pcov = curve_fit(exponential_decay, bin_centers[non_zero_indices], counts[non_zero_indices])
             A, lambd = popt  # Unpack fitted parameters
-            
-            # Plot the fitted exponential decay curve
-            x_fit = np.linspace(xrange[0], xrange[1], 1000)
-            y_fit = exponential_decay(x_fit, A, lambd)
-            ax.plot(x_fit, y_fit, color="red", linestyle="--", 
-                    label=f"Exponential Fit\n$A={A:.2f}$, $\\lambda={lambd:.4f}$")
-            
+
+            # Background estimate
             BG_estimate_bin_edges = np.linspace(mass_range[0], mass_range[1], mass_bins + 1)
             bin_estimates = []
             for i in range(len(BG_estimate_bin_edges) - 1):
-                integral, _ = quad(exponential_decay, bin_edges[i], bin_edges[i + 1], args=(A, lambd))
+                integral, _ = quad(exponential_decay, BG_estimate_bin_edges[i], BG_estimate_bin_edges[i + 1], args=(A, lambd))
                 bin_estimates.append(integral)
-            
+
             print(f"Background estimates for category {cat}: {bin_estimates}")
-            
+
             # Store the result
             if cat not in background_estimates:
                 background_estimates[cat] = {}
             background_estimates[cat][proc] = bin_estimates
-            
-        
 
-    ax.set_xlabel(sanitized_var_name)
-    ax.set_ylabel("Events")
-
-    if is_log_scale:
-        ax.set_yscale("log")
-
-    ax.legend(loc='best', ncol=2)
-
-    hep.cms.label(f"category {cat}", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
-
-    plt.tight_layout()
-    ext = f"_cat_{cat}"
+    # Only plot if plot_entire_chain is True
     if plot_entire_chain:
-        #fig.savefig(f"{plot_path}/{v}{ext}.pdf", bbox_inches="tight")
+        fig, ax = plt.subplots(1, 1, figsize=plot_size)
+
+        print(f" --> Plotting: {v} in category {cat}")
+        for proc in procs.keys():
+            label, color = procs[proc]
+
+            cat_mask = dfs[proc]['category'] == cat
+
+            x = np.array(dfs[proc][v][cat_mask])
+
+            # Event weight
+            w = np.array(dfs[proc]['plot_weight'])[cat_mask]
+
+            counts, bin_edges, _ = ax.hist(x, nbins, xrange, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
+
+            if proc == "background":
+                # Plot the fitted exponential decay curve
+                x_fit = np.linspace(xrange[0], xrange[1], 1000)
+                y_fit = exponential_decay(x_fit, A, lambd)
+                ax.plot(x_fit, y_fit, color="red", linestyle="--",
+                        label=f"Exponential Fit\n$A={A:.2f}$, $\\lambda={lambd:.4f}$")
+
+        ax.set_xlabel(sanitized_var_name)
+        ax.set_ylabel("Events")
+
+        if is_log_scale:
+            ax.set_yscale("log")
+
+        ax.legend(loc='best', ncol=2)
+
+        hep.cms.label(f"category {cat}", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
+
+        plt.tight_layout()
+        ext = f"_cat_{cat}"
         fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
-    plt.show()
-    #ax.cla()
+        plt.show()
     
     
 
@@ -204,7 +216,7 @@ for cat in cats_unique:
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Confusion Matrix
 
-Normalised = False
+Normalised = True
 
 # Define bins and labels for pt categories
 bins = [0, 60, 120, 200, 300, np.inf]
@@ -584,7 +596,7 @@ b_cg_ctgre = ttH_coefficients_data['data']["central"]["b_cg_ctgre"]
 b_ctgre_ctgre = ttH_coefficients_data['data']["central"]["b_ctgre_ctgre"]
 
 # CHANGE TO C_G AND C_TG
-def mu_c(cg, ctg, quadratic = True):
+def mu_c(cg, ctg, quadratic = False):
     """Theoretical model for mu as a function of Wilson coefficient c."""
     
     
@@ -612,14 +624,14 @@ def mu_c(cg, ctg, quadratic = True):
     
     return np.array([mu_0 , mu_1,  mu_2,  mu_3,  mu_4])
 
-
+quadratic_order = False
 
 def chi_squared_func(cg, ctg):
     # Extract scalar values if arrays are passed
     cg_val = cg[0] if isinstance(cg, np.ndarray) else cg
     ctg_val = ctg[0] if isinstance(ctg, np.ndarray) else ctg
     
-    delta_mu = optimized_mus - mu_c(cg_val, ctg_val)
+    delta_mu = optimized_mus - mu_c(cg_val, ctg_val, quadratic_order)
     return float(delta_mu.T @ hessian_matrix @ delta_mu)
 
 cg_values = np.linspace(-3, 3, 100)
@@ -627,6 +639,11 @@ profile_chi_squared_cg = []
 fixed_ctg = 0
 
 #breakpoint()
+
+if quadratic_order:
+    Order = "Quadratic"
+elif quadratic_order == False:
+    Order = "First"
 
 for cg in cg_values:
     result = minimize(lambda ctg: chi_squared_func(cg, ctg), x0=0)
@@ -645,7 +662,7 @@ frozen_chi_squared_ctg = [chi_squared_func(fixed_cg, ctg) for ctg in ctg_values]
 
 plt.figure(figsize=(8, 12))
 
-plt.suptitle("Frozen and Profile $\chi^2$ Scans (Quadratic Order)", fontsize=30)
+plt.suptitle(f"Frozen and Profile $\chi^2$ Scans ({Order} Order)", fontsize=30)
 
 plt.subplot(2, 1, 1)
 plt.plot(cg_values, frozen_chi_squared_cg, label=f"Frozen $\\chi^2(c_g, c_{{tg}} = {fixed_ctg})$")
@@ -693,8 +710,8 @@ print(f"Minimum chi-squared: {min_chi_squared}")
 
 
 
-cg_values = np.linspace(-2, 2, 100)  # Adjust range as needed
-ctg_values = np.linspace(-2, 2, 100)  # Adjust range as needed
+cg_values = np.linspace(-10, 10, 100)  # Adjust range as needed
+ctg_values = np.linspace(-10, 10, 100)  # Adjust range as needed
 
 # Initialize a 2D grid for chi-squared values
 chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))
@@ -723,7 +740,7 @@ plt.scatter(optimal_cg, optimal_ctg, color='red', label='Minimum $\chi^2$', zord
 
 plt.xlabel(r"Wilson coefficient $c_{g}$")
 plt.ylabel(r"Wilson coefficient $c_{tg}$")
-plt.title(r"Heatmap of $\chi^2(c_g, c_{tg}) [Quad Order]$")
+plt.title(rf"Heatmap of $\chi^2(c_g, c_{{tg}})$ [{Order} Order]")
 plt.legend(frameon=True, edgecolor='black', loc='best')
 plt.grid()
 plt.show()
