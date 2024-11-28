@@ -469,35 +469,6 @@ if plot_entire_chain:
 #%%
 
 
-# Define the objective function for NLL
-def objective_function(mus):
-    """
-    Objective function to compute NLL for given mu values.
-    
-    Parameters:
-        mus (array-like): Array of 5 mu values for each truth category.
-    
-    Returns:
-        float: NLL value for the given set of mu values.
-    """
-    # Calculate NLL with the current set of mu values
-    return calc_NLL(combined_histogram, mus, signal='ttH')
-
-# Initial values for the five mu parameters
-mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
-
-# Define bounds for each mu parameter (e.g., between 0 and 3)
-bounds = [(0, 3) for _ in range(5)]
-
-# Perform the optimization
-result = minimize(objective_function, mus_initial, bounds=bounds, method='L-BFGS-B')
-
-#print(np.array(result.hess_inv.todense()))
-
-# Extract the optimized mu values
-optimized_mus = result.x
-print("The optimized values of mu are:", optimized_mus)
-
 
 plot_heatmaps = False
 
@@ -539,6 +510,9 @@ if plot_heatmaps:
             plt.tight_layout()
             plt.show()
        
+#%%
+
+plot_combined_histogram(combined_histogram, labels)
     
 #%%
 
@@ -561,6 +535,10 @@ print("\nUncertainties in mu parameters:\n", np.array2string(uncertainties, prec
 correlation_matrix = covariance_to_correlation(covariant_matrix)
 print("\nCorrelation Matrix:\n", np.array2string(correlation_matrix, precision=4, separator=' ', suppress_small=True))
 
+
+
+
+plot_matrix(covariant_matrix,title = "Covrariant Matrix")
 
 #%%
 
@@ -624,7 +602,7 @@ def mu_c(cg, ctg, quadratic = False):
     
     return np.array([mu_0 , mu_1,  mu_2,  mu_3,  mu_4])
 
-quadratic_order = False
+quadratic_order = True
 
 def chi_squared_func(cg, ctg):
     # Extract scalar values if arrays are passed
@@ -696,7 +674,7 @@ def chi_squared_func(params):
 initial_guess = [0.0, 0.0]  # Start at cg=0, ctg=0; adjust as needed
 
 
-result_chi2 = minimize(chi_squared_func, initial_guess, method='Nelder-Mead')
+result_chi2 = minimize(chi_squared_func, initial_guess, method='L-BFGS-B')
 
 optimal_cg, optimal_ctg = result_chi2.x
 min_chi_squared = result_chi2.fun
@@ -710,8 +688,8 @@ print(f"Minimum chi-squared: {min_chi_squared}")
 
 
 
-cg_values = np.linspace(-10, 10, 100)  # Adjust range as needed
-ctg_values = np.linspace(-10, 10, 100)  # Adjust range as needed
+cg_values = np.linspace(-2, 2, 100)  # Adjust range as needed
+ctg_values = np.linspace(-2, 2, 100)  # Adjust range as needed
 
 # Initialize a 2D grid for chi-squared values
 chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))
@@ -719,7 +697,7 @@ chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))
 # Calculate chi-squared for each combination of c_g and c_tg
 for i, cg in enumerate(cg_values):
     for j, ctg in enumerate(ctg_values):
-        delta_mu = optimized_mus - mu_c(cg, ctg)
+        delta_mu = optimized_mus - mu_c(cg, ctg, quadratic_order)
         chi_squared_grid[i, j] = delta_mu.T @ hessian_matrix @ delta_mu
 
 contour_levels = [2.3, 5.99]

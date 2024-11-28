@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
+import matplotlib.pyplot as plt
+from matplotlib.cm import get_cmap
 
 sample_path = "/Users/wadoudcharbak/Downloads/Pass1"
 plot_path = "/Users/wadoudcharbak/Downloads/plots"
@@ -388,4 +390,105 @@ def covariance_to_correlation(cov_matrix):
     np.fill_diagonal(correlation_matrix, 1.0)
     return correlation_matrix
 
+def plot_matrix(matrix, x_labels=None, y_labels=None, title=None, cmap='viridis', colorbar=False):
+    """
+    Plots a given matrix with values labeled to 2 decimal places and optional x and y axis labels and a title.
 
+    Parameters:
+        matrix (2D array-like): The matrix to be plotted.
+        x_labels (list, optional): Labels for the x-axis.
+        y_labels (list, optional): Labels for the y-axis.
+        title (str, optional): Title of the plot.
+        cmap (str, optional): Colormap for the plot. Default is 'viridis'.
+        colorbar (bool, optional): Whether to include a colorbar. Default is True.
+    """
+    matrix = np.array(matrix)  # Ensure the input is a NumPy array
+    
+    if colorbar:
+        plt.figure(figsize=(10, 8))
+    else:
+        plt.figure(figsize=(8, 8))
+    
+    
+    plt.imshow(matrix, cmap=cmap, aspect='auto')
+    
+    if colorbar:
+        plt.colorbar()
+
+    # Annotate the values in the matrix
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            plt.text(j, i, f"{matrix[i, j]:.2f}", ha='center', va='center', color='white' if matrix[i, j] < np.max(matrix) / 2 else 'black')
+
+    if x_labels is not None:
+        plt.xticks(ticks=np.arange(matrix.shape[1]), labels=x_labels, rotation=90)
+    else:
+        plt.xticks([])  # Remove ticks if no labels provided
+
+    if y_labels is not None:
+        plt.yticks(ticks=np.arange(matrix.shape[0]), labels=y_labels)
+    else:
+        plt.yticks([])  # Remove ticks if no labels provided
+
+    if title:
+        plt.title(title)
+    
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_combined_histogram(combined_histogram, categories, mass_bins=5):
+    """
+    Plot a 25-bin stacked histogram with bins labeled according to their respective categories.
+
+    Parameters:
+        combined_histogram (dict): Combined histogram with contributions from all processes.
+        categories (list): List of category labels corresponding to each group of bins.
+        mass_bins (int): Number of bins per category (default 5).
+    """
+    num_bins = len(categories) * mass_bins  # Total number of bins
+    processes = list(combined_histogram.keys())  # Processes to plot
+    bin_indices = np.arange(num_bins)  # X-axis bin indices
+
+    # Extract contributions for each process
+    contributions = np.array([combined_histogram[proc] for proc in processes])
+    
+    # Use a colormap to assign unique colors to each process
+    cmap = get_cmap("tab20c")  # Use a larger color palette for distinct colors
+    colors = [cmap(i / len(processes)) for i in range(len(processes))]
+    
+    # Create the stacked bar plot
+    fig, ax = plt.subplots(figsize=(12, 6))
+    bottom = np.zeros(num_bins)  # Tracks the cumulative height of the bars
+
+    for i, proc in enumerate(processes):
+        ax.bar(bin_indices, contributions[i], label=proc, bottom=bottom, color=colors[i])
+        bottom += contributions[i]
+
+    # Create custom x-axis labels
+    x_labels = [f"{category}" if i % mass_bins == 2 else "" for i, category in enumerate(np.repeat(categories, mass_bins))]
+    ax.set_xticks(bin_indices)
+    ax.set_xticklabels(x_labels, rotation=0, fontsize=20)
+
+    # Add vertical separators between categories for clarity
+    for i in range(1, len(categories)):
+        ax.axvline(i * mass_bins - 0.5, color='black', linestyle='--', linewidth=0.5)
+
+    # Customize the plot
+    ax.set_ylabel("Yields", fontsize=15)
+    ax.set_xlabel("Categories", fontsize=15)
+    ax.set_title("Combined Histogram: Process Contributions", fontsize=24)
+
+    # Adjust the legend
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.4, 0.8), # Positioned (x%, y%)
+        fontsize=10,
+        ncol=2,
+        title="Processes",
+        title_fontsize=10,
+        frameon=True
+    )
+
+    plt.tight_layout()
+    plt.show()
