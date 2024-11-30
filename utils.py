@@ -4,12 +4,16 @@ from scipy.interpolate import interp1d
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+import mplhep as hep
+from categorisation import get_pt_cat
+plt.style.use(hep.style.CMS)
 
 sample_path_old = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass0"
 sample_path = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass1"
 
 plot_path = "all_plots"
 analysis_path = "stat_anal"
+col_name = "_sel"
 
 total_lumi = 7.9804
 target_lumi = 300
@@ -26,9 +30,17 @@ vars_plotting_dict = {
     "n_leptons":[50, (0,4), False, "Number of leptons"]
 }
 
+# Processes to plot
+procs = {
+    "background" : ["Background", "black"],
+    "ttH" : ["ttH (x10)", "mediumorchid"],
+    "ggH" : ["ggH (x10)", "cornflowerblue"],
+    "VBF" : ["VBF (x10)", "green"],
+    "VH" : ["VH (x10)", "brown"]
+}
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Useful function definitions
-# Function to extract 2NLL from array of NLL values
 
 def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
     """
@@ -75,6 +87,44 @@ def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
                         combined_histogram[proc][combined_bin_idx] += bin_yields[bin_idx]
 
     return combined_histogram
+
+
+def plot_diphoton_mass(dfs, cats_unique):
+    # Plot diphoton mass distribution in each category
+    v = "mass"+col_name
+    fig, axes = plt.subplots(1,5, figsize=(30,7.5))
+    for cat in cats_unique:
+        ax = axes[cat]
+        print(f" --> Plotting: {v} in cat{cat}")
+        nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
+        # Loop over procs and add histogram
+        for proc in procs.keys():
+            label, color = procs[proc]
+
+            cat_mask = dfs[proc]['category']==cat
+
+            x = np.array(dfs[proc][v][cat_mask])
+
+            # Event weight
+            w = np.array(dfs[proc]['plot_weight'])[cat_mask]
+
+            ax.hist(x, nbins, xrange, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
+
+        ax.set_xlabel(sanitized_var_name)
+        ax.set_ylabel("Events")
+
+        if is_log_scale:
+            ax.set_yscale("log")
+
+        ax.legend(loc='best')
+
+        hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
+
+        plt.tight_layout()
+        ext = f"_cat{cat}"
+        #fig.savefig(f"{plot_path}/{v}{ext}.pdf", bbox_inches="tight")
+        fig.savefig(f"{analysis_path}/{v}{ext}.png", bbox_inches="tight")
+        #ax.cla()
 
 #[i,j] element of hessian
 def get_hessian(p, q, hists, mu_vals, conf_matrix, signal="ttH"):
@@ -220,18 +270,7 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
         return val, intervals
     else:
         return val
-def get_pt_cat(data, bins = [0,60,120,200,300]):
-    conditions = [(data>=bins[i]) & (data<bins[i+1]) for i in range(len(bins)-1)]
-    conditions.append(data>=bins[-1])
-    # conditions = [
-    # (data < bins[1]),
-    # (data >= bins[1]) & (data < bins[2]),
-    # (data >= bins[2]) & (data < bins[3]), 
-    # (data >= bins[3]) & (data < bins[4]), 
-    # (data >= bins[4])     
-    # ]
-    #return np.select(conditions, [0,1,2,3,4])
-    return np.select(conditions, [i for i in range(len(bins))])
+
 
 def get_conf_mat(data):
     #print(data.columns[data.columns[:4]=="HTXS"])
@@ -313,10 +352,6 @@ def get_conf_mat(data):
     plt.savefig(f"{analysis_path}/conf_truth.png")
 
     return (conf_mat, conf_mat_truth_prop, conf_mat_recon_prop)
-
-data = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
-
-get_conf_mat(data)
 
 def get_cov(hessian):
     return np.linalg.inv(hessian)
