@@ -2,6 +2,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
+import pandas as pd
 
 sample_path = "/Users/wadoudcharbak/Downloads/Pass1"
 plot_path = "/Users/wadoudcharbak/Downloads/plots"
@@ -135,10 +136,6 @@ vars_plotting_dict = {
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Useful function definitions
-# Function to extract 2NLL from array of NLL values
-def TwoDeltaNLL(x):
-    x = np.array(x)
-    return 2*(x-x.min())
 
 
 def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
@@ -185,46 +182,6 @@ def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
                         combined_histogram[proc][combined_bin_idx] += bin_yields[bin_idx]
 
     return combined_histogram
-
-
-def calc_NLL(combined_histogram, mus, signal='ttH'):
-    """
-    Calculate the NLL using the combined 25-bin histogram with variable \mu parameters.
-
-    Parameters:
-        combined_histogram (dict): Combined histogram for each process across 25 bins.
-        mus (list or array): Signal strength modifiers, one for each truth category.
-        signal (str): The signal process (default 'ttH').
-
-    Returns:
-        float: Total NLL.
-    """
-    NLL_total = 0.0
-    num_bins = len(next(iter(combined_histogram.values())))  # Total bins (should be 25)
-
-    # Loop over each bin in the combined histogram
-    for bin_idx in range(num_bins):
-        expected_total = 0.0
-        observed_count = 0.0
-        #breakpoint()
-        for proc, yields in combined_histogram.items():
-            if signal in proc:
-                # Extract the truth category index from the signal label, e.g., "ttH_0"
-                truth_cat_idx = int(proc.split('_')[1])
-                mu = mus[truth_cat_idx]  # Apply the appropriate \mu for this truth category
-                expected_total += mu * yields[bin_idx]
-            else:
-                expected_total += yields[bin_idx]
-
-            observed_count += yields[bin_idx]  # Observed count from all processes in this bin
-
-        # Avoid division by zero in log calculation
-        expected_total = max(expected_total, 1e-10)
-        
-        # Calculate NLL contribution for this bin
-        NLL_total += observed_count * np.log(expected_total) - expected_total
-
-    return -NLL_total
 
 
 
@@ -321,63 +278,138 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
     else:
         return val
 
-def calc_Hessian(combined_histogram, mus, signal='ttH'):
+
+
+def generate_confusion_matrices(dfs, procs_to_plot, labels, normalised=True, plot=False):
     """
-    Calculate the Hessian matrix for signal strength parameters.
-    
+    Generate confusion matrices for each process.
+
     Parameters:
-        combined_histogram (dict): Combined histogram for each process across bins.
-        mus (list or array): Signal strength modifiers for each truth category.
-        signal (str): The signal process (default 'ttH').
+        dfs (dict): Dictionary of DataFrames for each process.
+        procs (dict): Dictionary defining the processes.
+        labels (list): Labels for pt categories.
+        normalized (bool): Whether to normalize the confusion matrices.
+        plot (bool): Whether to generate and save plots.
     
     Returns:
-        numpy.ndarray: Hessian matrix for signal strength parameters.
+        dict: A dictionary containing confusion matrices for each process.
     """
-    # Determine the number of signal truth categories
-    signal_categories = [proc for proc in combined_histogram.keys() if proc.startswith(signal + '_')]
-    num_categories = len(signal_categories)
-    
-    # Initialize Hessian matrix
-    Hessian = np.zeros((num_categories, num_categories))
-    
-    # Total number of bins
-    num_bins = len(next(iter(combined_histogram.values())))  # Assume all histograms have the same length
-    
-    # Calculate Hessian matrix elements
-    for i in range(num_categories):
-        for m in range(num_categories):
-            hessian_sum = 0.0
+    confusion_matrices = {}
+    for proc in procs_to_plot:
+
+        # Filter out rows where either category is NaN
+        valid_entries = dfs[proc].dropna(subset=['category', 'truth_category', 'plot_weight'])
+        
+        # Create a weighted 2D histogram for truth vs. reconstructed categories
+        confusion_matrix, _, _ = np.histogram2d(
+            valid_entries['category'].cat.codes,
+            valid_entries['truth_category'].cat.codes,
+            bins=[len(labels), len(labels)],
+            weights=valid_entries['plot_weight']
+        )
+        confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True)  # plot normalised by reco-pt row i.e. each row should sum to 1.
+        
+        # Save matrix to dictionary
+        confusion_matrices[proc] = confusion_matrix_normalized
+
+        # Choose the matrix to plot
+        if normalised:
+            matrix_to_plot = confusion_matrix_normalized
+            fmt = '.2%'  # Display as percentage
+            title_suffix = " (Normalized)"
+        else:
+            matrix_to_plot = confusion_matrix
+            fmt = '.2f'  # Display raw counts
+            title_suffix = " (Raw Counts)"
+        
+        if plot:
+            # Plot the confusion matrix
+            fig, ax = plt.subplots(figsize=(10, 8))
+            cax = ax.matshow(matrix_to_plot, cmap='Oranges')
+            plt.colorbar(cax)
             
-            for bin_idx in range(num_bins):
-                # Get background contribution for this bin
-                background = sum(
-                    combined_histogram[proc][bin_idx]
-                    for proc in combined_histogram
-                    if not proc.startswith(signal + '_')
-                )
-                
-                # Signal yields for this bin
-                s_i = combined_histogram[signal_categories[i]][bin_idx]
-                s_m = combined_histogram[signal_categories[m]][bin_idx]
-                
-                # Expected total: scaled signal + background
-                expected_total = sum(
-                    mus[k] * combined_histogram[signal_categories[k]][bin_idx]
-                    for k in range(num_categories)
-                ) + background
-                
-                # Ensure positive expected total to avoid division by zero
-                expected_total = max(expected_total, 1e-10)
-                
-                # Total observed count in this bin
-                observed_count = sum(combined_histogram[proc][bin_idx] for proc in combined_histogram)
-                
-                # Hessian contribution for this bin
-                hessian_sum += (observed_count * s_i * s_m) / (expected_total ** 2)
+            # Set axis labels and title
+            ax.set_xticks(np.arange(len(labels)))
+            ax.set_yticks(np.arange(len(labels)))
+            ax.set_xticklabels(labels, rotation=45)
+            ax.set_yticklabels(labels)
+            ax.set_xlabel("Truth pt Category")
+            ax.set_ylabel("Reconstructed pt Category")
+            ax.set_title(f"Confusion Matrix for {proc}{title_suffix}")
+
+            # Annotate each cell
+            for i in range(len(labels)):
+                for j in range(len(labels)):
+                    cell_value = matrix_to_plot[i, j]
+                    ax.text(j, i, f'{cell_value:{fmt}}', ha='center', va='center', color='black', fontsize=20)
             
-            Hessian[i, m] = hessian_sum
+            #fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
+            plt.show()
     
-    return Hessian
+    return confusion_matrices
+
+
+def unfiltered_ttH_confusion_matrix(bins, labels, normalised=True):
+    # Unfiltered ttH as a comparison
+
+    tth_unfiltered = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+
+    tth_unfiltered['pt_sel'] = tth_unfiltered['pt-over-mass_sel'] * tth_unfiltered['mass_sel']
+
+    tth_unfiltered['category'] = pd.cut(tth_unfiltered['pt_sel'], bins=bins, labels=labels, right=False)
+
+    tth_unfiltered['truth_category'] = pd.cut(tth_unfiltered['HTXS_Higgs_pt_sel'], bins=bins, labels=labels, right=False)
+
+    valid_entries = tth_unfiltered.dropna(subset=['mass_sel', 'plot_weight'])
+
+    # Create a weighted 2D histogram for truth vs. reconstructed categories
+    confusion_matrix, _, _ = np.histogram2d(
+        valid_entries['truth_category'].cat.codes,
+        valid_entries['category'].cat.codes,
+        bins=[len(labels), len(labels)],
+        weights=valid_entries['plot_weight']
+    )
+    #breakpoint()
+    confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True) # plot normalised by reco-pt row i.e. each row should sum to 1.
+
+    # Save matrix to dictionary
+
+    # Apply normalisation if the switch is set to True
+    if normalised:
+        matrix_to_plot = confusion_matrix_normalized
+        fmt = '.2%'  # Display as percentage
+        title_suffix = " (Normalised)"
+    else:
+        matrix_to_plot = confusion_matrix
+        fmt = '.2f'  # Display raw counts
+        title_suffix = " (Raw Counts)"
+    
+    # Plot the confusion matrix
+    fig, ax = plt.subplots(figsize=(10, 8))  # Increase figure size for larger plot
+    cax = ax.matshow(matrix_to_plot, cmap='Oranges')
+    plt.colorbar(cax)
+
+    # Set axis labels and title
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels, rotation=45)
+    ax.set_yticklabels(labels)
+    ax.set_xlabel("Truth pt Category")
+    ax.set_ylabel("Reconstructed pt Category")
+    ax.set_title(f"Confusion Matrix for Unfiltered ttH {title_suffix}")
+
+    # Annotate each cell based on the format specified by the normalization switch
+    for i in range(len(labels)):
+        for j in range(len(labels)):
+            cell_value = matrix_to_plot[i, j]
+            ax.text(j, i, f'{cell_value:{fmt}}', ha='center', va='center', color='black', fontsize=20)
+
+    #fig.savefig(f"{plot_path}/Confusion_Matrix_unfiltered_ttH.png", dpi = 300, bbox_inches="tight")
+
+    plt.show()
+
+
+
 
 def covariance_to_correlation(cov_matrix):
     # Get the standard deviations (square root of diagonal elements)

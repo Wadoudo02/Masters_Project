@@ -9,9 +9,9 @@ from scipy.optimize import minimize
 from scipy.integrate import quad
 import json
 
-from utils_W8 import *
+from utils import *
 
-plot_entire_chain = False
+plot_entire_chain = True
 
 # Constants
 total_lumi = 7.9804
@@ -216,8 +216,7 @@ for cat in cats_unique:
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Confusion Matrix
 
-Normalised = True
-
+    
 # Define bins and labels for pt categories
 bins = [0, 60, 120, 200, 300, np.inf]
 labels = ['0-60', '60-120', '120-200', '200-300', '>300']
@@ -229,134 +228,13 @@ for proc in procs.keys():
 
     dfs[proc]['truth_category'] = pd.cut(dfs[proc]['HTXS_Higgs_pt_sel'], bins=bins, labels=labels, right=False)
 
-
-# Create confusion matrices for each process
-confusion_matrices = {}
-for proc in procs.keys():
-    if proc in ["Data", "VBF", "VH", "background", "ggH"]:
-        continue 
-    
-    #if proc == "Data":
-    #    continue  
-    
- # Filter out rows where either category is NaN
-    valid_entries = dfs[proc].dropna(subset=['category', 'truth_category', 'plot_weight'])
-    
-    # Create a weighted 2D histogram for truth vs. reconstructed categories
-    confusion_matrix, _, _ = np.histogram2d(
-        valid_entries['category'].cat.codes,
-        valid_entries['truth_category'].cat.codes,
-        bins=[len(labels), len(labels)],
-        weights=valid_entries['plot_weight']
-    )
-    #breakpoint()
-    confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True) # plot normalised by reco-pt row i.e. each row should sum to 1.
-    
-    # Save matrix to dictionary
-    confusion_matrices[proc] = confusion_matrix_normalized
-
-    # Apply normalization if the switch is set to True
-    if Normalised:
-        matrix_to_plot = confusion_matrix_normalized
-        fmt = '.2%'  # Display as percentage
-        title_suffix = " (Normalised)"
-    else:
-        matrix_to_plot = confusion_matrix
-        fmt = '.2f'  # Display raw counts
-        title_suffix = " (Raw Counts)"
-
-
-    if plot_entire_chain:
-        
-        # Plot the confusion matrix
-        fig, ax = plt.subplots(figsize=(10, 8))  # Increase figure size for larger plot
-        cax = ax.matshow(matrix_to_plot, cmap='Oranges')
-        plt.colorbar(cax)
-        
-        # Set axis labels and title
-        ax.set_xticks(np.arange(len(labels)))
-        ax.set_yticks(np.arange(len(labels)))
-        ax.set_xticklabels(labels, rotation=45)
-        ax.set_yticklabels(labels)
-        ax.set_xlabel("Truth pt Category")
-        ax.set_ylabel("Reconstructed pt Category")
-        ax.set_title(f"Confusion Matrix for {proc}{title_suffix}")
-    
-        # Annotate each cell based on the format specified by the normalisation switch
-        for i in range(len(labels)):
-            for j in range(len(labels)):
-                cell_value = matrix_to_plot[i, j]
-                ax.text(j, i, f'{cell_value:{fmt}}', ha='center', va='center', color='black', fontsize=20)
-                
-    
-    #fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
-
-    plt.show()
+confusion_matrices = generate_confusion_matrices(dfs, ["ttH", "ggH"], labels, normalised=True, plot=plot_entire_chain)
     
 #%%
-'''
-# Unfiltered ttH as a comparison
 
-tth_unfiltered = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+if plot_entire_chain:
+    unfiltered_ttH_confusion_matrix(bins, labels, normalised=True) # To plots Unfiltered ttH to compare
 
-tth_unfiltered['pt_sel'] = tth_unfiltered['pt-over-mass_sel'] * tth_unfiltered['mass_sel']
-
-bins = [0, 60, 120, 200, 300, np.inf]  # Define the boundaries for pt
-labels = ['0-60', '60-120', '120-200', '200-300', '>300']  # Labels for each category
-tth_unfiltered['category'] = pd.cut(tth_unfiltered['pt_sel'], bins=bins, labels=labels, right=False)
-
-tth_unfiltered['truth_category'] = pd.cut(tth_unfiltered['HTXS_Higgs_pt_sel'], bins=bins, labels=labels, right=False)
-
-valid_entries = tth_unfiltered.dropna(subset=['mass_sel', 'plot_weight'])
-
-# Create a weighted 2D histogram for truth vs. reconstructed categories
-confusion_matrix, _, _ = np.histogram2d(
-    valid_entries['truth_category'].cat.codes,
-    valid_entries['category'].cat.codes,
-    bins=[len(labels), len(labels)],
-    weights=valid_entries['plot_weight']
-)
-#breakpoint()
-confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True) # plot normalised by reco-pt row i.e. each row should sum to 1.
-
-# Save matrix to dictionary
-confusion_matrices[proc] = confusion_matrix_normalized
-
-# Apply normalization if the switch is set to True
-if Normalised:
-    matrix_to_plot = confusion_matrix_normalized
-    fmt = '.2%'  # Display as percentage
-    title_suffix = " (Normalised)"
-else:
-    matrix_to_plot = confusion_matrix
-    fmt = '.2f'  # Display raw counts
-    title_suffix = " (Raw Counts)"
-
-
-# Plot the confusion matrix
-fig, ax = plt.subplots(figsize=(10, 8))  # Increase figure size for larger plot
-cax = ax.matshow(matrix_to_plot, cmap='Oranges')
-plt.colorbar(cax)
-
-# Set axis labels and title
-ax.set_xticks(np.arange(len(labels)))
-ax.set_yticks(np.arange(len(labels)))
-ax.set_xticklabels(labels, rotation=45)
-ax.set_yticklabels(labels)
-ax.set_xlabel("Truth pt Category")
-ax.set_ylabel("Reconstructed pt Category")
-ax.set_title(f"Confusion Matrix for Unfiltered ttH {title_suffix}")
-
-# Annotate each cell based on the format specified by the normalization switch
-for i in range(len(labels)):
-    for j in range(len(labels)):
-        cell_value = matrix_to_plot[i, j]
-        ax.text(j, i, f'{cell_value:{fmt}}', ha='center', va='center', color='black', fontsize=20)
-
-#fig.savefig(f"{plot_path}/Confusion_Matrix_{proc}.png", dpi = 300, bbox_inches="tight")
-
-plt.show()
-'''
 
 #%%
 
@@ -468,7 +346,7 @@ if plot_entire_chain:
 
 #%%
 
-
+optimized_mus = [1,1,1,1,1]
 
 plot_heatmaps = False
 
