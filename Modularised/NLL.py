@@ -4,14 +4,14 @@ NLL
 @author: wadoudcharbak
 """
 import numpy as np
-import pandas as pd
+
 
 import matplotlib.pyplot as plt
 import mplhep as hep
 plt.style.use(hep.style.CMS)
-from scipy.optimize import curve_fit
+
 from scipy.optimize import minimize
-from scipy.integrate import quad
+
 
 from utils import *
 
@@ -119,3 +119,104 @@ def calc_Hessian_NLL(combined_histogram, mus, signal='ttH'):
             Hessian[i, m] = hessian_sum
     
     return Hessian
+
+def objective_function(mus, fixed_mu_index, fixed_mu_value, combined_histogram):
+    """
+    Objective function to compute NLL for given mu values, fixing one mu.
+    
+    Parameters:
+        mus (array-like): Array of 4 mu values to optimize.
+        fixed_mu_index (int): Index of the mu being scanned (fixed during optimization).
+        fixed_mu_value (float): The fixed value for the scanned mu.
+    
+    Returns:
+        float: NLL value for the given set of mu values.
+    """
+    full_mus = np.insert(mus, fixed_mu_index, fixed_mu_value)  # Reconstruct full mu array
+    return calc_NLL(combined_histogram, full_mus, signal='ttH')
+
+
+def perform_NLL_scan_and_profile(
+    mu_values,
+    mus_initial,
+    bounds,
+    combined_histogram,
+    signal='ttH',
+    plot=False
+):
+    """
+    Performs NLL scans and profiles for given mu parameters.
+    
+    Parameters:
+        mu_values (array-like): Range of mu values for scanning.
+        mus_initial (list): Initial guesses for the mu parameters.
+        bounds (list): Bounds for the mu parameters during optimization.
+        combined_histogram (Dictionary): Histogram data used for NLL calculations.
+        signal (str): Signal type for the NLL calculation.
+        plot (bool): Whether to plot the results.
+
+    Returns:
+        The optimised Mus from the Frozen and Profile scan
+    """
+    #breakpoint()
+    frozen_mus = mus_initial.copy()
+    frozen_optimised_mus = []
+    profile_optimised_mus = []
+
+    if plot:
+        fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi=300, sharex=True)
+
+    for i in range(len(mus_initial)):
+        frozen_NLL_vals = []
+        profile_NLL_vals = []
+
+        for mu in mu_values:
+            # Frozen scan: keep other mu values constant
+            frozen_mus[i] = mu
+            frozen_NLL_vals.append(calc_NLL(combined_histogram, frozen_mus, signal=signal))
+            
+            # Profile scan: optimize the other mu values
+            initial_guess = [mus_initial[j] for j in range(5) if j != i]
+            obj_func = lambda reduced_mus: objective_function(reduced_mus, fixed_mu_index=i, fixed_mu_value=mu, combined_histogram = combined_histogram)
+            result = minimize(obj_func, initial_guess, bounds=bounds, method='L-BFGS-B')
+            profile_NLL_vals.append(result.fun)
+            
+
+        
+        # Convert to 2ΔNLL
+        frozen_NLL_vals = TwoDeltaNLL(frozen_NLL_vals)
+        profile_NLL_vals = TwoDeltaNLL(profile_NLL_vals)
+
+        # Find crossings
+        frozen_vals = find_crossings((mu_values, frozen_NLL_vals), 1.0)
+        profile_vals = find_crossings((mu_values, profile_NLL_vals), 1.0)
+        frozen_label = add_val_label(frozen_vals)
+        profile_label = add_val_label(profile_vals)
+
+        # Update optimal frozen mu
+        frozen_mus[i] = frozen_vals[0][0]
+
+        # Store results
+        frozen_optimised_mus.append(frozen_vals[0][0])
+        profile_optimised_mus.append(profile_vals[0][0])
+
+        if plot:
+            # Plotting each NLL curve on a separate subplot
+            ax = axes[i]
+            ax.plot(mu_values, frozen_NLL_vals, label=f"Frozen Scan: {frozen_label}", color='blue')
+            ax.plot(mu_values, profile_NLL_vals, label=f"Profile Scan: {profile_label}", color='red', linestyle='--')
+            ax.axvline(1.0, label="SM (expected)", color='green', alpha=0.5)
+            ax.axhline(1.0, color='grey', alpha=0.5, ls='--')
+            ax.axhline(4.0, color='grey', alpha=0.5, ls='--')
+            ax.set_ylim(0, 8)
+            ax.legend(loc='best')
+            ax.set_ylabel("q = 2$\\Delta$NLL")
+            ax.set_title(f"Optimizing $\\mu_{i}$")
+
+    if plot:
+        # Show the plot
+        plt.xlabel("$\\mu$ Value")
+        plt.tight_layout()
+        plt.show()
+
+    return frozen_optimised_mus, profile_optimised_mus

@@ -10,6 +10,7 @@ from scipy.integrate import quad
 import json
 
 from utils import *
+from NLL import *
 
 plot_entire_chain = True
 
@@ -266,129 +267,14 @@ conf_matrix = confusion_matrices['ttH']
 combined_histogram = build_combined_histogram(hists, conf_matrix, signal='ttH')
 
 
-# Define the objective function for NLL
-def objective_function(mus, fixed_mu_index, fixed_mu_value):
-    """
-    Objective function to compute NLL for given mu values, fixing one mu.
-    
-    Parameters:
-        mus (array-like): Array of 4 mu values to optimize.
-        fixed_mu_index (int): Index of the mu being scanned (fixed during optimization).
-        fixed_mu_value (float): The fixed value for the scanned mu.
-    
-    Returns:
-        float: NLL value for the given set of mu values.
-    """
-    full_mus = np.insert(mus, fixed_mu_index, fixed_mu_value)  # Reconstruct full mu array
-    return calc_NLL(combined_histogram, full_mus, signal='ttH')
-
-# Configuration
-mu_values = np.linspace(-2, 5, 100)  # Range for scanning a single mu
-mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
-bounds = [(0, 3) for _ in range(4)]  # Bounds for the other mu parameters
-
-frozen_mus = mus_initial.copy()
-
-# Prepare the plots
 if plot_entire_chain:
-    fig, axes = plt.subplots(nrows=5, figsize=(8, 30), dpi=300, sharex=True)
 
-# Perform both frozen scan and profile scan
-for i in range(5):
-    frozen_NLL_vals = []
-    profile_NLL_vals = []
-    
-    for mu in mu_values:
-        # Frozen scan: keep other mu values constant
-        
-        frozen_mus[i] = mu
-        frozen_NLL_vals.append(calc_NLL(combined_histogram, frozen_mus, signal='ttH'))
-        
-        # Profile scan: optimize the other mu values
-        initial_guess = [mus_initial[j] for j in range(5) if j != i]
-        obj_func = lambda reduced_mus: objective_function(reduced_mus, fixed_mu_index=i, fixed_mu_value=mu)
-        result = minimize(obj_func, initial_guess, bounds=bounds, method='L-BFGS-B')
-        
-        profile_NLL_vals.append(result.fun)
-    
-    # Convert to 2ΔNLL
-    frozen_NLL_vals = TwoDeltaNLL(frozen_NLL_vals)
-    profile_NLL_vals = TwoDeltaNLL(profile_NLL_vals)
-    
-    # Find crossings
-    frozen_vals = find_crossings((mu_values, frozen_NLL_vals), 1.)
-    profile_vals = find_crossings((mu_values, profile_NLL_vals), 1.)
-    frozen_label = add_val_label(frozen_vals)
-    profile_label = add_val_label(profile_vals)
-    
-    # Keep optimal Frozen
-    
-    frozen_mus[i] = frozen_vals[0][0]
-    
-    if plot_entire_chain:
-    # Plotting each NLL curve on a separate subplot
-        ax = axes[i]
-        ax.plot(mu_values, frozen_NLL_vals, label=f"Frozen Scan: {frozen_label}", color='blue')
-        ax.plot(mu_values, profile_NLL_vals, label=f"Profile Scan: {profile_label}", color='red', linestyle='--')
-        ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
-        ax.axhline(1, color='grey', alpha=0.5, ls='--')
-        ax.axhline(4, color='grey', alpha=0.5, ls='--')
-        ax.set_ylim(0, 8)
-        ax.legend(loc='best')
-        ax.set_ylabel("q = 2$\\Delta$NLL")
-        ax.set_title(f"Optimising $\\mu_{i}$")
+    frozen_optimised_mus, profile_optimised_mus = perform_NLL_scan_and_profile(mu_values,mus_initial,bounds,combined_histogram,signal='ttH',plot=True)
 
-if plot_entire_chain:
-    # Show the plot
-    plt.xlabel("$\\mu$ Value")
-    plt.tight_layout()
-    plt.show()
 
 #%%
 
 optimized_mus = [1,1,1,1,1]
-
-plot_heatmaps = False
-
-
-if plot_heatmaps:
-    # Define ranges for the heatmap
-    mu_range = np.linspace(0.5, 1.5, 50)
-    
-    # Create heatmaps for pairs of mu values
-    for i in range(5):
-        for j in range(i+1, 5):
-            NLL_grid = np.zeros((len(mu_range), len(mu_range)))
-            
-            # Fix all mu values to optimized values
-            mus = optimized_mus.copy()
-            
-            # Generate NLL values across the i, j mu grid
-            for idx_i, mu_i in enumerate(mu_range):
-                for idx_j, mu_j in enumerate(mu_range):
-                    mus[i] = mu_i  # Vary mu_i
-                    mus[j] = mu_j  # Vary mu_j
-                    
-                    # Calculate NLL with the adjusted mus
-                    NLL_grid[idx_i, idx_j] = calc_NLL(combined_histogram, mus, signal='ttH')
-            
-            # Plot the heatmap for this mu pair
-            plt.figure(figsize=(8, 6), dpi = 300)
-            plt.contourf(mu_range, mu_range, NLL_grid, levels=50, cmap="viridis")
-            plt.colorbar(label="NLL")
-            plt.xlabel(f"$\\mu_{i+1}$")
-            plt.ylabel(f"$\\mu_{j+1}$")
-            plt.title(f"NLL Heatmap for $\\mu_{i+1}$ and $\\mu_{j+1}$ with Other $\\mu$ Values Fixed", pad = 20)
-    
-            # Add scatter points for both optimized and frozen scan results
-            plt.scatter(optimized_mus[i], optimized_mus[j], color='red', label="Simultaneous Optimum", s=100, edgecolor='black')
-            plt.scatter(frozen_scan_mus[i], frozen_scan_mus[j], color='blue', label="Frozen Scan Optimum", s=100, edgecolor='black')
-            
-            plt.legend()
-            plt.tight_layout()
-            plt.show()
-       
-#%%
 
 plot_combined_histogram(combined_histogram, labels)
     
@@ -396,7 +282,7 @@ plot_combined_histogram(combined_histogram, labels)
 
 labels = ['0-60', '60-120', '120-200', '200-300', '>300'] # define labels again for hists
 
-hessian_matrix = calc_Hessian(combined_histogram, optimized_mus)
+hessian_matrix = calc_Hessian_NLL(combined_histogram, optimized_mus)
 print("Hessian Matrix:\n", np.array2string(hessian_matrix, precision=4, separator=' ', suppress_small=True))
 
 try:
@@ -416,144 +302,30 @@ print("\nCorrelation Matrix:\n", np.array2string(correlation_matrix, precision=4
 
 
 
-plot_matrix(covariant_matrix,title = "Covrariant Matrix")
+plot_matrix(covariant_matrix, title = "Covrariant Matrix")
 
 #%%
 
-ttH_coefficients_data = json.load(open("data/TTH.json", 'r'))
-
-'''
-NOTES ON INDEX IN JSON FILE
-
-[2] = TTH_PTH_0_60 = 0 to 60
-[3] = TTH_PTH_120_200 = 120 to 200
-[4] = TTH_PTH_200_300 = 200 to 300
-[5] = TTH_PTH_60_120 = 60 to 120
-[6] = TTH_PTH_GT300 = >300
-
-or
-
-0-60 = [2]
-60-120 = [5]
-120-200 = [3]
-200-300 = [4]
->300 = [6]
-
-
-'''
-
-optimized_mus = np.array([1,1,1,1,1])
-
-a_cg = ttH_coefficients_data['data']["central"]["a_cg"]
-a_ctgre = ttH_coefficients_data['data']["central"]["a_ctgre"]
-
-b_cg_cg = ttH_coefficients_data['data']["central"]["b_cg_cg"]
-b_cg_ctgre = ttH_coefficients_data['data']["central"]["b_cg_ctgre"]
-b_ctgre_ctgre = ttH_coefficients_data['data']["central"]["b_ctgre_ctgre"]
-
-# CHANGE TO C_G AND C_TG
-def mu_c(cg, ctg, quadratic = False):
-    """Theoretical model for mu as a function of Wilson coefficient c."""
-    
-    
-    mu_0 = 1 + cg * a_cg[2] + ctg * a_ctgre[2]
-    
-    mu_1 = 1 + cg * a_cg[5] + ctg * a_ctgre[5]
-    
-    mu_2 = 1 + cg * a_cg[3] + ctg * a_ctgre[3]
-    
-    mu_3 = 1 + cg * a_cg[4] + ctg * a_ctgre[4]
-    
-    mu_4 = 1 + cg * a_cg[6] + ctg * a_ctgre[6]
-    
-    if quadratic:
-        mu_0 += (cg ** 2) * b_cg_cg[2] + cg * ctg * b_cg_ctgre[2] + (ctg ** 2) * b_ctgre_ctgre[2]
-        
-        mu_1 += (cg ** 2) * b_cg_cg[5] + cg * ctg * b_cg_ctgre[5] + (ctg ** 2) * b_ctgre_ctgre[5]
-        
-        mu_2 += (cg ** 2) * b_cg_cg[3] + cg * ctg * b_cg_ctgre[3] + (ctg ** 2) * b_ctgre_ctgre[3]
-        
-        mu_3 += (cg ** 2) * b_cg_cg[4] + cg * ctg * b_cg_ctgre[4] + (ctg ** 2) * b_ctgre_ctgre[4]
-        
-        mu_4 += (cg ** 2) * b_cg_cg[6] + cg * ctg * b_cg_ctgre[6] + (ctg ** 2) * b_ctgre_ctgre[6]
-        
-    
-    return np.array([mu_0 , mu_1,  mu_2,  mu_3,  mu_4])
+from Chi_Squared import *
 
 quadratic_order = True
 
-def chi_squared_func(cg, ctg):
-    # Extract scalar values if arrays are passed
-    cg_val = cg[0] if isinstance(cg, np.ndarray) else cg
-    ctg_val = ctg[0] if isinstance(ctg, np.ndarray) else ctg
-    
-    delta_mu = optimized_mus - mu_c(cg_val, ctg_val, quadratic_order)
-    return float(delta_mu.T @ hessian_matrix @ delta_mu)
 
-cg_values = np.linspace(-3, 3, 100)
-profile_chi_squared_cg = []
-fixed_ctg = 0
-
-#breakpoint()
-
-if quadratic_order:
-    Order = "Quadratic"
-elif quadratic_order == False:
-    Order = "First"
-
-for cg in cg_values:
-    result = minimize(lambda ctg: chi_squared_func(cg, ctg), x0=0)
-    profile_chi_squared_cg.append(result.fun)
-
-ctg_values = np.linspace(-3, 3, 100)
-profile_chi_squared_ctg = []
-fixed_cg = 0
-
-for ctg in ctg_values:
-    result = minimize(lambda cg: chi_squared_func(cg, ctg), x0=0)
-    profile_chi_squared_ctg.append(result.fun)
-
-frozen_chi_squared_cg = [chi_squared_func(cg, fixed_ctg) for cg in cg_values]
-frozen_chi_squared_ctg = [chi_squared_func(fixed_cg, ctg) for ctg in ctg_values]
-
-plt.figure(figsize=(8, 12))
-
-plt.suptitle(f"Frozen and Profile $\chi^2$ Scans ({Order} Order)", fontsize=30)
-
-plt.subplot(2, 1, 1)
-plt.plot(cg_values, frozen_chi_squared_cg, label=f"Frozen $\\chi^2(c_g, c_{{tg}} = {fixed_ctg})$")
-plt.plot(cg_values, profile_chi_squared_cg, label="Profile $\\chi^2(c_g)$ (minimized over $c_{tg}$)")
-plt.axhline(2.3, color='red', linestyle='--', label="68% CL ($\\chi^2 = 2.3$)")
-plt.xlabel(r"Wilson coefficient $c_{g}$")
-plt.ylabel(r"$\chi^2$")
-plt.legend()
-plt.grid()
-
-plt.subplot(2, 1, 2)
-plt.plot(ctg_values, frozen_chi_squared_ctg, label=f"Frozen $\\chi^2(c_{{tg}}, c_g = {fixed_cg})$")
-plt.plot(ctg_values, profile_chi_squared_ctg, label="Profile $\\chi^2(c_{tg})$ (minimized over $c_{g}$)")
-plt.axhline(2.3, color='red', linestyle='--', label="68% CL ($\\chi^2 = 2.3$)")
-plt.xlabel(r"Wilson coefficient $c_{tg}$")
-plt.ylabel(r"$\chi^2$")
-plt.legend()
-plt.grid()
-
-plt.tight_layout()
-plt.show()
+chi_squared_scans(optimized_mus, hessian_matrix, np.linspace(-3, 3, 100), quadratic_order)
 
 #%%
-def chi_squared_func(params):
-    cg, ctg = params  # Extract parameters
-    delta_mu = optimized_mus - mu_c(cg, ctg)
-    chi2 = delta_mu.T @ hessian_matrix @ delta_mu  # Calculate chi-squared
-    return chi2
+def chi_squared_wrapper(cg_ctg, optimized_mus, hessian_matrix, quadratic_order):
+    cg, ctg = cg_ctg  # Extract cg and ctg from the array
+    return chi_squared_func(cg, ctg, optimized_mus, hessian_matrix, quadratic_order)
 
 
-initial_guess = [0.0, 0.0]  # Start at cg=0, ctg=0; adjust as needed
+# Initial guess for c_g and c_tg
+initial_guess = [0.0, 0.0]  # Adjust as needed
 
+# Minimize the chi-squared function using the wrapper
+result_chi2 = minimize(chi_squared_wrapper, initial_guess, args=(optimized_mus, hessian_matrix, quadratic_order), method='L-BFGS-B')
 
-result_chi2 = minimize(chi_squared_func, initial_guess, method='L-BFGS-B')
-
+# Extract results
 optimal_cg, optimal_ctg = result_chi2.x
 min_chi_squared = result_chi2.fun
 
@@ -564,39 +336,5 @@ print(f"Minimum chi-squared: {min_chi_squared}")
 
 #%%
 
+chi_squared_grid(optimized_mus, hessian_matrix, np.linspace(-2, 2, 100), result_chi2.x, quadratic_order)
 
-
-cg_values = np.linspace(-2, 2, 100)  # Adjust range as needed
-ctg_values = np.linspace(-2, 2, 100)  # Adjust range as needed
-
-# Initialize a 2D grid for chi-squared values
-chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))
-
-# Calculate chi-squared for each combination of c_g and c_tg
-for i, cg in enumerate(cg_values):
-    for j, ctg in enumerate(ctg_values):
-        delta_mu = optimized_mus - mu_c(cg, ctg, quadratic_order)
-        chi_squared_grid[i, j] = delta_mu.T @ hessian_matrix @ delta_mu
-
-contour_levels = [2.3, 5.99]
-
-plt.figure(figsize=(10, 8))
-
-
-cg_grid, ctg_grid = np.meshgrid(cg_values, ctg_values)  # Create grid for plotting
-
-contour_plot = plt.contour(cg_grid, ctg_grid, chi_squared_grid.T, levels=contour_levels, colors=['yellow', 'green'], linestyles=['--', '-'])
-plt.clabel(contour_plot, fmt={2.3: '68%', 5.99: '95%'}, inline=True, fontsize=20)  # Add labels to the contours
-
-
-plt.contourf(cg_grid, ctg_grid, chi_squared_grid.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
-plt.colorbar(label=r"$\chi^2$")
-
-plt.scatter(optimal_cg, optimal_ctg, color='red', label='Minimum $\chi^2$', zorder=5)
-
-plt.xlabel(r"Wilson coefficient $c_{g}$")
-plt.ylabel(r"Wilson coefficient $c_{tg}$")
-plt.title(rf"Heatmap of $\chi^2(c_g, c_{{tg}})$ [{Order} Order]")
-plt.legend(frameon=True, edgecolor='black', loc='best')
-plt.grid()
-plt.show()
