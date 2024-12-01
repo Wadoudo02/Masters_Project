@@ -44,7 +44,7 @@ plot_diphoton_mass(dfs, cats_unique)
 #%%
 # Simple binned likelihood fit to mass histograms in signal window (120,130)
 print('''
-NLL FROZEN SCAN USING INDIVIDUAL HISTOGRAMS
+Building hists with background replacement
 ''')
 hists = {}
 mass_range = (120,130)
@@ -59,17 +59,14 @@ for cat in cats_unique:
         else:
             cat_mask = dfs[proc]['category'] == cat
             hist_counts = np.histogram(dfs[proc][cat_mask][v], mass_bins, mass_range, weights=dfs[proc][cat_mask]['true_weight'+col_name])[0]
-        
-        # hist_counts[-2] += hist_counts[-1]  # Add last bin to the second last
-        # hist_counts = hist_counts[:-1]      # Remove the last bin
         hists[cat][proc] = hist_counts
-#print(hists)
-# Calculate NLL as a function of ttH signal strength (assuming fixed bkg and ggH yields)
+
 NLL_vals = []
 mu_vals = np.linspace(-2,5,100)
-new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
-conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(new_samples) #conf_matrix[2] is the one normalised by recon
-init_mu = [1 for i in range(len(conf_matrix))]
+
+tth_new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(tth_new_samples) #conf_matrix[2] is the one normalised by recon
+
 
 #%%
 '''
@@ -82,7 +79,7 @@ print(f'''Before combining
       {hists}
       ''')
 comb_hist = build_combined_histogram(hists, conf_matrix, mass_bins=5)
-#NLL_vals = []
+
 print("My Comb hist is:", comb_hist)
 comb_hist = {'background': np.array([184.15569955, 172.23392536, 161.08393668, 150.65577007,
         140.90269658,  41.7795452 ,  41.36907768,  40.96264285,
@@ -145,41 +142,8 @@ print(f'''
 Wadoud comb hist
       {comb_hist}
 ''')
-bin_edges = np.arange(len(next(iter(comb_hist.values()))))
-for cat, hist in comb_hist.items():
-    plt.bar(bin_edges,hist, label=cat)
-    plt.title(f"Cat: {cat}")
-    plt.show()
-
-init_mu = np.ones(len(conf_matrix))
-best_mus = np.ones(len(conf_matrix))
-fig, axes = plt.subplots(ncols=5, figsize=(25, 5), dpi = 300, sharex=True)
-
-for i in range(len(init_mu)):
-    NLL_vals = []
-    for mu in mu_vals:
-        init_mu[i] = mu  # Set the i-th \mu to the scan value
-        # Calculate the NLL for the current set of \mu values
-        NLL_vals.append(calc_NLL_comb(comb_hist, init_mu,signal='ttH'))
-
-    vals = find_crossings((mu_vals, TwoDeltaNLL(NLL_vals)), 1.)
-    init_mu[i] = 1
-    best_mus[i] = vals[0]#[0]
-    label = add_val_label(vals)
-    
-    # Plotting each NLL curve on a separate subplot
-    ax = axes[i]
-    ax.plot(mu_vals, TwoDeltaNLL(NLL_vals), label=label)
-    ax.axvline(1., label="SM (expected)", color='green', alpha=0.5)
-    ax.axhline(1, color='grey', alpha=0.5, ls='--')
-    ax.axhline(4, color='grey', alpha=0.5, ls='--')
-    ax.set_ylim(0, 8)
-    ax.legend(loc='best')
-    ax.set_ylabel("q = 2$\\Delta$NLL")
-    ax.set_title(f"Optimising $\\mu_{i}$")
-fig.suptitle("Frozen NLL scan for each mu using comb hist")
-#all_mu = init_mu
-print("The optimised values of mu are:", best_mus)
+plot_comb_hist(comb_hist)
+plot_comb_hist(comb_hist, False)
 
 #%%
 '''
@@ -218,20 +182,6 @@ print(f"""
         Covariance: {cov}
 """)
 
-
-#%%
-print('''
-Getting Hessian matrix
-''')
-print("All mus:", best_mus)
-hessian = np.zeros((len(conf_matrix), len(conf_matrix)))
-#hessian = [[0 for i in range(5)] for j in range(5)]
-for i in range(len(conf_matrix)):
-    for j in range(len(conf_matrix)):
-        hessian[i][j] = get_hessian(i,j, hists, best_mus, conf_matrix)
-print("Hessian: \n", hessian)
-show_matrix(hessian, "Hessian matrix")
-show_matrix(get_cov(hessian), "Covariance matrix")
 # %%
 print('''
 Getting Hessian matrix from combined hist

@@ -88,7 +88,51 @@ def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
 
     return combined_histogram
 
+def plot_comb_hist(comb_hist, inc_background=True):
+    num_bins = 25
+    #bin_edges = np.array([*np.linspace(120, 130, 6)]*5)
+    bin_edges = np.linspace(0,26, 26)
+    print(bin_edges)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:])/2
+                   
+    fig, ax = plt.subplots(figsize=(10, 7))
+    colors = sns.color_palette("husl", len(comb_hist))
+    bottom = np.zeros(num_bins)
+    for  i, (cat, hist_values) in enumerate(comb_hist.items()):
+        if not inc_background and cat == "background":
+            continue
+        #ax.bar(bin_edges,comb_hist[cat], label=cat, color=colors[cat])
+        ax.bar(bin_centers, comb_hist[cat], width=bin_edges[1] - bin_edges[0], bottom=bottom, label=cat, color=colors[i],edgecolor='black')
+        bottom+=comb_hist[cat]
 
+    # Add labels and title
+    ax.set_xlabel('pt category (GeV/c)')
+    ax.set_ylabel('Events')
+    ax.set_title('Combined Histogram')
+    ax.legend(title='Categories')
+
+    group_labels = ['0-60', '60-120', '120-180', '180-240', '240-300']
+    bin_labels = ['120-122', '122-124', '124-126', '126-128', '128-130']
+    custom_labels = []
+    # for group in group_labels:
+    #     custom_labels.extend([f'{group}\n{bin_label}' for bin_label in bin_labels])
+
+    ax.set_xticks(bin_centers[2:][::5])
+    ax.set_xticklabels(group_labels)
+
+    # Show the plot
+    plt.tight_layout()
+    plt.show()    
+
+def plot_ind_cats(comb_hist):
+    bin_edges = np.arange(len(next(iter(comb_hist.values()))))
+    fig, axes = plt.subplots(5,2,figsize=(10, 7))
+    for cat, hist in comb_hist.items():
+        ax = axes[cat//5][cat%5]
+        ax.bar(bin_edges,hist, label=cat)
+        ax.set_title(f"Cat: {cat}")
+        ax.set_ylabel("Events")
+        ax.show()
 def plot_diphoton_mass(dfs, cats_unique):
     # Plot diphoton mass distribution in each category
     v = "mass"+col_name
@@ -256,9 +300,9 @@ def find_crossings(graph, yval, spline_type="cubic", spline_points=1000, remin=T
     for interval in intervals:
         interval['contains_bf'] = False
 
-        print("lo ", interval["lo"])
-        print("hi ", interval["hi"])
-        print("bestfit: ", bestfit)
+        # print("lo ", interval["lo"])
+        # print("hi ", interval["hi"])
+        # print("bestfit: ", bestfit)
 
         if (interval['lo']<=bestfit)&(interval['hi']>=bestfit): interval['contains_bf'] = True
 
