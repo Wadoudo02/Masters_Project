@@ -217,3 +217,17 @@ def chi_squared_grid(
     plt.legend(frameon=True, edgecolor='black', loc='best')
     plt.grid()
     plt.show()
+
+
+def compute_chi2_hessian(cg, ctg, optimized_mus, NLL_hessian_matrix, quadratic_order, epsilon=1e-8):
+    def chi2_func(c_g, c_tg):
+        delta_mu = optimized_mus - mu_c(c_g, c_tg, quadratic_order)
+        return float(delta_mu.T @ NLL_hessian_matrix @ delta_mu)
+    
+    # Numerical approximation of second derivatives
+    d2_cg = (chi2_func(cg + epsilon, ctg) - 2 * chi2_func(cg, ctg) + chi2_func(cg - epsilon, ctg)) / (epsilon**2)
+    d2_ctg = (chi2_func(cg, ctg + epsilon) - 2 * chi2_func(cg, ctg) + chi2_func(cg, ctg - epsilon)) / (epsilon**2)
+    d2_cross = (chi2_func(cg + epsilon, ctg + epsilon) - chi2_func(cg + epsilon, ctg) - chi2_func(cg, ctg + epsilon) + chi2_func(cg, ctg)) / (epsilon**2)
+    
+    return np.array([[d2_cg, d2_cross],
+                     [d2_cross, d2_ctg]])

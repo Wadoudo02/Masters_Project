@@ -10,7 +10,7 @@ from scipy.integrate import quad
 import json
 
 from utils import *
-from NLL import *
+
 
 plot_entire_chain = True
 
@@ -148,6 +148,7 @@ for cat in cats_unique:
         counts, bin_edges = np.histogram(x, bins=nbins, range=xrange, weights=w)
 
         if proc == "background":
+           # breakpoint()
             bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
 
             # Perform curve fitting, ignoring empty bins (where counts == 0)
@@ -239,6 +240,8 @@ if plot_entire_chain:
 
 #%%
 
+from NLL import *
+
 # Define signal window parameters
 hists = {}
 
@@ -261,15 +264,19 @@ for cat in cats_unique:
                 weights=dfs[proc][cat_mask]['true_weight']
             )[0]
 
+ordered_hists = {key: hists[key] for key in labels}
 
 conf_matrix = confusion_matrices['ttH']
 
-combined_histogram = build_combined_histogram(hists, conf_matrix, signal='ttH')
+combined_histogram = build_combined_histogram(ordered_hists, conf_matrix, signal='ttH')
 
+mu_values = np.linspace(-2, 5, 100)  # Range for scanning a single mu
+mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
+bounds = [(0, 3) for _ in range(4)]  # Bounds for the other mu parameters
 
 if plot_entire_chain:
+    frozen_optimised_mus, profile_optimised_mus = perform_NLL_scan_and_profile_and_other_mus(mu_values, mus_initial, bounds, combined_histogram, signal='ttH', plot=True)
 
-    frozen_optimised_mus, profile_optimised_mus = perform_NLL_scan_and_profile(mu_values,mus_initial,bounds,combined_histogram,signal='ttH',plot=True)
 
 
 #%%
@@ -337,4 +344,31 @@ print(f"Minimum chi-squared: {min_chi_squared}")
 #%%
 
 chi_squared_grid(optimized_mus, hessian_matrix, np.linspace(-2, 2, 100), result_chi2.x, quadratic_order)
+
+
+#%%
+
+
+
+
+chi2_hessian = compute_chi2_hessian(0, 0, optimized_mus, hessian_matrix, quadratic_order, epsilon=1e-8)
+
+print("Chi Squared Hessian Matrix:\n", np.array2string(chi2_hessian, precision=4, separator=' ', suppress_small=True))
+
+try:
+    chi2_covariant_matrix = np.linalg.inv(chi2_hessian)
+    print("\nChi Squared Covariant Matrix:\n", np.array2string(chi2_covariant_matrix, precision=4, separator=' ', suppress_small=True))
+except np.linalg.LinAlgError:
+    print("Error: Hessian matrix is singular and cannot be inverted. Check if the Hessian is non-singular.")
+
+# Extract uncertainties for each mu parameter
+chi2_uncertainties = np.sqrt(np.diag(chi2_covariant_matrix))
+print("\nChi Squared Uncertainties in parameters:\n", np.array2string(chi2_uncertainties, precision=4, separator=', ', suppress_small=True))
+
+
+chi2_correlation_matrix = covariance_to_correlation(chi2_covariant_matrix)
+print("\nCChi Squared orrelation Matrix:\n", np.array2string(chi2_correlation_matrix, precision=4, separator=' ', suppress_small=True))
+
+                                                                                                                                                                                                                          
+
 

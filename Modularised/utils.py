@@ -514,7 +514,7 @@ def plot_combined_histogram(combined_histogram, categories, mass_bins=5):
     # Adjust the legend
     ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.4, 0.8), # Positioned (x%, y%)
+        bbox_to_anchor=(0.85, 0.8), # Positioned (x%, y%)
         fontsize=10,
         ncol=2,
         title="Processes",
