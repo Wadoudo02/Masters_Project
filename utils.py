@@ -359,41 +359,40 @@ def get_conf_mat(data):
     conf_mat_recon_prop = [[conf_mat[i][j]/sum(conf_mat[i]) for j in range(len(conf_mat[0]))] for i in range(len(conf_mat))]
 
 
-    #print("conf matrix: ", conf_mat)
-    #print("Conf matrix by proportion of truth: ", conf_mat_truth_prop)
-    #print("Conf matrix by proportion of recon: ", conf_mat_recon_prop)
-    #labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
+    fig, ax = plt.subplots(3, figsize=(15, 30))
+
     labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
-    plt.figure(figsize=(8, 6))
+    #plt.figure(figsize=(8, 6))
     sns.heatmap(conf_mat, annot=True, fmt=".2f", cmap="Blues", cbar=True,
-                xticklabels=labels, yticklabels=labels)
+                xticklabels=labels, yticklabels=labels, ax=ax[0])
 
     # Add labels to the plot
-    plt.ylabel("Reconstructed pt")
-    plt.xlabel("True pt")
-    plt.title("Weighted Confusion Matrix")
-    plt.savefig(f"{analysis_path}/conf.png")
+    ax[0].set_ylabel("Reconstructed pt")
+    ax[0].set_xlabel("True pt")
+    ax[0].set_title("Weighted Confusion Matrix")
+    #plt.savefig(f"{analysis_path}/conf.png")
 
-    plt.figure(figsize=(8, 6))
+    
     sns.heatmap(conf_mat_recon_prop, annot=True, fmt=".3f", cmap="Blues", cbar=True,
-                xticklabels=labels, yticklabels=labels)
+                xticklabels=labels, yticklabels=labels,ax=ax[1])
 
     # Add labels to the plot
-    plt.ylabel("Reconstructed pt")
-    plt.xlabel("True pt")
-    plt.title("Weighted Confusion Matrix normalised by recon")
-    plt.savefig(f"{analysis_path}/conf_recon.png")
+    ax[1].set_ylabel("Reconstructed pt")
+    ax[1].set_xlabel("True pt")
+    ax[1].set_title("Weighted Confusion Matrix normalised by recon")
+    #plt.savefig(f"{analysis_path}/conf_recon.png")
 
 
-    plt.figure(figsize=(8, 6))
+    #plt.figure(figsize=(8, 6))
     sns.heatmap(conf_mat_truth_prop, annot=True, fmt=".3f", cmap="Blues", cbar=True,
-                xticklabels=labels, yticklabels=labels)
+                xticklabels=labels, yticklabels=labels, ax = ax[2])
 
     # Add labels to the plot
-    plt.ylabel("Reconstructed pt")
-    plt.xlabel("True pt")
-    plt.title("Weighted Confusion Matrix normalised by truth")
-    plt.savefig(f"{analysis_path}/conf_truth.png")
+    ax[2].set_ylabel("Reconstructed pt")
+    ax[2].set_xlabel("True pt")
+    ax[2].set_title("Weighted Confusion Matrix normalised by truth")
+    #plt.savefig(f"{analysis_path}/conf_truth.png")
+    plt.savefig(f"{analysis_path}/conf.png")
 
     return (conf_mat, conf_mat_truth_prop, conf_mat_recon_prop)
 
