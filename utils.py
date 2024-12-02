@@ -42,6 +42,13 @@ procs = {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Useful function definitions
 
+def order_data(*args, order):
+    ans = []
+    for data in args:
+        ordered_data = [data[i] for i in order]
+        ans.append(ordered_data)
+    return ans
+
 def build_combined_histogram(hists, conf_matrix, signal='ttH', mass_bins = 5):
     """
     Builds a single 25-bin histogram by combining yields from all categories and scaling ttH yields

@@ -144,9 +144,10 @@ Chi squared fit of mu(c)
 c_vals = np.linspace(-10, 10, 1000)
 c_tg=0
 chi_squared = []
+second_order = True
 
 for c_g in c_vals:
-    chi2 = get_chi_squared(best_mus, c_g, c_tg, hessian_comb)
+    chi2 = get_chi_squared(best_mus, c_g, c_tg, hessian_comb, second_order=second_order)
     #print(chi2)
     chi_squared.append(chi2)
 
@@ -172,12 +173,12 @@ chi_2_c_g = []
 chi_2_c_tg = []
 
 for c_g in c_vals:
-    res = minimize(lambda x: get_chi_squared(best_mus, c_g, x, hessian_comb),
+    res = minimize(lambda x: get_chi_squared(best_mus, c_g, x, hessian_comb,second_order=second_order),
                     init_guess, method='Nelder-Mead')
     chi_2_c_g.append(res.fun)
 
 for c_tg in c_vals:
-    res = minimize(lambda x: get_chi_squared(best_mus, x, c_tg, hessian_comb),
+    res = minimize(lambda x: get_chi_squared(best_mus, x, c_tg, hessian_comb,second_order=second_order),
                     init_guess, method='Nelder-Mead')
     chi_2_c_tg.append(res.fun)
 
@@ -225,16 +226,17 @@ plt.show()
 '''
 Grid minimisation
 '''
+width = 10
 
-cg_values = np.linspace(-20, 20, 100)  # Adjust range as needed
-ctg_values = np.linspace(-20, 20, 100)  # Adjust range as needed
+cg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed
+ctg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed
 
 # Initialize a 2D grid for chi-squared values
 chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))  
 
 for i, cg in enumerate(cg_values):
     for j, ctg in enumerate(ctg_values):
-        chi_squared_grid[i][j] = get_chi_squared(best_mus, cg, ctg, hessian_comb)
+        chi_squared_grid[i][j] = get_chi_squared(best_mus, cg, ctg, hessian_comb, second_order=second_order)
 
 plt.figure(figsize=(10, 8))
 
@@ -252,7 +254,7 @@ plt.scatter(best_c_g, best_c_tg, color='red', label='Minimum $\chi^2$', zorder=5
 
 plt.xlabel(r"Wilson coefficient $c_{g}$")
 plt.ylabel(r"Wilson coefficient $c_{tg}$")
-plt.title(r"Heatmap of $\chi^2(c_g, c_{tg}) [First Order]$")
+plt.title(r"Heatmap of $\chi^2(c_g, c_{tg})$"+f" {'(second order)' if second_order else '(first order)'}")
 plt.legend(frameon=True, edgecolor='black', loc='best')
 plt.grid()
 plt.show()
