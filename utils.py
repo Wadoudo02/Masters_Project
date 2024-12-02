@@ -359,7 +359,7 @@ def get_conf_mat(data):
     conf_mat_recon_prop = [[conf_mat[i][j]/sum(conf_mat[i]) for j in range(len(conf_mat[0]))] for i in range(len(conf_mat))]
 
 
-    fig, ax = plt.subplots(3, figsize=(15, 30))
+    fig, ax = plt.subplots(ncols=3, figsize=(30, 10))
 
     labels = ["0-60", "60-120", "120-200", "200-300", "300-inf"]
     #plt.figure(figsize=(8, 6))

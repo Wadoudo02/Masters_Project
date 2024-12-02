@@ -10,15 +10,13 @@ from utils import get_pt_cat
 def exp(x, lam, A):
     return A*np.exp(-lam*(x-100))
 def get_background_dist(back_data, num_cats=5):
-    back_mass = back_data["mass_sel"]#.dropna().reset_index(drop=True)
+    back_mass = back_data["mass_sel"]
     back_pt = back_data["pt-over-mass_sel"]*back_mass
-    #print(back_pt)
     back_data["categories"] = get_pt_cat(back_pt)
-    back_data["categories"].dropna()
-    #print(back_data["categories"])
+
     fig,ax = plt.subplots(ncols=5, figsize=(20,5))
-    #print(np.unique(back_data["categories"]))
-    num_bins = 50
+
+    num_bins = 80 # Keep at 80 otherwise integral messes up
     fits = []
     for cat in range(num_cats):
         mask = back_data["categories"]==cat
@@ -32,10 +30,10 @@ def get_background_dist(back_data, num_cats=5):
         fil_counts = counts[counts>0]
 
         
-        p_fit, p_cov = curve_fit(exp, fil_cen, fil_counts,p0=[0.001, 10000])
+        p_fit, p_cov = curve_fit(exp, bin_centres, counts,p0=[0.001, 10000])
         
         ax[cat].plot(np.arange(100, 180), exp(np.arange(100, 180), *p_fit))
-        ax[cat].plot(fil_cen, fil_counts, linestyle="", marker="x")
+        ax[cat].plot(bin_centres, counts, linestyle="", marker="x")
         ax[cat].axvline(120, color="green")
         ax[cat].axvline(130, color="green")
 
@@ -56,9 +54,9 @@ def get_back_int(data, cat, bounds, n_bins, num_cats=5):
     for i in range(n_bins):
         lower_bound = bounds[0] + i * bin_width
         upper_bound = lower_bound + bin_width
-        print("Integral bounds: ", lower_bound, upper_bound)
+        #print("Integral bounds: ", lower_bound, upper_bound)
         integral = quad(exp, lower_bound, upper_bound, args=(lam, A))
-        print("Integral: ", integral)
+        #print("Integral: ", integral)
         events.append(integral[0])
     return np.array(events)
 
