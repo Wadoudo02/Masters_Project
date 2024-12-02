@@ -115,6 +115,7 @@ for proc in procs.keys():
         if cat not in cats_unique:
             cats_unique.append(cat)
   
+cats_unique = labels.copy()
 
 def exponential_decay(x, A, lambd):
     return A * np.exp(-lambd * (x - 100))
@@ -278,7 +279,6 @@ if plot_entire_chain:
     frozen_optimised_mus, profile_optimised_mus = perform_NLL_scan_and_profile_and_other_mus(mu_values, mus_initial, bounds, combined_histogram, signal='ttH', plot=True)
 
 
-
 #%%
 
 optimized_mus = [1,1,1,1,1]
@@ -360,6 +360,8 @@ try:
     print("\nChi Squared Covariant Matrix:\n", np.array2string(chi2_covariant_matrix, precision=4, separator=' ', suppress_small=True))
 except np.linalg.LinAlgError:
     print("Error: Hessian matrix is singular and cannot be inverted. Check if the Hessian is non-singular.")
+
+plot_matrix(chi2_covariant_matrix, title = "$\chi^2$ Covrariant Matrix")
 
 # Extract uncertainties for each mu parameter
 chi2_uncertainties = np.sqrt(np.diag(chi2_covariant_matrix))

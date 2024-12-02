@@ -221,6 +221,8 @@ def perform_NLL_scan_and_profile(
     return frozen_optimised_mus, profile_optimised_mus
 
 
+
+
 def perform_NLL_scan_and_profile_and_other_mus(
     mu_values,
     mus_initial,
@@ -240,17 +242,19 @@ def perform_NLL_scan_and_profile_and_other_mus(
         signal (str): Signal type for the NLL calculation.
         plot (bool): Whether to plot the results.
     Returns:
-        The optimised Mus from the Profile scan
+        Tuple containing:
+        - frozen_optimised_mus: Optimized mus from the frozen scan.
+        - profile_optimised_mus: Optimized mus from the profile scan.
+        - other_minimised_mus_profile: Profiled values of other mus.
     """
     frozen_mus = mus_initial.copy()
     frozen_optimised_mus = []
     profile_optimised_mus = []
     
-    # Store minimized other mus for plotting
+    # Store minimized other mus for all scans
     other_minimised_mus_profile = [[] for _ in range(len(mus_initial))]
     
     if plot:
-        # Create a 5x2 subplot grid
         fig, axes = plt.subplots(nrows=5, ncols=2, figsize=(16, 30), dpi=300)
         fig.subplots_adjust(hspace=0.3, wspace=0.3)
     
@@ -258,26 +262,35 @@ def perform_NLL_scan_and_profile_and_other_mus(
         frozen_NLL_vals = []
         profile_NLL_vals = []
         
-        # Temporary storage for profile-scanned other mus
-        current_other_minimised_mus_profile = [[] for _ in range(len(mus_initial)-1)]
+        # Temporary storage for the current profile-scanned mus
+        current_other_minimised_mus_profile = [[] for _ in range(len(mus_initial) - 1)]
         
         for mu in mu_values:
-            # Frozen scan: keep other mu values constant
             frozen_mus[i] = mu
             frozen_NLL_vals.append(calc_NLL(combined_histogram, frozen_mus, signal=signal))
             
-            # Profile scan: optimize the other mu values
+            # Optimize other mus for the current fixed mu
             initial_guess = [mus_initial[j] for j in range(len(mus_initial)) if j != i]
-            obj_func = lambda reduced_mus: objective_function(reduced_mus, fixed_mu_index=i, fixed_mu_value=mu, combined_histogram=combined_histogram)
+            obj_func = lambda reduced_mus: objective_function(
+                reduced_mus, fixed_mu_index=i, fixed_mu_value=mu, combined_histogram=combined_histogram
+            )
             result = minimize(obj_func, initial_guess, bounds=bounds, method='L-BFGS-B')
             profile_NLL_vals.append(result.fun)
             
-            # Store the profile-scanned other mus
+            # Store the profiled other mus
             profile_other_mus = list(result.x)
             for k, other_mu in enumerate(profile_other_mus):
                 current_other_minimised_mus_profile[k].append(other_mu)
         
-        # Convert to 2ΔNLL
+        # Add current profile mus to the global storage
+        reduced_index = 0
+        for k in range(len(mus_initial)):
+            if k == i:  # Skip the currently profiled mu
+                continue
+            other_minimised_mus_profile[k].extend(current_other_minimised_mus_profile[reduced_index])
+            reduced_index += 1
+        
+        # Convert NLL values to 2ΔNLL
         frozen_NLL_vals = TwoDeltaNLL(frozen_NLL_vals)
         profile_NLL_vals = TwoDeltaNLL(profile_NLL_vals)
         
@@ -291,12 +304,12 @@ def perform_NLL_scan_and_profile_and_other_mus(
         # Update optimal frozen mu
         frozen_mus[i] = frozen_vals[0][0]
         
-        # Store results
+        # Update results
         frozen_optimised_mus.append(frozen_vals[0][0])
         profile_optimised_mus.append(profile_vals[0][0])
         
         if plot:
-            # NLL plot on the left column
+            # NLL Plot
             ax_nll = axes[i, 0]
             ax_nll.plot(mu_values, frozen_NLL_vals, label=f"Frozen Scan: {frozen_label}", color='blue')
             ax_nll.plot(mu_values, profile_NLL_vals, label=f"Profile Scan: {profile_label}", color='red', linestyle='--')
@@ -308,25 +321,23 @@ def perform_NLL_scan_and_profile_and_other_mus(
             ax_nll.set_ylabel("q = 2$\\Delta$NLL")
             ax_nll.set_title(f"Optimizing $\\mu_{{{i}}}$ - NLL")
             
-            # Other mus plot on the right column
+            # Other mus Plot
             ax_other_mus = axes[i, 1]
-            
-            # Plot profile scan values of other mus
             for k, other_mu_vals in enumerate(current_other_minimised_mus_profile):
-                ax_other_mus.plot(mu_values, other_mu_vals, 
-                                  label=f"Profile $\\mu_{{{k if k < i else k+1}}}$", 
-                                  color=plt.cm.Set1(k), linestyle='--')
-            
+                ax_other_mus.plot(
+                    mu_values, other_mu_vals,
+                    label=f"Profile $\\mu_{{{k if k < i else k + 1}}}$",
+                    color=plt.cm.Set1(k), linestyle='--'
+                )
             ax_other_mus.axvline(1.0, label="SM (expected)", color='green', alpha=0.5)
             ax_other_mus.legend(loc='best', bbox_to_anchor=(1.05, 1), ncol=1)
             ax_other_mus.set_ylabel("Other $\\mu$ Values")
             ax_other_mus.set_title(f"Optimizing $\\mu_{{{i}}}$ - Other $\\mu$ Values")
     
     if plot:
-        # Final x-label for the bottom row
         axes[-1, 0].set_xlabel("$\\mu$ Value")
         axes[-1, 1].set_xlabel("$\\mu$ Value")
         plt.tight_layout()
         plt.show()
     
-    return frozen_optimised_mus, profile_optimised_mus
+    return frozen_optimised_mus, profile_optimised_mus, other_minimised_mus_profile
