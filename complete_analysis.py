@@ -260,6 +260,3 @@ plt.grid()
 plt.show()
 
 #%%
-'''
-Second order contribution
-'''

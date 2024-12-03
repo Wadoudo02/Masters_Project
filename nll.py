@@ -81,6 +81,19 @@ def calc_NLL_comb(combined_histogram, mus, signal='ttH'):
 
     return -NLL_total
 
+def plot_mu_scan(mu_idx, mu_vals, other_mus):
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    for i in range(len(other_mus)):
+        ax.plot(mu_vals, other_mus[i], label=f"mu_{i}")
+        ax.set_title(f"Minimising mu_{mu_idx}")
+        ax.set_xlabel(f"mu_{mu_idx}")
+        ax.set_ylabel(f"Other mu")
+        ax.legend(loc='best')
+    plt.show()
+    
+    
+
 # Scans over 1 mu index and at each step minimises all others so gives best fit for that mu value
 def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx, mu_vals):
     num_truth = len(conf_matrix[0])
@@ -92,7 +105,7 @@ def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx, mu_vals):
         mus = np.array(others)
         mus = np.insert(mus, mu_idx, fixed)
         return calc_NLL_comb(combined_histogram, mus)
-    
+    other_mus = [[],[],[],[]]
     for mu in mu_vals:
         #Generating ones for all but 1 mu
         guess = np.ones(num_truth-1)
@@ -104,9 +117,12 @@ def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx, mu_vals):
         )
 
         nll.append(res.fun)
-    
+        for i in range(len(other_mus)):
+            other_mus[i].append(res.x[i])
     vals = find_crossings((mu_vals, TwoDeltaNLL(nll)), 1.)
+    plot_mu_scan(mu_idx, mu_vals, other_mus)
     return (vals[0], nll)
+
 
 def global_nll_fit(combined_histogram, conf_matrix):
     num_truth = len(conf_matrix[0])
