@@ -414,7 +414,7 @@ def show_matrix(matrix, title, ax="plt"):
         plt.title(title)
     else:
         sns.heatmap(matrix, annot=True, fmt=".4f", cmap='viridis', cbar=False, annot_kws={"size": 10}, ax=ax)
-        ax.set_title(title)
+        ax.set_title(title, fontsize=10)
     #plt.xlabel('Column')
     #plt.ylabel('Row')
     #ax.show()

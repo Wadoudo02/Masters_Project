@@ -260,3 +260,32 @@ plt.grid()
 plt.show()
 
 #%%
+'''
+Global Minimisation
+'''
+def objective_chi_sq(params):
+    c_g, c_tg = params
+    return get_chi_squared(global_mu, c_g, c_tg, hessian_comb, second_order=True)
+
+initial_guess = [0, 0]
+res = minimize(objective_chi_sq, initial_guess, method='BFGS')
+
+# Extract the best fit values and the Hessian matrix
+best_c_g, best_c_tg = res.x
+cov_at_min = res.hess_inv
+hessian_at_min = np.linalg.inv(cov_at_min)
+correlation_at_min = get_correlation_matrix(cov_at_min)
+uncs = get_uncertainties(cov_at_min)
+
+fig, ax = plt.subplots(1, 3, figsize=(10, 5))
+
+show_matrix(cov_at_min, "Covariance matrix at the minimum", ax[0])
+show_matrix(hessian_at_min, "Hessian matrix at the minimum", ax[1])
+show_matrix(correlation_at_min, "Correlation matrix at the minimum", ax[2])
+
+print(f"Best fit values: c_g = {best_c_g}, c_tg = {best_c_tg}")
+print(f"Hessian matrix at the minimum:\n{hessian_at_min}")
+print(f"Correlation matrix at the minimum:\n{hessian_at_min}")
+
+
+# %%

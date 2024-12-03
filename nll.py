@@ -84,8 +84,10 @@ def calc_NLL_comb(combined_histogram, mus, signal='ttH'):
 def plot_mu_scan(mu_idx, mu_vals, other_mus):
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    other_labels = [0,1,2,3,4]
+    other_labels.pop(mu_idx)
     for i in range(len(other_mus)):
-        ax.plot(mu_vals, other_mus[i], label=f"mu_{i}")
+        ax.plot(mu_vals, other_mus[i], label=f"mu_{other_labels[i]}")
         ax.set_title(f"Minimising mu_{mu_idx}")
         ax.set_xlabel(f"mu_{mu_idx}")
         ax.set_ylabel(f"Other mu")
