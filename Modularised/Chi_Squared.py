@@ -76,6 +76,7 @@ def chi_squared_scans(
     quadratic_order=True,
     fixed_ctg=0,
     fixed_cg=0,
+    plot = True
 ):
     cg_values = range_of_values.copy()
     ctg_values = range_of_values.copy()
@@ -121,63 +122,169 @@ def chi_squared_scans(
     frozen_ctg_label = add_val_label(frozen_ctg_vals)
     profile_ctg_label = add_val_label(profile_ctg_vals)
 
+    if plot:    
+
+        # Plot results
     
-    # Plot results
+        plt.figure(figsize=(16, 12))
+        plt.suptitle(f"Frozen and Profile $\chi^2$ Scans ({order} Order)", fontsize=30)
+    
+        # c_g scan
+        plt.subplot(2, 2, 1)
+        plt.plot(cg_values, frozen_chi_squared_cg, label=f"Frozen $\\chi^2(c_g, c_{{tg}} = {fixed_ctg})$ {frozen_cg_label}")
+        plt.plot(cg_values, profile_chi_squared_cg, label=f"Profile $\\chi^2(c_g$ min($c_{{tg}}$)) {profile_cg_label}")
+        plt.axhline(1, color='red', linestyle='--', label="68% CL ($\\chi^2 = 1$)")
+        plt.xlabel(r"Wilson coefficient $c_{g}$")
+        plt.ylabel(r"$\chi^2$")
+        plt.legend()
+        plt.grid()
+    
+        # Minimized c_tg for c_g scan
+        plt.subplot(2, 2, 2)
+        plt.plot(cg_values, minimized_ctg_for_cg, label=r"Minimised $c_{tg}$ for each $c_{g}$")
+        plt.xlabel(r"Wilson coefficient $c_{g}$")
+        plt.ylabel(r"Minimised $c_{tg}$")
+        plt.legend()
+        plt.grid()
+    
+        # c_tg scan
+        plt.subplot(2, 2, 3)
+        plt.plot(ctg_values, frozen_chi_squared_ctg, label=f"Frozen $\\chi^2(c_{{tg}}, c_g = {fixed_cg})$ {frozen_ctg_label}")
+        plt.plot(ctg_values, profile_chi_squared_ctg, label=f"Profile $\\chi^2(c_g$ min($c_{{tg}}$)) {profile_ctg_label}")
+        plt.axhline(1, color='red', linestyle='--', label="68% CL ($\\chi^2 = 1$)")
+        plt.xlabel(r"Wilson coefficient $c_{tg}$")
+        plt.ylabel(r"$\chi^2$")
+        plt.legend()
+        plt.grid()
+    
+    
+        # Minimized c_g for c_tg scan
+        plt.subplot(2, 2, 4)
+        plt.plot(ctg_values, minimized_cg_for_ctg, label=r"Minimised $c_{g}$ for each $c_{tg}$")
+        plt.xlabel(r"Wilson coefficient $c_{tg}$")
+        plt.ylabel(r"Minimised $c_{g}$")
+        plt.legend()
+        plt.grid()
+    
+        plt.tight_layout()
+        plt.show()    
 
-    plt.figure(figsize=(16, 12))
-    plt.suptitle(f"Frozen and Profile $\chi^2$ Scans ({order} Order)", fontsize=30)
+    return {
+        'cg_values': cg_values,
+        'ctg_values': ctg_values,
+        'frozen_chi_squared_cg': frozen_chi_squared_cg,
+        'profile_chi_squared_cg': profile_chi_squared_cg,
+        'minimized_ctg_for_cg': minimized_ctg_for_cg,
+        'frozen_chi_squared_ctg': frozen_chi_squared_ctg,
+        'profile_chi_squared_ctg': profile_chi_squared_ctg,
+        'minimized_cg_for_ctg': minimized_cg_for_ctg,
+        'frozen_cg_label': frozen_cg_label,
+        'profile_cg_label': profile_cg_label,
+        'frozen_ctg_label': frozen_ctg_label,
+        'profile_ctg_label': profile_ctg_label,
+        'order': order
+    }
+        
 
+def compare_chi_squared_scans(
+    optimized_mus,
+    hessian_matrix,
+    range_of_values,
+    fixed_ctg=0,
+    fixed_cg=0,
+    plot_individuals = False
+):
+    # Prepare arrays to store results for both quadratic and linear orders
+    quadratic_results = chi_squared_scans(
+        optimized_mus,
+        hessian_matrix,
+        range_of_values,
+        quadratic_order=True,
+        fixed_ctg=fixed_ctg,
+        fixed_cg=fixed_cg,
+        plot = plot_individuals
+    )
+    
+    linear_results = chi_squared_scans(
+        optimized_mus,
+        hessian_matrix,
+        range_of_values,
+        quadratic_order=False,
+        fixed_ctg=fixed_ctg,
+        fixed_cg=fixed_cg,
+        plot =  plot_individuals
+    )
+    
+    # Unpack the results (assuming chi_squared_scans returns a tuple or handles plotting)
+    plt.figure(figsize=(20, 15), dpi = 300)
+    plt.suptitle("Comparison of Quadratic and Linear Chi-squared Scans", fontsize=30)
+    
     # c_g scan
     plt.subplot(2, 2, 1)
-    plt.plot(cg_values, frozen_chi_squared_cg, label=f"Frozen $\\chi^2(c_g, c_{{tg}} = {fixed_ctg})$ {frozen_cg_label}")
-    plt.plot(cg_values, profile_chi_squared_cg, label=f"Profile $\\chi^2(c_g$ min($c_{{tg}}$)) {profile_cg_label}")
-    plt.axhline(1, color='red', linestyle='--', label="68% CL ($\\chi^2 = 1$)")
+    plt.plot(range_of_values, quadratic_results['frozen_chi_squared_cg'], 
+             label=f"Frozen Quadratic $\\chi^2(c_g, c_{{tg}} = {fixed_ctg})$", 
+             linestyle='-', color='blue')
+    plt.plot(range_of_values, linear_results['frozen_chi_squared_cg'], 
+             label=f"Frozen Linear $\\chi^2(c_g, c_{{tg}} = {fixed_ctg})$", 
+             linestyle='--', color='red')
+    plt.plot(range_of_values, quadratic_results['profile_chi_squared_cg'], 
+             label="Profile Quadratic $\\chi^2(c_g$ min($c_{{tg}}$))", 
+             linestyle='-', color='green')
+    plt.plot(range_of_values, linear_results['profile_chi_squared_cg'], 
+             label="Profile Linear $\\chi^2(c_g$ min($c_{{tg}}$))", 
+             linestyle='--', color='orange')
+    plt.axhline(1, color='black', linestyle=':', label="68% CL ($\\chi^2 = 1$)")
     plt.xlabel(r"Wilson coefficient $c_{g}$")
     plt.ylabel(r"$\chi^2$")
     plt.legend()
-    plt.grid()
-
+    plt.grid(True)
+    
     # Minimized c_tg for c_g scan
     plt.subplot(2, 2, 2)
-    plt.plot(cg_values, minimized_ctg_for_cg, label=r"Minimised $c_{tg}$ for each $c_{g}$")
+    plt.plot(range_of_values, quadratic_results['minimized_ctg_for_cg'], 
+             label=r"Minimised $c_{tg}$ (Quadratic)", color='blue')
+    plt.plot(range_of_values, linear_results['minimized_ctg_for_cg'], 
+             label=r"Minimised $c_{tg}$ (Linear)", color='red')
     plt.xlabel(r"Wilson coefficient $c_{g}$")
     plt.ylabel(r"Minimised $c_{tg}$")
     plt.legend()
-    plt.grid()
-
+    plt.grid(True)
+    
     # c_tg scan
     plt.subplot(2, 2, 3)
-    plt.plot(ctg_values, frozen_chi_squared_ctg, label=f"Frozen $\\chi^2(c_{{tg}}, c_g = {fixed_cg})$ {frozen_ctg_label}")
-    plt.plot(ctg_values, profile_chi_squared_ctg, label=f"Profile $\\chi^2(c_g$ min($c_{{tg}}$)) {profile_ctg_label}")
-    plt.axhline(1, color='red', linestyle='--', label="68% CL ($\\chi^2 = 1$)")
+    plt.plot(range_of_values, quadratic_results['frozen_chi_squared_ctg'], 
+             label=f"Frozen Quadratic $\\chi^2(c_{{tg}}, c_g = {fixed_cg})$", 
+             linestyle='-', color='blue')
+    plt.plot(range_of_values, linear_results['frozen_chi_squared_ctg'], 
+             label=f"Frozen Linear $\\chi^2(c_{{tg}}, c_g = {fixed_cg})$", 
+             linestyle='--', color='red')
+    plt.plot(range_of_values, quadratic_results['profile_chi_squared_ctg'], 
+             label="Profile Quadratic $\\chi^2(c_g$ min($c_{{tg}}$))", 
+             linestyle='-', color='green')
+    plt.plot(range_of_values, linear_results['profile_chi_squared_ctg'], 
+             label="Profile Linear $\\chi^2(c_g$ min($c_{{tg}}$))", 
+             linestyle='--', color='orange')
+    plt.axhline(1, color='black', linestyle=':', label="68% CL ($\\chi^2 = 1$)")
     plt.xlabel(r"Wilson coefficient $c_{tg}$")
     plt.ylabel(r"$\chi^2$")
     plt.legend()
-    plt.grid()
-
-
+    plt.grid(True)
+    
     # Minimized c_g for c_tg scan
     plt.subplot(2, 2, 4)
-    plt.plot(ctg_values, minimized_cg_for_ctg, label=r"Minimised $c_{g}$ for each $c_{tg}$")
+    plt.plot(range_of_values, quadratic_results['minimized_cg_for_ctg'], 
+             label=r"Minimised $c_{g}$ (Quadratic)", color='blue')
+    plt.plot(range_of_values, linear_results['minimized_cg_for_ctg'], 
+             label=r"Minimised $c_{g}$ (Linear)", color='red')
     plt.xlabel(r"Wilson coefficient $c_{tg}$")
     plt.ylabel(r"Minimised $c_{g}$")
     plt.legend()
-    plt.grid()
-
+    plt.grid(True)
+    
     plt.tight_layout()
-    plt.show()    
+    plt.show()
+ 
 
-    '''
-    return {
-        "cg_values": cg_values,
-        "ctg_values": ctg_values,
-        "frozen_chi_squared_cg": frozen_chi_squared_cg,
-        "profile_chi_squared_cg": profile_chi_squared_cg,
-        "frozen_chi_squared_ctg": frozen_chi_squared_ctg,
-        "profile_chi_squared_ctg": profile_chi_squared_ctg,
-    }
-    '''
-        
 
 def chi_squared_grid(
         optimized_mus,
