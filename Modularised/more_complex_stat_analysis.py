@@ -283,17 +283,17 @@ if plot_entire_chain:
 
 optimized_mus = [1,1,1,1,1]
 
-plot_combined_histogram(combined_histogram, labels)
+plot_combined_histogram(combined_histogram, labels, processes_to_exclude = "background")
     
 #%%
 
 labels = ['0-60', '60-120', '120-200', '200-300', '>300'] # define labels again for hists
 
-hessian_matrix = calc_Hessian_NLL(combined_histogram, optimized_mus)
-print("Hessian Matrix:\n", np.array2string(hessian_matrix, precision=4, separator=' ', suppress_small=True))
+NLL_hessian_matrix = calc_Hessian_NLL(combined_histogram, optimized_mus)
+print("Hessian Matrix:\n", np.array2string(NLL_hessian_matrix, precision=4, separator=' ', suppress_small=True))
 
 try:
-    covariant_matrix = np.linalg.inv(hessian_matrix)
+    covariant_matrix = np.linalg.inv(NLL_hessian_matrix)
     print("\nCovariant Matrix:\n", np.array2string(covariant_matrix, precision=4, separator=' ', suppress_small=True))
 except np.linalg.LinAlgError:
     print("Error: Hessian matrix is singular and cannot be inverted. Check if the Hessian is non-singular.")
@@ -308,8 +308,8 @@ print("\nCorrelation Matrix:\n", np.array2string(correlation_matrix, precision=4
 
 
 
-
-plot_matrix(covariant_matrix, title = "Covrariant Matrix")
+if plot_entire_chain:
+    plot_matrix(covariant_matrix, title = "Covrariant Matrix")
 
 #%%
 
@@ -318,19 +318,19 @@ from Chi_Squared import *
 quadratic_order = True
 
 
-chi_squared_scans(optimized_mus, hessian_matrix, np.linspace(-3, 3, 100), quadratic_order)
+chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-0.5, 0.5, 1000), quadratic_order)
 
 #%%
-def chi_squared_wrapper(cg_ctg, optimized_mus, hessian_matrix, quadratic_order):
+def chi_squared_wrapper(cg_ctg, optimized_mus, NLL_hessian_matrix, quadratic_order):
     cg, ctg = cg_ctg  # Extract cg and ctg from the array
-    return chi_squared_func(cg, ctg, optimized_mus, hessian_matrix, quadratic_order)
+    return chi_squared_func(cg, ctg, optimized_mus, NLL_hessian_matrix, quadratic_order)
 
 
 # Initial guess for c_g and c_tg
 initial_guess = [0.0, 0.0]  # Adjust as needed
 
 # Minimize the chi-squared function using the wrapper
-result_chi2 = minimize(chi_squared_wrapper, initial_guess, args=(optimized_mus, hessian_matrix, quadratic_order), method='L-BFGS-B')
+result_chi2 = minimize(chi_squared_wrapper, initial_guess, args=(optimized_mus, NLL_hessian_matrix, quadratic_order), method='L-BFGS-B')
 
 # Extract results
 optimal_cg, optimal_ctg = result_chi2.x
@@ -343,15 +343,15 @@ print(f"Minimum chi-squared: {min_chi_squared}")
 
 #%%
 
-chi_squared_grid(optimized_mus, hessian_matrix, np.linspace(-2, 2, 100), result_chi2.x, quadratic_order)
+chi_squared_grid(optimized_mus, NLL_hessian_matrix, np.linspace(-0.5, 0.5, 100), result_chi2.x, quadratic_order)
 
 
 #%%
+quadratic_order = True
 
 
 
-
-chi2_hessian = compute_chi2_hessian(0, 0, optimized_mus, hessian_matrix, quadratic_order, epsilon=1e-8)
+chi2_hessian = compute_chi2_hessian(0, 0, optimized_mus, NLL_hessian_matrix, quadratic_order, epsilon=0.05)
 
 print("Chi Squared Hessian Matrix:\n", np.array2string(chi2_hessian, precision=4, separator=' ', suppress_small=True))
 
@@ -361,7 +361,8 @@ try:
 except np.linalg.LinAlgError:
     print("Error: Hessian matrix is singular and cannot be inverted. Check if the Hessian is non-singular.")
 
-plot_matrix(chi2_covariant_matrix, title = "$\chi^2$ Covrariant Matrix")
+if plot_entire_chain:
+    plot_matrix(chi2_covariant_matrix,"$c_{tg}$","$c_g$", title = "$\chi^2$ Covariant Matrix")
 
 # Extract uncertainties for each mu parameter
 chi2_uncertainties = np.sqrt(np.diag(chi2_covariant_matrix))
@@ -369,8 +370,10 @@ print("\nChi Squared Uncertainties in parameters:\n", np.array2string(chi2_uncer
 
 
 chi2_correlation_matrix = covariance_to_correlation(chi2_covariant_matrix)
-print("\nCChi Squared orrelation Matrix:\n", np.array2string(chi2_correlation_matrix, precision=4, separator=' ', suppress_small=True))
+print("\nChi Squared Correlation Matrix:\n", np.array2string(chi2_correlation_matrix, precision=4, separator=' ', suppress_small=True))
 
+if plot_entire_chain:
+    plot_matrix(chi2_correlation_matrix,"$c_{tg}$","$c_g$", title = "$\chi^2$ Correlation Matrix")
                                                                                                                                                                                                                           
 
 

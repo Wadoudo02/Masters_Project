@@ -3,8 +3,9 @@ from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 import pandas as pd
+import seaborn as sns
 
-sample_path = "/Users/wadoudcharbak/Downloads/Pass1"
+sample_path = "/Users/wadoudcharbak/Downloads/Pass2"
 plot_path = "/Users/wadoudcharbak/Downloads/plots"
 
 vars_plotting_dict = {
@@ -422,7 +423,7 @@ def covariance_to_correlation(cov_matrix):
     np.fill_diagonal(correlation_matrix, 1.0)
     return correlation_matrix
 
-def plot_matrix(matrix, x_labels=None, y_labels=None, title=None, cmap='viridis', colorbar=False):
+def plot_matrix(matrix, x_label=None, y_label=None, title=None, cmap='viridis', colorbar=False):
     """
     Plots a given matrix with values labeled to 2 decimal places and optional x and y axis labels and a title.
 
@@ -452,13 +453,15 @@ def plot_matrix(matrix, x_labels=None, y_labels=None, title=None, cmap='viridis'
         for j in range(matrix.shape[1]):
             plt.text(j, i, f"{matrix[i, j]:.2f}", ha='center', va='center', color='white' if matrix[i, j] < np.max(matrix) / 2 else 'black')
 
-    if x_labels is not None:
-        plt.xticks(ticks=np.arange(matrix.shape[1]), labels=x_labels, rotation=90)
+    if x_label is not None:
+        plt.xlabel(x_label)
+        plt.xticks([])
     else:
         plt.xticks([])  # Remove ticks if no labels provided
 
-    if y_labels is not None:
-        plt.yticks(ticks=np.arange(matrix.shape[0]), labels=y_labels)
+    if y_label is not None:
+        plt.ylabel(y_label)
+        plt.yticks([])
     else:
         plt.yticks([])  # Remove ticks if no labels provided
 
@@ -469,7 +472,7 @@ def plot_matrix(matrix, x_labels=None, y_labels=None, title=None, cmap='viridis'
     plt.show()
 
 
-def plot_combined_histogram(combined_histogram, categories, mass_bins=5):
+def plot_combined_histogram(combined_histogram, categories, mass_bins=5, processes_to_exclude = None):
     """
     Plot a 25-bin stacked histogram with bins labeled according to their respective categories.
 
@@ -481,13 +484,19 @@ def plot_combined_histogram(combined_histogram, categories, mass_bins=5):
     num_bins = len(categories) * mass_bins  # Total number of bins
     processes = list(combined_histogram.keys())  # Processes to plot
     bin_indices = np.arange(num_bins)  # X-axis bin indices
+    
+    # Exclude specified processes
+    if processes_to_exclude:
+        if isinstance(processes_to_exclude, str):
+            processes_to_exclude = [processes_to_exclude]  # Convert string to a list
+        processes = [p for p in processes if p not in processes_to_exclude]
+
 
     # Extract contributions for each process
     contributions = np.array([combined_histogram[proc] for proc in processes])
     
     # Use a colormap to assign unique colors to each process
-    cmap = get_cmap("tab20c")  # Use a larger color palette for distinct colors
-    colors = [cmap(i / len(processes)) for i in range(len(processes))]
+    colors = sns.color_palette("husl", len(processes))
     
     # Create the stacked bar plot
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -514,7 +523,7 @@ def plot_combined_histogram(combined_histogram, categories, mass_bins=5):
     # Adjust the legend
     ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.85, 0.8), # Positioned (x%, y%)
+        bbox_to_anchor=(0.88, 0.8), # Positioned (x%, y%)
         fontsize=10,
         ncol=2,
         title="Processes",

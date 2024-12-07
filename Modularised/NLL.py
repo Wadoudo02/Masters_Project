@@ -340,4 +340,4 @@ def perform_NLL_scan_and_profile_and_other_mus(
         plt.tight_layout()
         plt.show()
     
-    return frozen_optimised_mus, profile_optimised_mus, other_minimised_mus_profile
+    return frozen_optimised_mus, profile_optimised_mus
