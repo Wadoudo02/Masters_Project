@@ -10,7 +10,7 @@ plot_path = "/Users/wadoudcharbak/Downloads/plots"
 
 vars_plotting_dict = {
     "plot_weight": [50, (0, 5), False, "Plot weight"],
-    "mass_sel": [80, (100, 180), False, "$m_{\\gamma\\gamma}$ [GeV]"],
+    "mass": [80, (100, 180), False, "$m_{\\gamma\\gamma}$ [GeV]"],
     "minIDMVA-with-cut": [50, (0, 1), False, "Minimum IDMVA (with cut)"],
     "n_jets": [10, (0, 10), False, "Number of jets"],
     "lead_pixelSeed": [2, (0, 2), False, "Lead pixel seed"],
@@ -23,9 +23,9 @@ vars_plotting_dict = {
     "dijet_mass": [100, (0, 300), False, "Dijet mass [GeV]"],
     "delta_phi_gg_jj": [50, (0, 5), False, "$\\Delta \\phi_{\\gamma\\gamma, jj}$"],
     "min_delta_R_j_g": [50, (0, 5), False, "Minimum $\\Delta R(j, \\gamma)$"],
-    "lead_pt/mass": [50, (0, 5), False, "Lead $p_T/m$"],
-    "sublead_pt/mass": [50, (0, 5), False, "Sublead $p_T/m$"],
-    "pt/mass": [50, (0, 5), False, "$p_T/m$"],
+    "lead_pt-over-mass": [50, (0, 5), False, "Lead $p_T/m$"],
+    "sublead_pt-over-mass": [50, (0, 5), False, "Sublead $p_T/m$"],
+    "pt-over-mass": [50, (0, 5), False, "$p_T/m$"],
     "rapidity": [50, (0, 10), False, "Rapidity"],
     "lead_eta": [50, (0, 10), False, "Lead $\\eta$"],
     "sublead_eta": [50, (0, 10), False, "Sublead $\\eta$"],
