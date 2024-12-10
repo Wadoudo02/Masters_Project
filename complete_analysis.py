@@ -31,7 +31,8 @@ col_name = "_sel"
 dfs = get_dfs(sample_path)
 
 #Apply selection
-dfs = get_selection(dfs)
+for i, proc in enumerate(procs.keys()):   
+    dfs[proc] = get_selection(dfs[proc], proc)
 #Categorisation
 dfs = get_categorisation(dfs)
 
