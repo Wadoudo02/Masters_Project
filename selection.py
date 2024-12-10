@@ -49,9 +49,10 @@ def get_dfs(sample_path):
 def get_selection(dfs):
     for i, proc in enumerate(procs.keys()):   
         yield_before_sel = dfs[proc]['true_weight'+col_name].sum()
-        mask = dfs[proc]['n_jets'+col_name] >= 2
+        mask = dfs[proc]['n_jets_sel'] >= 2
         mask = mask & (dfs[proc]['max_b_tag_score'] > 0.7)
         mask = mask & (dfs[proc]['second_max_b_tag_score'] > 0.4)
+
         dfs[proc] = dfs[proc][mask]
         yield_after_sel = dfs[proc]['true_weight'+col_name].sum()
         eff = (yield_after_sel/yield_before_sel)*100

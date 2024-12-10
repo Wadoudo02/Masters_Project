@@ -83,15 +83,15 @@ def calc_NLL_comb(combined_histogram, mus, signal='ttH'):
 
 def plot_mu_scan(mu_idx, mu_vals, other_mus):
 
-    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    fig, axes = plt.subplots(1, 1, figsize=(10, 10))
     other_labels = [0,1,2,3,4]
     other_labels.pop(mu_idx)
     for i in range(len(other_mus)):
-        ax.plot(mu_vals, other_mus[i], label=f"mu_{other_labels[i]}")
-        ax.set_title(f"Minimising mu_{mu_idx}")
-        ax.set_xlabel(f"mu_{mu_idx}")
-        ax.set_ylabel(f"Other mu")
-        ax.legend(loc='best')
+        axes.plot(mu_vals, other_mus[i], label=f"mu_{other_labels[i]}")
+        axes.set_title(f"Minimising mu_{mu_idx}")
+        axes.set_xlabel(f"mu_{mu_idx}")
+        axes.set_ylabel(f"Other mu")
+        axes.legend(loc='best')
     plt.show()
     
     
@@ -99,10 +99,10 @@ def plot_mu_scan(mu_idx, mu_vals, other_mus):
 # Scans over 1 mu index and at each step minimises all others so gives best fit for that mu value
 def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx, mu_vals):
     num_truth = len(conf_matrix[0])
-
+    init_mus = [1,1,1,1,1]
     #mu_vals = np.linspace(0, 3, 100)
     nll = []
-
+    nll_frozen = []
     def calc_nll_fixed_mu(fixed, others):
         mus = np.array(others)
         mus = np.insert(mus, mu_idx, fixed)
@@ -117,13 +117,14 @@ def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx, mu_vals):
             guess,
             method="L-BFGS-B"
         )
-
+        init_mus[mu_idx] = mu
+        nll_frozen.append(calc_NLL_comb(combined_histogram, init_mus))
         nll.append(res.fun)
         for i in range(len(other_mus)):
             other_mus[i].append(res.x[i])
     vals = find_crossings((mu_vals, TwoDeltaNLL(nll)), 1.)
-    plot_mu_scan(mu_idx, mu_vals, other_mus)
-    return (vals[0], nll)
+    #plot_mu_scan(mu_idx, mu_vals, other_mus)
+    return (vals[0], nll, nll_frozen)
 
 
 def global_nll_fit(combined_histogram, conf_matrix):

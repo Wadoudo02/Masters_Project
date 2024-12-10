@@ -71,9 +71,6 @@ conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(tth_new_samples) 
 '''
 Scanning using combined hist
 '''
-print('''
-NLL FROZEN SCAN USING COMBINED HISTOGRAM
-''')
 print(f'''Before combining
       {hists}
       ''')
@@ -92,21 +89,24 @@ NLL PROFILED SCAN USING COMBINED HISTOGRAM
 best_mus = np.ones(5)
 fig, ax = plt.subplots(1, 5, figsize=(40, 7))
 for idx in range(len(conf_matrix)):
-    best_mus[idx], nll_mu = profiled_NLL_fit(comb_hist,conf_matrix, idx, mu_vals)
+    best_mus[idx], nll_mu, nll_frozen = profiled_NLL_fit(comb_hist,conf_matrix, idx, mu_vals)
     vals = find_crossings((mu_vals, TwoDeltaNLL(nll_mu)), 1.)
     print("Best mu for idx:", idx, "is", vals[0] ,"+/-", vals[1:])
     label = add_val_label(vals)
+    #print(mu_vals, nll_mu, nll_frozen)
     ax[idx].plot(mu_vals, TwoDeltaNLL(nll_mu), label=label)
+    ax[idx].plot(mu_vals, TwoDeltaNLL(nll_frozen), label="Frozen scan")
     ax[idx].set_title(f"NLL variation for mu idx: {idx}")
     ax[idx].set_ylabel("2 delta NLL")
     ax[idx].set_xlabel("mu")
     ax[idx].axvline(1., label="SM (expected)", color='green', alpha=0.5)
     ax[idx].axhline(1, color='grey', alpha=0.5, ls='--')
     ax[idx].axhline(4, color='grey', alpha=0.5, ls='--')
-    ax[idx].set_ylim(0, 8)
+    #ax[idx].set_ylim(0, 8)
     ax[idx].legend(loc='best')
 fig.suptitle("Profiled NLL fit for each mu")
-fig.savefig(f"{analysis_path}/nll_profiled_fit.png")
+plt.show()
+#fig.savefig(f"{analysis_path}/nll_profiled_fit.png")
 #%%
 print('''
       NLL Global fit
@@ -164,23 +164,39 @@ plt.show()
 
 # %%
 '''
-Chi Squared minimisation
+Chi Squared minimisation, profiled
 '''
 init_guess = 0
 c_g, c_tg = 0,0
+xlim=2
+
 
 chi_2_c_g = []
+best_ctg_over_cg = []
+chi_2_c_g_frozen = []
+
 chi_2_c_tg = []
+best_cg_over_ctg = []
+chi_2_c_tg_frozen = []
+
 
 for c_g in c_vals:
     res = minimize(lambda x: get_chi_squared(best_mus, c_g, x, hessian_comb,second_order=second_order),
                     init_guess, method='Nelder-Mead')
+    chi2_frozen = get_chi_squared(best_mus,c_g, 0, hessian_comb,second_order=second_order)
     chi_2_c_g.append(res.fun)
+    #Best fit vals for ctg when scanning over cg
+    best_ctg_over_cg.append(res.x)
+    chi_2_c_g_frozen.append(chi2_frozen)
 
 for c_tg in c_vals:
     res = minimize(lambda x: get_chi_squared(best_mus, x, c_tg, hessian_comb,second_order=second_order),
                     init_guess, method='Nelder-Mead')
+    chi2_frozen = get_chi_squared(best_mus,0, c_tg, hessian_comb,second_order=second_order)
     chi_2_c_tg.append(res.fun)
+    #Best fit vals for cg when scanning over ctg
+    best_cg_over_ctg.append(res.x)
+    chi_2_c_tg_frozen.append(chi2_frozen)
 
 best_c_g = c_vals[np.argmin(chi_2_c_g)].round(2)
 min_chi2_c_g = min(chi_2_c_g)
@@ -196,32 +212,47 @@ print(f"Best fit for c_tg: {best_c_tg}")
 print(f"68% confidence interval for c_tg: {conf_interval_68_c_tg}")
 
 # Plot the results
-fig, ax=plt.subplots(1,2,figsize=(12, 6))
+fig, axes=plt.subplots(2,2,figsize=(12, 12))
 
-plt.subplot(1, 2, 1)
-plt.plot(c_vals, chi_2_c_g, label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_g[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_g[0]:.2f}}}$")
-plt.xlabel('c_g')
-#Delta chi2 = 1 for 68% CI and 3.84 for 95% CI as technically only 1 degree of freedom here
-plt.axhline(min_chi2_c_tg+1, color='red', linestyle='--', label='68% CI')
-plt.axhline(min_chi2_c_tg+3.84, color='red', linestyle='--', label='95% CI')
-plt.ylim(0,10)
-plt.ylabel('Chi-squared')
-plt.title('Profiled Scan over c_g')
-plt.legend()
+ax = axes[0][0]
+ax.plot(c_vals, chi_2_c_g, label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_g[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_g[0]:.2f}}}$")
+ax.plot(c_vals,chi_2_c_g_frozen, label="Frozen scan")
+ax.set_xlabel('c_g')
+#delta chi2 = 1 for 68% CI and 3.84 for 95% CI as technically only 1 degree of freedom here
+ax.axhline(min_chi2_c_tg+1, color='red', linestyle='--', label='68% CI')
+ax.axhline(min_chi2_c_tg+3.84, color='red', linestyle='--', label='95% CI')
+ax.set_ylim(0,10)
+ax.set_xlim(-xlim,xlim)
+ax.set_ylabel('Chi-squared')
+ax.set_title('Profiled Scan over c_g')
+ax.legend()
 
-plt.subplot(1, 2, 2)
-plt.plot(c_vals, chi_2_c_tg,label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_tg[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_tg[0]:.2f}}}$")
-plt.xlabel('c_g')
-plt.ylim(0,10)
-plt.axhline(min_chi2_c_g+1, color='red', linestyle='--', label='68% CI')
-plt.axhline(min_chi2_c_g+3.84, color='red', linestyle='--', label='95% CI')
-plt.ylabel('Chi-squared')
-plt.title('Profiled Scan over c_tg')
-plt.legend()
+ax=axes[1][0]
+ax.plot(c_vals, chi_2_c_tg,label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval_68_c_tg[1] - best_c_g:.2f}}}_{{-{best_c_g - conf_interval_68_c_tg[0]:.2f}}}$")
+ax.plot(c_vals,chi_2_c_tg_frozen, label="Frozen scan")
+ax.axhline(min_chi2_c_g+1, color='red', linestyle='--', label='68% CI')
+ax.axhline(min_chi2_c_g+3.84, color='red', linestyle='--', label='95% CI')
+ax.set_xlabel('c_g')
+ax.set_ylim(0,10)
+ax.set_xlim(-xlim,xlim)
+ax.set_ylabel('Chi-squared')
+ax.set_title('Profiled Scan over c_tg')
+ax.legend()
+
+axes[0][1].plot( c_vals, best_ctg_over_cg)
+axes[0][1].set_xlabel('c_g')
+axes[0][1].set_ylabel('c_tg')
+axes[0][1].set_title('min ctg over cg profiled fit')
+axes[0][1].set_xlim(-xlim,xlim)
+
+
+axes[1][1].plot(c_vals, best_cg_over_ctg)
+axes[1][1].set_ylabel('c_g')
+axes[1][1].set_xlabel('c_tg')
+axes[1][1].set_title('min cg over ctg profiled fit')
+axes[1][1].set_xlim(-xlim,xlim)
 
 plt.tight_layout()
-plt.show()
-
 # %%
 '''
 Grid minimisation
@@ -261,11 +292,22 @@ plt.show()
 
 #%%
 '''
+Getting all matricies manually for above analysis
+'''
+
+wilson_hessian = get_chi_squared_hessian(best_mus, best_c_g, best_c_tg,hessian_comb, second_order=True, eps = 0.0001)
+
+wilson_cov, wilson_cor = plot_hcc(wilson_hessian, "Wilson chi squared matricies")
+print(wilson_cor)
+
+
+#%%
+'''
 Global Minimisation
 '''
 def objective_chi_sq(params):
     c_g, c_tg = params
-    return get_chi_squared(global_mu, c_g, c_tg, hessian_comb, second_order=True)
+    return get_chi_squared(best_mus, c_g, c_tg, hessian_comb, second_order=True)
 
 initial_guess = [0, 0]
 res = minimize(objective_chi_sq, initial_guess, method='BFGS')
@@ -279,13 +321,14 @@ uncs = get_uncertainties(cov_at_min)
 
 fig, ax = plt.subplots(1, 3, figsize=(10, 5))
 
-show_matrix(cov_at_min, "Covariance matrix at the minimum", ax[0])
-show_matrix(hessian_at_min, "Hessian matrix at the minimum", ax[1])
+show_matrix(hessian_at_min, "Hessian matrix at the minimum", ax[0])
+show_matrix(cov_at_min, "Covariance matrix at the minimum", ax[1])
 show_matrix(correlation_at_min, "Correlation matrix at the minimum", ax[2])
 
 print(f"Best fit values: c_g = {best_c_g}, c_tg = {best_c_tg}")
 print(f"Hessian matrix at the minimum:\n{hessian_at_min}")
-print(f"Correlation matrix at the minimum:\n{hessian_at_min}")
+print(f"Correlation matrix at the minimum:\n{correlation_at_min}")
+print(f"Uncertainties: {uncs}")
 
 
 # %%

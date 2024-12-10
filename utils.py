@@ -10,6 +10,8 @@ plt.style.use(hep.style.CMS)
 
 sample_path_old = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass0"
 sample_path = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass1"
+new_sample_path="/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass2"
+
 
 plot_path = "all_plots"
 analysis_path = "stat_anal"
@@ -402,6 +404,17 @@ def get_conf_mat(data):
     plt.savefig(f"{analysis_path}/conf.png")
 
     return (conf_mat, conf_mat_truth_prop, conf_mat_recon_prop)
+def plot_hcc(hessian, suptitle):
+    fig, ax = plt.subplots(1,3, figsize=(10,7))
+    fig.suptitle(suptitle)
+    cov = get_cov(hessian)
+    correlation = get_correlation_matrix(cov)
+    show_matrix(hessian, "Hessian",ax[0])
+    show_matrix(cov, "Covariance", ax[1])
+    show_matrix(correlation, "Correlation", ax[2])
+
+    return (cov, correlation)
+    
 
 def get_cov(hessian):
     return np.linalg.inv(hessian)
