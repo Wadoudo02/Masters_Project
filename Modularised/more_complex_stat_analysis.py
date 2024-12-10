@@ -130,7 +130,8 @@ background_estimates = {}
 mass_range = (120, 130)  # Needed here to get BG estimate
 mass_bins = 5
 
-v = "mass_sel"
+v = "mass"
+v_dfs = v + "_sel"
 for cat in cats_unique:
     print(f" --> Processing: {v} in category {cat}")
     nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
@@ -141,7 +142,7 @@ for cat in cats_unique:
 
         cat_mask = dfs[proc]['category'] == cat
 
-        x = np.array(dfs[proc][v][cat_mask])
+        x = np.array(dfs[proc][v_dfs][cat_mask])
 
         # Event weight
         w = np.array(dfs[proc]['plot_weight'])[cat_mask]
@@ -181,7 +182,7 @@ for cat in cats_unique:
 
             cat_mask = dfs[proc]['category'] == cat
 
-            x = np.array(dfs[proc][v][cat_mask])
+            x = np.array(dfs[proc][v_dfs][cat_mask])
 
             # Event weight
             w = np.array(dfs[proc]['plot_weight'])[cat_mask]
@@ -247,7 +248,8 @@ from NLL import *
 hists = {}
 
 mass_bins = 5
-v = 'mass_sel'
+v = 'mass'
+v_dfs = v + "_sel"
 
 # Initialize histogram data for each reconstructed category and process
 for cat in cats_unique:
@@ -259,7 +261,7 @@ for cat in cats_unique:
         else:
             cat_mask = dfs[proc]['category'] == cat
             hists[cat][proc] = np.histogram(
-                dfs[proc][cat_mask][v], 
+                dfs[proc][cat_mask][v_dfs], 
                 mass_bins, 
                 mass_range, 
                 weights=dfs[proc][cat_mask]['true_weight']
@@ -315,7 +317,7 @@ if plot_entire_chain:
 
 from Chi_Squared import *
 
-quadratic_order = False
+quadratic_order = True
 
 
 chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-2, 2, 10000), quadratic_order)
@@ -349,7 +351,7 @@ print(f"Minimum chi-squared: {min_chi_squared}")
 
 #%%
 
-chi_squared_grid(optimized_mus, NLL_hessian_matrix, np.linspace(-100, 100, 100), result_chi2.x, quadratic_order)
+chi_squared_grid(optimized_mus, NLL_hessian_matrix, np.linspace(-0.5, 0.5, 100), result_chi2.x, quadratic_order)
 
 
 #%%

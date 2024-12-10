@@ -28,7 +28,7 @@ def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
     return proc_data
 
 # Variable to plot
-v = "n_jets"
+v = "mass"
 
 # Extract plotting details from vars_plotting_dict
 num_bins, plot_range, logplot, x_label = vars_plotting_dict[v]
@@ -72,7 +72,7 @@ for i, pt_cat in enumerate(pt_labels):
         # Plot histogram with color
         ax.hist(
                 x, bins=num_bins, range=plot_range, weights=w,
-                histtype='stepfilled', color=colors[j], alpha=0.7, label=f"$(c_g, c_{{tg}}) = ({cg}, {ctg})$"
+                histtype='step', color=colors[j], linewidth=2, alpha=1, label=f"$(c_g, c_{{tg}}) = ({cg}, {ctg})$"
                         )
         
     # Label and formatting

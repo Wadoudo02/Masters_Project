@@ -43,7 +43,7 @@ vars_plotting_dict = {
     "PVScore": [50, (0, 1), False, "Primary vertex score"],
     "MET_pt": [50, (0, 200), False, "Missing $E_T$ [GeV]"],
     "MET_phi": [50, (0, 10), False, "Missing $\\phi$"],
-    "HT": [50, (0, 300), False, "H$_T$ [GeV]"],
+    "HT": [50, (0, 1000), False, "H$_T$ [GeV]"],
     
     # Jet variables
     "j0_pt": [50, (0, 200), False, "Jet 0 $p_T$ [GeV]"],
