@@ -132,7 +132,10 @@ vars_plotting_dict = {
     "deltaPhiMetGG": [50, (0, 10), False, "$\\Delta \\phi(MET, \\gamma\\gamma)$"],
     "minDeltaPhiJMET": [50, (0, 10), False, "Minimum $\\Delta \\phi(J, MET)$"],
     "pt_balance": [50, (0, 10), False, "$p_T$ balance"],
-    "helicity_angle": [50, (0, 1), False, "Helicity angle"]
+    "helicity_angle": [50, (0, 1), False, "Helicity angle"],
+    
+    "HTXS_Higgs_pt": [50, (0, 1000), False, "HTXS Higgs $p_T$"],
+    "max_btag": [50, (0, 1), False, "Max b-tag"]
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

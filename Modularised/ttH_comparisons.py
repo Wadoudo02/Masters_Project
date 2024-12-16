@@ -9,10 +9,12 @@ from utils import *
 
 plt.style.use(hep.style.CMS)
 
+plot_fraction = True
+
 # Constants
 total_lumi = 7.9804
 target_lumi = 300
-cg_ctg_pairs = [(0.15, 0.22), (0, 0.22), (0.15, 0), (0, 0)]  # SMEFT parameter pairs
+cg_ctg_pairs = [(0, 0), (0, 0.22), (0.15, 0), (0.15, 0.22)]  # SMEFT parameter pairs
 pt_bins = [0, 60, 120, 200, 300, np.inf]
 pt_labels = ['0-60', '60-120', '120-200', '200-300', '>300']
 
@@ -28,7 +30,7 @@ def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
     return proc_data
 
 # Variable to plot
-v = "HT"
+v = "HTXS_Higgs_pt"
 
 # Extract plotting details from vars_plotting_dict
 if v == "pt":
@@ -65,10 +67,13 @@ for j, (cg, ctg) in enumerate(cg_ctg_pairs):
     # Histogram data
     x = np.array(df_tth_temp[v])
     w = np.array(df_tth_temp['plot_weight'])
-
+    '''
+    if plot_fraction:
+        w /= w.sum()
+    '''
     # Plot histogram with color
     ax.hist(
-            x, bins=num_bins, range=plot_range, weights=w,
+            x, bins=num_bins, range=plot_range, density=plot_fraction, weights=w,
             histtype='step', color=colors[j], linewidth=2, alpha=1, label=f"$(c_g, c_{{tg}}) = ({cg}, {ctg})$"
                     )
     
@@ -76,7 +81,7 @@ for j, (cg, ctg) in enumerate(cg_ctg_pairs):
 ax.set_ylabel("Events")
 if logplot:
     ax.set_yscale("log")
-hep.cms.label("All Events", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
+hep.cms.label("All ttH Events", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 ax.legend(loc="best", ncol=1)
 
 # Shared x-axis label from vars_plotting_dict

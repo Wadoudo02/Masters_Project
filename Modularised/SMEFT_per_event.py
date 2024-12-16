@@ -146,7 +146,8 @@ background_estimates = {}
 mass_range = (120, 130)  # Needed here to get BG estimate
 mass_bins = 5
 
-v = "mass_sel"
+v = "mass"
+v_dfs = v + "_sel"
 n_categories = len(cats_unique)
 fig, axs = plt.subplots(nrows=n_categories, ncols=1, figsize=(15, 5 * n_categories), sharex=True, dpi = 300)
 
@@ -161,7 +162,7 @@ for i, cat in enumerate(cats_unique):
 
         cat_mask = dfs[proc]['category'] == cat
 
-        x = np.array(dfs[proc][v][cat_mask])
+        x = np.array(dfs[proc][v_dfs][cat_mask])
 
         # Event weight
         w = np.array(dfs[proc]['plot_weight'])[cat_mask]

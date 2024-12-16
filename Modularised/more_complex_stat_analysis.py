@@ -12,7 +12,9 @@ import json
 from utils import *
 
 
-plot_entire_chain = True
+plot_entire_chain = False
+
+plot_fraction = False
 
 # Constants
 total_lumi = 7.9804
@@ -96,18 +98,6 @@ for i, proc in enumerate(procs.keys()):
     labels = ['0-60', '60-120', '120-200', '200-300', '>300']  # Labels for each category
     dfs[proc]['category'] = pd.cut(dfs[proc]['pt_sel'], bins=bins, labels=labels, right=False)
     
-    '''
-    conditions = [
-    (dfs[proc]['pt/mass']*mass < 60),      # Category 0: low p_T
-    (dfs[proc]['pt/mass']*mass >= 60) & (dfs[proc]['pt/mass']*mass < 120),  # Category 1: medium p_T
-    (dfs[proc]['pt/mass']*mass >= 120) & (dfs[proc]['pt/mass']*mass < 200), # Category 2: higher p_T
-    (dfs[proc]['pt/mass']*mass >= 200) & (dfs[proc]['pt/mass']*mass < 300), # Category 3: even higher p_T
-    (dfs[proc]['pt/mass']*mass >= 300)     # Category 4: highest p_T
-    ]
-    #dfs[proc]['category'] = np.array(dfs[proc]['n_leptons'] >= 1, dtype='int')
-    dfs[proc]['category'] = np.select(conditions, [0, 1, 2, 3, 4])
-    print(np.select(conditions, [0,1,2,3,4]))
-      '''  
 # Extract different cat integers
 cats_unique = []
 for proc in procs.keys():
@@ -186,8 +176,9 @@ for cat in cats_unique:
 
             # Event weight
             w = np.array(dfs[proc]['plot_weight'])[cat_mask]
+            
 
-            counts, bin_edges, _ = ax.hist(x, nbins, xrange, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
+            counts, bin_edges, _ = ax.hist(x, nbins, xrange, density = plot_fraction, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
 
             if proc == "background":
                 # Plot the fitted exponential decay curve
@@ -273,7 +264,7 @@ conf_matrix = confusion_matrices['ttH']
 
 combined_histogram = build_combined_histogram(ordered_hists, conf_matrix, signal='ttH')
 
-mu_values = np.linspace(-2, 5, 100)  # Range for scanning a single mu
+mu_values = np.linspace(-100, 100, 1000)  # Range for scanning a single mu
 mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
 bounds = [(0, 3) for _ in range(4)]  # Bounds for the other mu parameters
 
