@@ -32,7 +32,7 @@ procs = {
 }
 
 # Features to use in the XGBoost model
-features = ["deltaR", "HT", "n_jets", "max_btag", "j0_pt", "delta_phi_gg", "pt"] 
+features = ["deltaR", "HT", "n_jets", "max_btag", "j0_pt", "delta_phi_gg", "pt", "j0_btagB", "j1_btagB"] 
 features = [f"{feature}_sel" for feature in features]
 
 
@@ -132,4 +132,15 @@ ax.set_ylabel("Fraction of Events" if plot_fraction else "Events")
 ax.legend(loc="best")
 hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 plt.tight_layout()
+plt.show()
+
+#%%
+
+
+from xgboost import plot_tree
+
+
+# Plot the first tree in the XGBoost model
+fig, ax = plt.subplots(figsize=(20, 10), dpi = 1000)  # Set figure size
+plot_tree(clf, num_trees=0, ax=ax)  # num_trees=0 selects the first tree
 plt.show()
