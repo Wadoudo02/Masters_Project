@@ -19,7 +19,12 @@ Labels:
 2 - ggH
 3 - VBF
 4 - VH
+
+For binary:
+0 - non-ttH
+1 - ttH
 '''
+
 binary_cat = True
 for i, proc in enumerate(procs.keys()):
     if i==0:
@@ -34,7 +39,7 @@ for i, proc in enumerate(procs.keys()):
 
 target_names_all = ['Background', 'ttH', 'ggH', 'VBF', 'VH']
 target_names_no_bg = ['ttH', 'ggH', 'VBF', 'VH']
-target_names_bin = ["ttH", "non-ttH"]
+target_names_bin = ["non-ttH","ttH"]
 
 if binary_cat:
     target_names = target_names_bin

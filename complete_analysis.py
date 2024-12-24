@@ -28,8 +28,8 @@ cats = {0: "0-60",
 col_name = "_sel"
 
 # Load dataframes
-dfs = get_dfs(sample_path)
-
+dfs = get_dfs(new_sample_path)
+#%%
 #Apply selection
 for i, proc in enumerate(procs.keys()):   
     dfs[proc] = get_selection(dfs[proc], proc)
