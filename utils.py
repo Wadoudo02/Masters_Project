@@ -412,7 +412,7 @@ def plot_hcc(hessian, suptitle):
     show_matrix(hessian, "Hessian",ax[0])
     show_matrix(cov, "Covariance", ax[1])
     show_matrix(correlation, "Correlation", ax[2])
-
+    plt.show()
     return (cov, correlation)
     
 

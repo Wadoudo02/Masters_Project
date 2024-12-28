@@ -10,7 +10,7 @@ plt.style.use(hep.style.CMS)
 from utils import *
 from background_dist import *
 from nll import *
-from EFT import *
+from chi2 import *
 from selection import *
 from categorisation import *
 
@@ -18,6 +18,7 @@ from categorisation import *
 total_lumi = 7.9804
 target_lumi = 300
 mass = 125
+sample_path = new_sample_path
 
 cats = {0: "0-60",
         1: "60-120",
@@ -28,7 +29,7 @@ cats = {0: "0-60",
 col_name = "_sel"
 
 # Load dataframes
-dfs = get_dfs(new_sample_path)
+dfs = get_dfs(sample_path)
 #%%
 #Apply selection
 for i, proc in enumerate(procs.keys()):   
@@ -64,8 +65,9 @@ for cat in cats_unique:
 NLL_vals = []
 mu_vals = np.linspace(-2,5,100)
 
-tth_new_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
-conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(tth_new_samples) #conf_matrix[2] is the one normalised by recon
+#tth_samples = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+tth_samples = dfs["ttH"]
+conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(tth_samples) #conf_matrix[2] is the one normalised by recon
 
 
 #%%
@@ -142,7 +144,7 @@ Chi squared fit of mu(c)
 '''
 #print(c_g_coef, c_tg_coef)
 
-c_vals = np.linspace(-10, 10, 1000)
+c_vals = np.linspace(-2, 2, 1000)
 c_tg=0
 chi_squared = []
 second_order = True

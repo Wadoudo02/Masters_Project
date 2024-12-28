@@ -44,7 +44,10 @@ def get_dfs(sample_path):
     for i, proc in enumerate(procs.keys()):
         #if proc != "ttH": continue
         print(f" --> Loading process: {proc}")
-        dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
+        if proc=="ttH" and sample_path==new_sample_path:
+            dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected_with_smeft_cut_mupcleq90.parquet")
+        else:
+            dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
 
         # Remove nans from dataframe
         dfs[proc] = dfs[proc][(dfs[proc]['mass'+col_name] == dfs[proc]['mass'+col_name])]
