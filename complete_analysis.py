@@ -71,21 +71,21 @@ conf_matrix_raw, conf_matrix, conf_matrix_recon = get_conf_mat(tth_samples) #con
 
 
 #%%
-'''
-Scanning using combined hist
-'''
+#Scanning using combined hist
+
+
 print(f'''Before combining
       {hists}
       ''')
 comb_hist = build_combined_histogram(hists, conf_matrix, mass_bins=5)
-
+print(hists)
+print(comb_hist)
+print(conf_matrix)
 plot_comb_hist(comb_hist)
 plot_comb_hist(comb_hist, inc_background=False)
 
 #%%
-'''
-Profiled fit for NLL 
-'''
+#Profiled fit for NLL 
 print('''
 NLL PROFILED SCAN USING COMBINED HISTOGRAM
 ''')
@@ -111,6 +111,7 @@ fig.suptitle("Profiled NLL fit for each mu")
 plt.show()
 #fig.savefig(f"{analysis_path}/nll_profiled_fit.png")
 #%%
+#NLL Global fit
 print('''
       NLL Global fit
 ''')
@@ -123,6 +124,7 @@ print(f"""
 """)
 
 # %%
+#Getting Hessian matrix from combined hist
 print('''
 Getting Hessian matrix from combined hist
 ''')
@@ -138,17 +140,19 @@ show_matrix(get_cov(hessian_comb), "Covariance matrix from comb hist", ax[1])
 correlation_matrix = get_correlation_matrix(get_cov(hessian_comb))
 show_matrix(correlation_matrix, "Correlation matrix", ax[2])
 print(get_uncertainties(get_cov(hessian_comb)))
+
+
 # %%
-'''
-Chi squared fit of mu(c)
-'''
+#Chi squared fit of mu(c)
+
 #print(c_g_coef, c_tg_coef)
 
 c_vals = np.linspace(-2, 2, 1000)
 c_tg=0
 chi_squared = []
 second_order = True
-
+#print("a_cg ", a_cg, "a_ctg ", a_ctg, "b_cg_cg ", b_cg_cg, "b_cg_ctg ", b_cg_ctg, "b_ctg_ctg ", b_ctg_ctg)
+#print(a_cg_ord, a_ctg_ord,b_cg_cg_ord, b_cg_ctg_ord, b_ctg_ctg_ord)
 for c_g in c_vals:
     chi2 = get_chi_squared(best_mus, c_g, c_tg, hessian_comb, second_order=second_order)
     #print(chi2)
@@ -165,10 +169,9 @@ plt.grid()
 plt.show()
 
 
-# %%
-'''
-Chi Squared minimisation, profiled
-'''
+#%%
+#Chi Squared minimisation, profiled
+
 init_guess = 0
 c_g, c_tg = 0,0
 xlim=2
@@ -182,14 +185,15 @@ chi_2_c_tg = []
 best_cg_over_ctg = []
 chi_2_c_tg_frozen = []
 
-
+print(f"Scanning over c_g")
 for c_g in c_vals:
     res = minimize(lambda x: get_chi_squared(best_mus, c_g, x, hessian_comb,second_order=second_order),
                     init_guess, method='Nelder-Mead')
     chi2_frozen = get_chi_squared(best_mus,c_g, 0, hessian_comb,second_order=second_order)
+    #print("cur cg", c_g,"best_ctg", res.x, "chi2", res.fun)
     chi_2_c_g.append(res.fun)
     #Best fit vals for ctg when scanning over cg
-    best_ctg_over_cg.append(res.x)
+    best_ctg_over_cg.append(res.x[0])
     chi_2_c_g_frozen.append(chi2_frozen)
 
 for c_tg in c_vals:
@@ -198,7 +202,7 @@ for c_tg in c_vals:
     chi2_frozen = get_chi_squared(best_mus,0, c_tg, hessian_comb,second_order=second_order)
     chi_2_c_tg.append(res.fun)
     #Best fit vals for cg when scanning over ctg
-    best_cg_over_ctg.append(res.x)
+    best_cg_over_ctg.append(res.x[0])
     chi_2_c_tg_frozen.append(chi2_frozen)
 
 best_c_g = c_vals[np.argmin(chi_2_c_g)].round(2)
@@ -257,16 +261,15 @@ axes[1][1].set_xlim(-xlim,xlim)
 
 plt.tight_layout()
 # %%
-'''
-Grid minimisation
-'''
+#Grid minimisation
+
 width = 10
 
 cg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed
 ctg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed
 
 # Initialize a 2D grid for chi-squared values
-chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))  
+chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))
 
 for i, cg in enumerate(cg_values):
     for j, ctg in enumerate(ctg_values):

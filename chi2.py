@@ -13,33 +13,31 @@ with open(path, "r") as file:
     wilson_data = json.load(file)
 
 
-c_g_a_coef = wilson_data["data"]["central"]["a_cg"]
-c_tg_a_coef = wilson_data["data"]["central"]["a_ctgre"]
+a_cg = wilson_data["data"]["central"]["a_cg"]
+a_ctg = wilson_data["data"]["central"]["a_ctgre"]
 
-c_g_sq_b_coef = wilson_data["data"]["central"]["b_cg_cg"]
-c_g_c_tg_b_coef = wilson_data["data"]["central"]["b_cg_ctgre"]
-c_tg_sq_b_coef = wilson_data["data"]["central"]["b_ctgre_ctgre"]
-
+b_cg_cg = wilson_data["data"]["central"]["b_cg_cg"]
+b_cg_ctg = wilson_data["data"]["central"]["b_cg_ctgre"]
+b_ctg_ctg = wilson_data["data"]["central"]["b_ctgre_ctgre"]
 if standalone:
     order = [1,2,3,4,5]
 else:
     order = [2, 5, 3, 4, 6]
 
-(c_g_a_coef_ordered, c_tg_a_coef_ordered,
-c_g_sq_b_coef_ordered, c_g_c_tg_b_coef_ordered,
-c_tg_sq_b_coef_ordered) = order_data(c_g_a_coef, c_tg_a_coef,
-                                     c_g_sq_b_coef, c_g_c_tg_b_coef,
-                                     c_tg_sq_b_coef, order=order)
-
+(a_cg_ord, a_ctg_ord,
+b_cg_cg_ord, b_cg_ctg_ord,
+b_ctg_ctg_ord) = order_data(a_cg, a_ctg,
+                                     b_cg_cg, b_cg_ctg,
+                                     b_ctg_ctg, order=order)
 def mu_c(c_g, c_tg, second_order=False):
     mus = []
-    for i in range(len(c_g_a_coef_ordered)):
-        curmu = float(1 + c_g*c_g_a_coef_ordered[i]
-                          + c_tg*c_tg_a_coef_ordered[i])
+    for i in range(len(a_cg_ord)):
+        curmu = float(1 + c_g*a_cg_ord[i]
+                          + c_tg*a_ctg_ord[i])
         if second_order:
-            curmu += float((c_g**2)*c_g_sq_b_coef_ordered[i]
-                             + c_g*c_tg*c_g_c_tg_b_coef_ordered[i]
-                             + (c_tg**2)*c_tg_sq_b_coef_ordered[i])
+            curmu += float((c_g**2)*b_cg_cg_ord[i]
+                             + c_g*c_tg*b_cg_ctg_ord[i]
+                             + (c_tg**2)*b_ctg_ctg_ord[i])
 
         mus.append(curmu)
     return mus
@@ -49,6 +47,7 @@ def mu_c(c_g, c_tg, second_order=False):
 def get_chi_squared(mu, c_g, c_tg, hessian, second_order=False):
 #    print("input ", mu, c_g, c_tg)
     del_mu = mu - mu_c(c_g, c_tg , second_order=second_order)
+    #print("del_mu ", del_mu, "cg ", c_g, "ctg", c_tg)
     chi2= del_mu.T @ hessian @ del_mu
     return chi2
 
