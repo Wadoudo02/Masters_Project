@@ -11,6 +11,8 @@ plt.style.use(hep.style.CMS)
 
 plot_fraction = True
 
+Quadratic = True
+
 # Constants
 total_lumi = 7.9804
 target_lumi = 300
@@ -30,7 +32,7 @@ def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
     return proc_data
 
 # Variable to plot
-v = "HTXS_Higgs_pt"
+v = "pt"
 
 # Extract plotting details from vars_plotting_dict
 if v == "pt":
@@ -50,9 +52,7 @@ df_tth['pt_sel'] = df_tth['pt-over-mass_sel'] * df_tth['mass_sel']
 
 
 
-# Create figure with one subplot per pt category
-# Create figure with one Axes
-fig, ax = plt.subplots(figsize=(10, 7), dpi=300)
+fig, ax = plt.subplots(figsize=(11, 8), dpi=300)
 
 # Define color palette
 colors = sns.color_palette("husl", len(cg_ctg_pairs))
@@ -62,7 +62,7 @@ colors = sns.color_palette("husl", len(cg_ctg_pairs))
 for j, (cg, ctg) in enumerate(cg_ctg_pairs):
     # Apply SMEFT weights
     df_tth_temp = df_tth.copy()
-    df_tth_temp = add_SMEFT_weights(df_tth_temp, cg, ctg, name="plot_weight", quadratic=True)
+    df_tth_temp = add_SMEFT_weights(df_tth_temp, cg, ctg, name="plot_weight", quadratic=Quadratic)
 
     # Histogram data
     x = np.array(df_tth_temp[v])

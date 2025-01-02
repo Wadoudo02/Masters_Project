@@ -28,13 +28,13 @@ procs = {
     "ggH": ["ggH", "cornflowerblue"],
     "VBF": ["VBF", "red"],
     "VH": ["VH", "orange"],
+    "background" : ["Background", "black"],
     "ttH": ["ttH", "mediumorchid"],
 }
 
 # Features to use in the XGBoost model
-features = ["deltaR", "HT", "n_jets", "max_btag", "j0_pt", "delta_phi_gg", "pt", "j0_btagB", "j1_btagB"] 
+features = ["deltaR", "HT", "n_jets", "max_btag", "j0_pt", "delta_phi_gg", "j0_btagB", "j1_btagB"] 
 features = [f"{feature}_sel" for feature in features]
-
 
 # Load and preprocess data for all processes
 dfs = {}
@@ -75,25 +75,31 @@ print(" --> Training XGBoost Classifier...")
 clf = XGBClassifier(use_label_encoder=False, eval_metric="logloss")
 clf.fit(X_train, y_train, sample_weight=w_train)
 
-# Evaluate the classifier
+# Evaluate the classifier on test data
 y_pred = clf.predict(X_test)
 y_proba = clf.predict_proba(X_test)[:, 1]  # Probabilities for ROC
-
 accuracy = accuracy_score(y_test, y_pred, sample_weight=w_test)
 print(f"Classifier Accuracy: {accuracy:.4f}")
 
-# Compute ROC curve and AUC
+# Compute ROC curve and AUC for test data
 fpr, tpr, _ = roc_curve(y_test, y_proba, sample_weight=w_test)
 roc_auc = auc(fpr, tpr)
-print(f"ROC AUC: {roc_auc:.4f}")
+print(f"Test ROC AUC: {roc_auc:.4f}")
 
-# Plot ROC curve
+# Compute ROC curve and AUC for training data
+y_train_proba = clf.predict_proba(X_train)[:, 1]  # Probabilities for ROC
+fpr_train, tpr_train, _ = roc_curve(y_train, y_train_proba, sample_weight=w_train)
+roc_auc_train = auc(fpr_train, tpr_train)
+print(f"Train ROC AUC: {roc_auc_train:.4f}")
+
+# Plot ROC curves for train and test data
 plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC Curve (AUC = {roc_auc:.4f})")
+plt.plot(fpr_train, tpr_train, color="green", lw=2, label=f"Train ROC (AUC = {roc_auc_train:.4f})")
+plt.plot(fpr, tpr, color="blue", lw=2, label=f"Test ROC (AUC = {roc_auc:.4f})")
 plt.plot([0, 1], [0, 1], color="gray", lw=1, linestyle="--")
 plt.xlabel("False Positive Rate")
 plt.ylabel("True Positive Rate")
-plt.title("ROC Curve for XGBoost Classifier")
+plt.title("ROC Curve Comparison: Train vs Test")
 plt.legend(loc="lower right")
 plt.grid()
 plt.show()
@@ -133,7 +139,6 @@ ax.legend(loc="best")
 hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 plt.tight_layout()
 plt.show()
-
 #%%
 
 

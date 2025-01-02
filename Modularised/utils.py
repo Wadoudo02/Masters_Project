@@ -134,8 +134,17 @@ vars_plotting_dict = {
     "pt_balance": [50, (0, 10), False, "$p_T$ balance"],
     "helicity_angle": [50, (0, 1), False, "Helicity angle"],
     
+    # Extras added after Pass 2
     "HTXS_Higgs_pt": [50, (0, 1000), False, "HTXS Higgs $p_T$"],
-    "max_btag": [50, (0, 1), False, "Max b-tag"]
+    "max_btag": [50, (0, 1), False, "Max b-tag"],
+    "min_btag": [50, (0, 1), False, "Max b-tag"],
+    "HTXS_Higgs_y": [50, (-5, 5), False, "HTXS Higgs Rapidity"],
+    "HTXS_njets30": [10, (0, 10), False, "HTXS Number of Jets (p$_T$ > 30 GeV)"],
+    "HTXS_stage_0": [10, (0, 10), False, "HTXS Stage 0 Category"],
+    "HTXS_stage1_2_cat_pTjet30GeV": [20, (0, 20), False, "HTXS Stage 1.2 Category"],
+    "event": [50, (0, 1e6), False, "Event Number"],
+    "run": [50, (0, 1e5), False, "Run Number"],
+    "lumi": [50, (0, 1e4), False, "Luminosity Section"]
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
