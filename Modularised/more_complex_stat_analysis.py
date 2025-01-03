@@ -311,11 +311,11 @@ from Chi_Squared import *
 quadratic_order = True
 
 
-chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-2, 2, 10000), quadratic_order)
+chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-2, 2, 1000), quadratic_order)
 
 #%%
 
-compare_chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-2, 2, 1000), plot_individuals = True)
+compare_chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-1, 1, 1000), plot_individuals = False)
 
 
 
@@ -342,7 +342,7 @@ print(f"Minimum chi-squared: {min_chi_squared}")
 
 #%%
 
-chi_squared_grid(optimized_mus, NLL_hessian_matrix, np.linspace(-0.5, 0.5, 100), result_chi2.x, quadratic_order)
+chi_squared_grid(optimized_mus, NLL_hessian_matrix, np.linspace(-1, 1, 100), result_chi2.x, quadratic_order)
 
 
 #%%

@@ -41,8 +41,7 @@ def mu_c(cg, ctg, quadratic = True, num_of_categories = 5):
 
     if quadratic:
         for i in range(1, (num_of_categories + 1)):
-            for j in range(num_of_categories):
-                mus[j] += (cg ** 2) * b_cg_cg[i] + cg * ctg * b_cg_ctgre[i] + (ctg ** 2) * b_ctgre_ctgre[i]
+            mus[i-1] += (cg ** 2) * b_cg_cg[i] + cg * ctg * b_cg_ctgre[i] + (ctg ** 2) * b_ctgre_ctgre[i]
         
     return np.array(mus)
 
@@ -137,6 +136,7 @@ def chi_squared_scans(
         plt.xlabel(r"Wilson coefficient $c_{g}$")
         plt.ylabel(r"$\chi^2$")
         plt.legend()
+        plt.ylim(0, 10)
         plt.grid()
     
         # Minimized c_tg for c_g scan
@@ -154,6 +154,7 @@ def chi_squared_scans(
         plt.axhline(1, color='red', linestyle='--', label="68% CL ($\\chi^2 = 1$)")
         plt.xlabel(r"Wilson coefficient $c_{tg}$")
         plt.ylabel(r"$\chi^2$")
+        plt.ylim(0, 10)
         plt.legend()
         plt.grid()
     
