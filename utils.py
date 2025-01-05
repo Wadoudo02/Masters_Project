@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import mplhep as hep
 from categorisation import get_pt_cat
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_curve, auc
 plt.style.use(hep.style.CMS)
 
 sample_path_old = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass0"
@@ -43,7 +44,11 @@ procs = {
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Useful function definitions
-
+def make_np_arr(*arrs):
+    res = []
+    for arr in arrs:
+        res.append(np.asarray(arr))
+    return res
 def order_data(*args, order):
     ans = []
     for data in args:
@@ -439,3 +444,40 @@ def get_correlation_matrix(cov_matrix):
     return correlation_matrix
 def get_uncertainties(cov_matrix):
     return np.sqrt(np.diag(cov_matrix))
+
+def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, y_proba_train, target_names):
+    classification_report(y_test, y_pred, target_names=target_names, sample_weight=w_test)
+
+    accuracy = accuracy_score(y_test, y_pred, sample_weight=w_test)
+    print(f"Classifier Accuracy: {accuracy:.4f}")
+
+    fpr, tpr, _ = roc_curve(y_test, y_proba[:, 1], pos_label=1)
+    roc_auc = auc(fpr, tpr)
+    print(f"ROC AUC: {roc_auc:.4f}")
+
+    fpr_train, tpr_train, _ = roc_curve(y_train, y_proba_train[:, 1], pos_label=1)
+    roc_auc_train = auc(fpr_train, tpr_train)
+    print(f"ROC AUC (Train): {roc_auc_train:.4f}")
+
+
+    # Plot ROC curve
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC Curve (AUC = {roc_auc:.4f})")
+    plt.plot(fpr_train, tpr_train, color="green", lw=2, label=f"Train ROC Curve (AUC = {roc_auc_train:.4f})")
+    plt.plot([0, 1], [0, 1], color="gray", lw=1, linestyle="--")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("ROC Curve for XGBoost SMEFT Classifier")
+    plt.legend(loc="lower right")
+    plt.grid()
+    plt.show()
+
+
+    #Confusion matrix
+    conf_mat = confusion_matrix(y_test, y_pred, sample_weight=w_test)
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(conf_mat, annot=True, fmt=".0f", cmap="Blues", xticklabels=target_names, yticklabels=target_names)
+    plt.xlabel("Predicted Label")
+    plt.ylabel("True Label")
+    plt.title("Confusion Matrix")
+    plt.show()

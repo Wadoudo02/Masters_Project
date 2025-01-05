@@ -14,6 +14,7 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 
 c_g = 0.3
 c_tg = 0.69
+do_grid_search = False
 
 ttH_df = pd.read_parquet(f"{new_sample_path}/ttH_processed_selected_with_smeft_cut_mupcleq90.parquet")
 
@@ -37,8 +38,8 @@ SM_weights = np.asarray(ttH_df["plot_weight"])
 labels = [1 if EFT_weights[i] > SM_weights[i] else 0 for i in range(len(EFT_weights))]
 
 #weights = np.array([EFT_weights[i] if labels[i] == 1 else SM_weights[i] for i in range(len(labels))])
-#weights = EFT_weights
-weights = SM_weights
+weights = EFT_weights
+#weights = SM_weights
 
 x_train, x_test, y_train, y_test, w_train, w_test = train_test_split(comb_df,
                                                                      labels,
@@ -50,55 +51,58 @@ x_train, x_test, y_train, y_test, w_train, w_test = train_test_split(comb_df,
 scaler = StandardScaler()
 x_train = scaler.fit_transform(x_train)
 x_test = scaler.transform(x_test)
-x_train = np.asarray(x_train)
-x_test = np.asarray(x_test)
-y_train = np.asarray(y_train)
-y_test = np.asarray(y_test)
-w_train = np.asarray(w_train)
-weights = np.asarray(weights)
+
+#Making sure everything is np array, only necessayr becasue of some version mismatch.
+x_train, x_test, y_train, y_test, w_train, w_test, weights = make_np_arr(x_train,
+                                                                 x_test,
+                                                                   y_train,
+                                                                     y_test,
+                                                                       w_train,
+                                                                         w_test, weights)
+
+best_params = {"gamma": 0, "learning_rate": 0.2, "max_depth": 3, "n_estimators": 50}
+
 #%%
 #Grid paramter scan
+if do_grid_search:
+    xgb_model = xgb.XGBClassifier(
+        objective="binary:logistic",
+        use_label_encoder=False,
+        eval_metric="logloss"
+    )
+    # Define the grid of parameters to search
+    param_grid = {
+        'max_depth': [3, 5, 7],
+        'gamma': [0, 1, 5],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'n_estimators': [50, 100, 200]
+    }
 
-xgb_model = xgb.XGBClassifier(
-    objective="binary:logistic",
-    use_label_encoder=False,
-    eval_metric="logloss"
-)
-# Define the grid of parameters to search
-param_grid = {
-    'max_depth': [3, 5, 7],
-    'gamma': [0, 1, 5],
-    'learning_rate': [0.01, 0.1, 0.2],
-    'n_estimators': [50, 100, 200]
-}
+    # Perform Grid Search
+    grid_search = GridSearchCV(
+        estimator=xgb_model,
+        param_grid=param_grid,
+        scoring='roc_auc',       # Use an appropriate metric (e.g., AUC)
+        cv=3,                    # 3-fold cross-validation
+        verbose=3,
+        n_jobs=-1                # Parallelize computation
+    )
 
-# Perform Grid Search
-grid_search = GridSearchCV(
-    estimator=xgb_model,
-    param_grid=param_grid,
-    scoring='roc_auc',       # Use an appropriate metric (e.g., AUC)
-    cv=3,                    # 3-fold cross-validation
-    verbose=3,
-    n_jobs=-1                # Parallelize computation
-)
+    # Fit the model
+    grid_search.fit(x_train, y_train, sample_weight=w_train)
 
-# Fit the model
-grid_search.fit(x_train, y_train, sample_weight=w_train)
-
-# Get the best parameters
-print("Best Parameters:", grid_search.best_params_)
-
+    # Get the best parameters
+    print("Best Parameters:", grid_search.best_params_)
+    best_params = grid_search.best_params_
 #%%
 # Train the model with the best parameters
-
 xgb_model = xgb.XGBClassifier(
-    gamma=5,
-    learning_rate=0.1,
-    max_depth=3,
     objective="binary:logistic",
     use_label_encoder=False,
-    eval_metric="logloss"
+    eval_metric="logloss",
+    **best_params
 )
+
 xgb_model.fit(x_train, y_train, sample_weight=w_train)
 
 #%%
@@ -106,32 +110,35 @@ xgb_model.fit(x_train, y_train, sample_weight=w_train)
 y_pred = xgb_model.predict(x_test)
 y_proba = xgb_model.predict_proba(x_test)
 y_proba_train = xgb_model.predict_proba(x_train)
-print(classification_report(y_test, y_pred, target_names=["SM", "EFT"]))
 
-accuracy = accuracy_score(y_test, y_pred, sample_weight=w_test)
-print(f"Classifier Accuracy: {accuracy:.4f}")
+classification_analysis(y_test,w_test,y_proba,y_pred,y_train ,y_proba_train, ["SM", "EFT"] )
+
+#print(
+# classification_report(y_test, y_pred, target_names=["SM", "EFT"], sample_weight=w_test)#)
+
+# accuracy = accuracy_score(y_test, y_pred, sample_weight=w_test)
+# print(f"Classifier Accuracy: {accuracy:.4f}")
+
+# fpr, tpr, _ = roc_curve(y_test, y_proba[:, 1], pos_label=1)
+# roc_auc = auc(fpr, tpr)
+# print(f"ROC AUC: {roc_auc:.4f}")
+
+# fpr_train, tpr_train, _ = roc_curve(y_train, y_proba_train[:, 1], pos_label=1)
+# roc_auc_train = auc(fpr_train, tpr_train)
+# print(f"ROC AUC (Train): {roc_auc_train:.4f}")
 
 
-fpr, tpr, _ = roc_curve(y_test, y_proba[:, 1], pos_label=1)
-roc_auc = auc(fpr, tpr)
-print(f"ROC AUC: {roc_auc:.4f}")
-
-fpr_train, tpr_train, _ = roc_curve(y_train, y_proba_train[:, 1], pos_label=1)
-roc_auc_train = auc(fpr_train, tpr_train)
-print(f"ROC AUC (Train): {roc_auc_train:.4f}")
-
-
-# Plot ROC curve
-plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC Curve (AUC = {roc_auc:.4f})")
-plt.plot(fpr_train, tpr_train, color="green", lw=2, label=f"Train ROC Curve (AUC = {roc_auc_train:.4f})")
-plt.plot([0, 1], [0, 1], color="gray", lw=1, linestyle="--")
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("ROC Curve for XGBoost SMEFT Classifier")
-plt.legend(loc="lower right")
-plt.grid()
-plt.show()
+# # Plot ROC curve
+# plt.figure(figsize=(8, 6))
+# plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC Curve (AUC = {roc_auc:.4f})")
+# plt.plot(fpr_train, tpr_train, color="green", lw=2, label=f"Train ROC Curve (AUC = {roc_auc_train:.4f})")
+# plt.plot([0, 1], [0, 1], color="gray", lw=1, linestyle="--")
+# plt.xlabel("False Positive Rate")
+# plt.ylabel("True Positive Rate")
+# plt.title("ROC Curve for XGBoost SMEFT Classifier")
+# plt.legend(loc="lower right")
+# plt.grid()
+# plt.show()
 
 # Feature importance
 fig, ax = plt.subplots(figsize=(10, 8))
@@ -142,14 +149,14 @@ ax.set_yticks(tick_locs)
 ax.set_yticklabels(special_features[:len(tick_locs)])
 ax.set_ylabel('Features')
 
-#Confusion matrix
-conf_mat = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(10, 8))
-sns.heatmap(conf_mat, annot=True, fmt="d", cmap="Blues", xticklabels=["SM", "EFT"], yticklabels=["SM", "EFT"])
-plt.xlabel("Predicted Label")
-plt.ylabel("True Label")
-plt.title("Confusion Matrix")
-plt.show()
+# #Confusion matrix
+# conf_mat = confusion_matrix(y_test, y_pred, sample_weight=w_test)
+# plt.figure(figsize=(10, 8))
+# sns.heatmap(conf_mat, annot=True, fmt="d", cmap="Blues", xticklabels=["SM", "EFT"], yticklabels=["SM", "EFT"])
+# plt.xlabel("Predicted Label")
+# plt.ylabel("True Label")
+# plt.title("Confusion Matrix")
+# plt.show()
 
 
 

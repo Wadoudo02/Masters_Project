@@ -239,7 +239,7 @@ ax.plot(c_vals, chi_2_c_tg,label=fr"Best fit: {best_c_g:.2f} $^{{+{conf_interval
 ax.plot(c_vals,chi_2_c_tg_frozen, label="Frozen scan")
 ax.axhline(min_chi2_c_g+1, color='red', linestyle='--', label='68% CI')
 ax.axhline(min_chi2_c_g+3.84, color='red', linestyle='--', label='95% CI')
-ax.set_xlabel('c_g')
+ax.set_xlabel('c_tg')
 ax.set_ylim(0,10)
 ax.set_xlim(-xlim,xlim)
 ax.set_ylabel('Chi-squared')
