@@ -28,8 +28,8 @@ plot_fraction = True
 
 Quadratic = True
 
-cg=0.15
-ctg=0.22
+cg = 0.3
+ctg = 0.69
 
 
 # Features to use in the XGBoost model
