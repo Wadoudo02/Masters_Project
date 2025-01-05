@@ -30,29 +30,34 @@ if invalid_weights.sum() > 0:
 special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
 
 comb_df = pd.concat([ttH_df[var] for var in special_features], axis=1)
-EFT_weights = np.array(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
-SM_weights = np.array(ttH_df["plot_weight"])
+EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
+SM_weights = np.asarray(ttH_df["plot_weight"])
 
 # 0 = SM, 1 = EFT
 labels = [1 if EFT_weights[i] > SM_weights[i] else 0 for i in range(len(EFT_weights))]
 
-weights = np.array([EFT_weights[i] if labels[i] == 1 else SM_weights[i] for i in range(len(labels))])
+#weights = np.array([EFT_weights[i] if labels[i] == 1 else SM_weights[i] for i in range(len(labels))])
+#weights = EFT_weights
+weights = SM_weights
 
 x_train, x_test, y_train, y_test, w_train, w_test = train_test_split(comb_df,
                                                                      labels,
                                                                      weights,
                                                                      test_size=0.2,
-                                                                     random_state=42)
+                                                                     random_state=40)
 
-#%%
 
 scaler = StandardScaler()
 x_train = scaler.fit_transform(x_train)
-scaler.transform(x_test)
+x_test = scaler.transform(x_test)
 x_train = np.asarray(x_train)
 x_test = np.asarray(x_test)
 y_train = np.asarray(y_train)
+y_test = np.asarray(y_test)
 w_train = np.asarray(w_train)
+weights = np.asarray(weights)
+#%%
+#Grid paramter scan
 
 xgb_model = xgb.XGBClassifier(
     objective="binary:logistic",
@@ -73,17 +78,27 @@ grid_search = GridSearchCV(
     param_grid=param_grid,
     scoring='roc_auc',       # Use an appropriate metric (e.g., AUC)
     cv=3,                    # 3-fold cross-validation
-    verbose=1,
+    verbose=3,
     n_jobs=-1                # Parallelize computation
 )
 
 # Fit the model
-grid_search.fit(x_train, y_train)
+grid_search.fit(x_train, y_train, sample_weight=w_train)
 
 # Get the best parameters
 print("Best Parameters:", grid_search.best_params_)
 
 #%%
+# Train the model with the best parameters
+
+xgb_model = xgb.XGBClassifier(
+    gamma=5,
+    learning_rate=0.1,
+    max_depth=3,
+    objective="binary:logistic",
+    use_label_encoder=False,
+    eval_metric="logloss"
+)
 xgb_model.fit(x_train, y_train, sample_weight=w_train)
 
 #%%
@@ -117,7 +132,6 @@ plt.title("ROC Curve for XGBoost SMEFT Classifier")
 plt.legend(loc="lower right")
 plt.grid()
 plt.show()
-
 
 # Feature importance
 fig, ax = plt.subplots(figsize=(10, 8))
