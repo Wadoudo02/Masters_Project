@@ -63,7 +63,7 @@ def find_confidence_interval(chi_2, c_vals, min_chi_2, delta_chi_2): # Copied ov
             if lower_bound is None:
                 lower_bound = c_vals[i]
             upper_bound = c_vals[i]
-    return [min_chi_2, lower_bound, upper_bound]
+    return [min_chi_2, upper_bound, lower_bound]
 
 
     
@@ -237,6 +237,7 @@ def compare_chi_squared_scans(
     plt.axhline(1, color='black', linestyle=':', label="68% CL ($\\chi^2 = 1$)")
     plt.xlabel(r"Wilson coefficient $c_{g}$")
     plt.ylabel(r"$\chi^2$")
+    plt.ylim(0, 10)
     plt.legend()
     plt.grid(True)
     
@@ -268,6 +269,7 @@ def compare_chi_squared_scans(
     plt.axhline(1, color='black', linestyle=':', label="68% CL ($\\chi^2 = 1$)")
     plt.xlabel(r"Wilson coefficient $c_{tg}$")
     plt.ylabel(r"$\chi^2$")
+    plt.ylim(0, 10)
     plt.legend()
     plt.grid(True)
     
