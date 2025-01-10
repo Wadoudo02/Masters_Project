@@ -481,3 +481,20 @@ def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, y_proba_tra
     plt.ylabel("True Label")
     plt.title("Confusion Matrix")
     plt.show()
+
+    # Plot the histogram of the predicted probabilities
+    weights_proba_gt = np.sum(w_test[y_proba[:,1] > 0.5])
+
+    # Sum the weights of events predicted as EFT (positive class)
+    weights_predicted_as_EFT = np.sum(w_test[y_pred == 1])
+
+    # Print the sums
+    print(f"Sum of weights for events with prob > 0.5: {weights_proba_gt}")
+    print(f"Sum of weights for events predicted as EFT: {weights_predicted_as_EFT}")
+    plt.figure(figsize=(10, 6))
+    plt.hist(y_proba[:,1],weights=w_test, bins=30, alpha=0.7, color='blue', edgecolor='black')
+    plt.xlabel('Predicted Probability of EFT (Positive Class)')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Predicted Probabilities')
+    plt.grid(True)
+    plt.show()

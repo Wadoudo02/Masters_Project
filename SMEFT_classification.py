@@ -28,24 +28,42 @@ if invalid_weights.sum() > 0:
 
 #all_features = get_features()
 #plot_SMEFT_features(all_features)
+
 special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
 
-comb_df = pd.concat([ttH_df[var] for var in special_features], axis=1)
+#comb_df = pd.concat([ttH_df[var] for var in special_features], axis=1)
 EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
+EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
+EFT_labels = np.ones(len(EFT_weights))
 SM_weights = np.asarray(ttH_df["plot_weight"])
+SM_weights = (SM_weights/np.sum(SM_weights))*10000
+SM_labels = np.zeros(len(SM_weights))
+
+
+
+comb_df_SM = pd.concat([ttH_df[var] for var in special_features], axis=1)
+comb_df_SM["weight"] = SM_weights
+
+comb_df_EFT = pd.concat([ttH_df[var] for var in special_features], axis=1)
+comb_df_EFT["weight"] = EFT_weights
+
+#EFT=1, SM=0
+labels = np.concatenate([EFT_labels, SM_labels])
+comb_df = pd.concat([comb_df_EFT, comb_df_SM], axis = 0)
 
 # 0 = SM, 1 = EFT
-labels = [1 if EFT_weights[i] > SM_weights[i] else 0 for i in range(len(EFT_weights))]
+#labels = [1 if EFT_weights[i] > SM_weights[i] else 0 for i in range(len(EFT_weights))]
 
 #weights = np.array([EFT_weights[i] if labels[i] == 1 else SM_weights[i] for i in range(len(labels))])
-weights = EFT_weights
+#weights = EFT_weights
 #weights = SM_weights
+weights = comb_df["weight"]
 
 x_train, x_test, y_train, y_test, w_train, w_test = train_test_split(comb_df,
                                                                      labels,
                                                                      weights,
                                                                      test_size=0.2,
-                                                                     random_state=40)
+                                                                     random_state=45)
 
 
 scaler = StandardScaler()
@@ -60,6 +78,7 @@ x_train, x_test, y_train, y_test, w_train, w_test, weights = make_np_arr(x_train
                                                                        w_train,
                                                                          w_test, weights)
 
+#Initial best params which are overwritten if grid search performed.
 best_params = {"gamma": 0, "learning_rate": 0.2, "max_depth": 3, "n_estimators": 50}
 
 #%%
@@ -113,55 +132,28 @@ y_proba_train = xgb_model.predict_proba(x_train)
 
 classification_analysis(y_test,w_test,y_proba,y_pred,y_train ,y_proba_train, ["SM", "EFT"] )
 
-#print(
-# classification_report(y_test, y_pred, target_names=["SM", "EFT"], sample_weight=w_test)#)
-
-# accuracy = accuracy_score(y_test, y_pred, sample_weight=w_test)
-# print(f"Classifier Accuracy: {accuracy:.4f}")
-
-# fpr, tpr, _ = roc_curve(y_test, y_proba[:, 1], pos_label=1)
-# roc_auc = auc(fpr, tpr)
-# print(f"ROC AUC: {roc_auc:.4f}")
-
-# fpr_train, tpr_train, _ = roc_curve(y_train, y_proba_train[:, 1], pos_label=1)
-# roc_auc_train = auc(fpr_train, tpr_train)
-# print(f"ROC AUC (Train): {roc_auc_train:.4f}")
-
-
-# # Plot ROC curve
-# plt.figure(figsize=(8, 6))
-# plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC Curve (AUC = {roc_auc:.4f})")
-# plt.plot(fpr_train, tpr_train, color="green", lw=2, label=f"Train ROC Curve (AUC = {roc_auc_train:.4f})")
-# plt.plot([0, 1], [0, 1], color="gray", lw=1, linestyle="--")
-# plt.xlabel("False Positive Rate")
-# plt.ylabel("True Positive Rate")
-# plt.title("ROC Curve for XGBoost SMEFT Classifier")
-# plt.legend(loc="lower right")
-# plt.grid()
-# plt.show()
-
 # Feature importance
 fig, ax = plt.subplots(figsize=(10, 8))
 xgb.plot_importance(xgb_model, ax=ax, importance_type='weight')
-#ax.set_yticklabels(special_features)
+
 tick_locs = ax.get_yticks()
 ax.set_yticks(tick_locs)
 ax.set_yticklabels(special_features[:len(tick_locs)])
 ax.set_ylabel('Features')
 
-# #Confusion matrix
-# conf_mat = confusion_matrix(y_test, y_pred, sample_weight=w_test)
-# plt.figure(figsize=(10, 8))
-# sns.heatmap(conf_mat, annot=True, fmt="d", cmap="Blues", xticklabels=["SM", "EFT"], yticklabels=["SM", "EFT"])
-# plt.xlabel("Predicted Label")
-# plt.ylabel("True Label")
-# plt.title("Confusion Matrix")
-# plt.show()
-
-
-
-
-
-
-
 # %%
+
+SM_features = x_test[y_pred==0]
+SM_w = w_test[y_pred==0]
+
+EFT_features = x_test[y_pred==1]
+EFT_w = w_test[y_pred==1]
+
+for col in range(len(special_features)):
+    plt.hist(SM_features[:,col],weights=SM_w, bins=50, alpha=0.5, label="SM")
+    plt.hist(EFT_features[:,col],weights=EFT_w, bins=50, alpha=0.5, label="EFT")
+    plt.xlabel(special_features[col])
+    plt.ylabel("Events")
+    plt.legend()
+    plt.show()
+
