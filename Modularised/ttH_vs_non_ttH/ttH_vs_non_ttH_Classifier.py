@@ -139,6 +139,28 @@ ax.legend(loc="best")
 hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 plt.tight_layout()
 plt.show()
+
+# Generate hard predictions using the default threshold of 0.5
+y_train_pred = clf.predict(X_train)
+y_test_pred = clf.predict(X_test)
+
+# Compute confusion matrices for training and test sets
+cm_train = confusion_matrix(y_train, y_train_pred)
+cm_test = confusion_matrix(y_test, y_test_pred)
+'''
+# Plot confusion matrix for training data
+disp_train = ConfusionMatrixDisplay(confusion_matrix=cm_train, display_labels=["SM", "SMEFT"])
+disp_train.plot(cmap="Blues", values_format="d")
+plt.title("Confusion Matrix - Training Data")
+plt.show()
+'''
+
+# Plot confusion matrix for test data
+disp_test = ConfusionMatrixDisplay(confusion_matrix=cm_test, display_labels=["SM", "SMEFT"])
+disp_test.plot(cmap="Blues", values_format="d")
+plt.title("Confusion Matrix - Test Data")
+plt.show()
+
 #%%
 
 
