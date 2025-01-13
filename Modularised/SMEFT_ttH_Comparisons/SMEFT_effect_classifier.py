@@ -62,10 +62,13 @@ if invalid_weights.sum() > 0:
     print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
     df_tth = df_tth[~invalid_weights]
 
+# Split the dataset into two random halves
+df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=40)
+'''
 # Add SMEFT weights for classification
 df_smeft = add_SMEFT_weights(df_tth.copy(), cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
 df_sm = df_tth.copy()  # SM is treated as the baseline with cg=0, ctg=0
-
+'''
 # Normalize the "plot_weight" for df_smeft
 df_smeft["plot_weight"] /= df_smeft["plot_weight"].sum()
 
@@ -134,8 +137,8 @@ plt.show()
 y_train_pred_proba = clf.predict_proba(X_train)[:, 1]
 plt.figure(figsize=(12, 8), dpi=300)
 
-plt.hist(y_pred[y_test == 1], bins=50, range=(0, 1), density=plot_fraction, histtype='step', linewidth=2, label=f"SMEFT $(c_g, c_{{tg}}) = ({cg}, {ctg})$")
-plt.hist(y_pred[y_test == 0], bins=50, range=(0, 1), density=plot_fraction, histtype='step', linewidth=2, label="SM $(c_g, c_{{tg}}) = (0, 0)$")
+plt.hist(y_proba[y_test == 1], bins=50, range=(0, 1), density=plot_fraction, histtype='step', linewidth=2, label=f"SMEFT $(c_g, c_{{tg}}) = ({cg}, {ctg})$")
+plt.hist(y_proba[y_test == 0], bins=50, range=(0, 1), density=plot_fraction, histtype='step', linewidth=2, label="SM $(c_g, c_{{tg}}) = (0, 0)$")
 plt.xlabel("XGBoost Classifier Output")
 plt.ylabel("Fraction of Events" if plot_fraction else "Events")
 
