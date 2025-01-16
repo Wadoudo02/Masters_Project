@@ -16,7 +16,7 @@ Quadratic = True
 # Constants
 total_lumi = 7.9804
 target_lumi = 300
-cg_ctg_pairs = [(0, 0), (0, 0.22), (0.15, 0), (0.15, 0.22)]  # SMEFT parameter pairs
+cg_ctg_pairs = [(0, 0),  (0.3, 0.69)]  # SMEFT parameter pairs
 pt_bins = [0, 60, 120, 200, 300, np.inf]
 pt_labels = ['0-60', '60-120', '120-200', '200-300', '>300']
 
@@ -32,7 +32,7 @@ def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
     return proc_data
 
 # Variable to plot
-v = "pt"
+v = "deltaR"
 
 # Extract plotting details from vars_plotting_dict
 if v == "pt":
@@ -50,6 +50,10 @@ df_tth['plot_weight'] *= target_lumi / total_lumi  # Reweight to target lumi
 df_tth['true_weight'] = df_tth['plot_weight'] / 10  # Remove x10 multiplier
 df_tth['pt_sel'] = df_tth['pt-over-mass_sel'] * df_tth['mass_sel']
 
+invalid_weights = df_tth["plot_weight"] <= 0
+if invalid_weights.sum() > 0:
+    print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
+    df_tth = df_tth[~invalid_weights]
 
 
 fig, ax = plt.subplots(figsize=(11, 8), dpi=300)

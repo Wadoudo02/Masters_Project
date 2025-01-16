@@ -89,6 +89,8 @@ df_smeft['label'] = 1  # SMEFT label
 # Combine the datasets
 df_combined = pd.concat([df_sm, df_smeft])
 
+
+
 # Features, labels, and weights
 X = df_combined[[f"feature_{i+1}" for i in range(n_features)]]
 y = df_combined['label']
