@@ -491,10 +491,21 @@ def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, y_proba_tra
     # Print the sums
     print(f"Sum of weights for events with prob > 0.5: {weights_proba_gt}")
     print(f"Sum of weights for events predicted as EFT: {weights_predicted_as_EFT}")
+    # Separate the predicted probabilities based on true labels
+    sm_probs = y_proba[:, 1][y_test == 0]  # Probabilities for SM (true label 0)
+    eft_probs = y_proba[:, 1][y_test == 1]  # Probabilities for EFT (true label 1)
+
+    # Separate weights based on true labels
+    sm_weights = w_test[y_test == 0]
+    eft_weights = w_test[y_test == 1]
+
+    # Plot histograms for SM and EFT
     plt.figure(figsize=(10, 6))
-    plt.hist(y_proba[:,1],weights=w_test, bins=30, alpha=0.7, color='blue', edgecolor='black')
+    plt.hist(sm_probs, weights=sm_weights, bins=30, alpha=0.7, color='blue', label="SM (True Label 0)")
+    plt.hist(eft_probs, weights=eft_weights, bins=30, alpha=0.7, color='orange', label="EFT (True Label 1)")
     plt.xlabel('Predicted Probability of EFT (Positive Class)')
-    plt.ylabel('Frequency')
-    plt.title('Histogram of Predicted Probabilities')
+    plt.ylabel('Weighted Frequency')
+    plt.title('Histogram of Predicted Probabilities (BDT Output)')
     plt.grid(True)
+    plt.legend()
     plt.show()
