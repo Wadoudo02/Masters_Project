@@ -90,68 +90,102 @@ X_train, X_test, X_val, y_train, y_test,y_val, w_train, w_test, w_val, weights =
                                                                          w_test,
                                                                           w_val, weights)
 
+#Initial best params for xgb which are overwritten if grid search performed.
+best_params = {"gamma": 0, "learning_rate": 0.2, "max_depth": 3, "n_estimators": 50}
+
 #%%
-#Training nn instead
+#Grid paramter scan for xgb
+if do_grid_search:
+    xgb_model = xgb.XGBClassifier(
+        objective="binary:logistic",
+        use_label_encoder=False,
+        eval_metric="logloss"
+    )
+    # Define the grid of parameters to search
+    param_grid = {
+        'max_depth': [3, 5, 7],
+        'gamma': [0, 1, 5],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'n_estimators': [50, 100, 200]
+    }
 
-y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val_tensor, X_train_tensor,X_test_tensor, X_val_tensor = get_tensors([y_train, y_test, y_val, w_train, w_test, w_val], [X_train, X_test, X_val])
+    # Perform Grid Search
+    grid_search = GridSearchCV(
+        estimator=xgb_model,
+        param_grid=param_grid,
+        scoring='roc_auc',       # Use an appropriate metric (e.g., AUC)
+        cv=3,                    # 3-fold cross-validation
+        verbose=3,
+        n_jobs=-1                # Parallelize computation
+    )
 
-input_dim = X_train.shape[1]
-model = LogisticRegression(input_dim)
+    # Fit the model
+    grid_search.fit(X_train, y_train, sample_weight=w_train)
 
-#criterion = nn.BCELoss(reduction='none')  # No reduction for custom weighting
-criterion = WeightedBCELoss()
+    # Get the best parameters
+    print("Best Parameters:", grid_search.best_params_)
+    best_params = grid_search.best_params_
+#%%
+# Train the xgb model with the best parameters
+xgb_model = xgb.XGBClassifier(
+    objective="binary:logistic",
+    use_label_encoder=False,
+    eval_metric="logloss",
+    **best_params
+)
 
-# Define optimizer
-optimizer = optim.Adam(model.parameters(), lr=0.01)
+xgb_model.fit(X_train, y_train, sample_weight=w_train)
+#%%
+#Classification analysis for xgb
+y_pred = xgb_model.predict(X_test)
+y_proba = xgb_model.predict_proba(X_test)
+y_proba_train = xgb_model.predict_proba(X_train)
 
-loss_values = []
-val_loss_values = []
+classification_analysis(y_test,w_test,y_proba[:,1],y_pred,y_train,w_train ,y_proba_train[:,1], ["SM", "EFT"] )
 
-# Training loop
-num_epochs = 100
+# Feature importance
+fig, ax = plt.subplots(figsize=(10, 8))
+xgb.plot_importance(xgb_model, ax=ax, importance_type='weight')
 
-for epoch in range(num_epochs):
-    # Forward pass
-    model.train() 
-    logits = model(X_train_tensor)
-    loss_mean = criterion(logits, y_train_tensor, w_train_tensor)  #Mean loss values
+tick_locs = ax.get_yticks()
+ax.set_yticks(tick_locs)
+ax.set_yticklabels(special_features[:len(tick_locs)])
+ax.set_ylabel('Features')
 
-    # Backward pass and optimization
-    optimizer.zero_grad()
-    loss_mean.backward()
-    optimizer.step()
+# %%
+#Evaluating over all data 
+y_proba = xgb_model.predict_proba(comb_df.to_numpy())
 
-    # VALIDATION
-    model.eval()  # Set model to evaluation mode
-    with torch.no_grad():
-        val_logits = model(X_val_tensor)
-        val_loss_mean = criterion(val_logits, y_val_tensor, w_val_tensor)  # Mean loss values
-    loss_values.append(loss_mean.item())
-    val_loss_values.append(val_loss_mean.item())
+sm_probs = y_proba[:, 1][labels == 0]  # Probabilities for SM (true label 0)
+eft_probs = y_proba[:, 1][labels == 1]  # Probabilities for EFT (true label 1)
 
-    if (epoch + 1) % 10 == 0:
-        print(f"Epoch [{epoch+1}/{num_epochs}], Weighted Loss: {loss_mean.item():.4f}")
+# Separate weights based on true labels
+sm_weights = weights[labels == 0]
+eft_weights = weights[labels == 1]
 
-# Evaluate the model on the test and train set
-with torch.no_grad():
-    probabilities = model(X_test_tensor)
-    train_proba = model(X_train_tensor)
-    
-    predictions = probabilities > 0.5  # Threshold at 0.5
-    accuracy = (predictions.eq(y_test_tensor).sum() / y_test_tensor.shape[0]).item()
-    print("Probabilities:", probabilities.squeeze().numpy())
-    print("Predictions:", predictions.squeeze().numpy())
-    print("Ground truth:", y_test_tensor.squeeze().numpy())
-
-classification_analysis(y_test, w_test, probabilities.squeeze(), predictions.squeeze(), y_train, w_train, train_proba.squeeze(), ["SM", "EFT"])
-
-# Plotting the training loss values
-plt.figure(figsize=(10, 5))
-plt.plot(loss_values, label='Training Loss', color='blue')
-plt.plot(val_loss_values, label='Validation Loss', color='orange')
-plt.title('Training Loss Over Epochs')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
+# Plot histograms for SM and EFT
+plt.figure(figsize=(10, 6))
+plt.hist(sm_probs, weights=sm_weights, bins=30, alpha=0.7, color='blue', label="SM (True Label 0)")
+plt.hist(eft_probs, weights=eft_weights, bins=30, alpha=0.7, color='orange', label="EFT (True Label 1)")
+plt.xlabel('Predicted Probability of EFT (Positive Class)')
+plt.ylabel('Weighted Frequency')
+plt.title('Histogram of Predicted Probabilities (BDT Output)')
+plt.grid(True)
 plt.legend()
-plt.grid()
 plt.show()
+#%%
+#Trying to see seperation over predicted features
+
+SM_features = X_test[y_pred==0]
+SM_w = w_test[y_pred==0]
+
+EFT_features = X_test[y_pred==1]
+EFT_w = w_test[y_pred==1]
+
+# for col in range(len(special_features)):
+#     plt.hist(SM_features[:,col],weights=SM_w, bins=50, alpha=0.5, label="SM")
+#     plt.hist(EFT_features[:,col],weights=EFT_w, bins=50, alpha=0.5, label="EFT")
+#     plt.xlabel(special_features[col])
+#     plt.ylabel("Events")
+#     plt.legend()
+#     plt.show()
