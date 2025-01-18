@@ -36,26 +36,26 @@ if invalid_weights.sum() > 0:
 
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel"] 
-#comb_df = pd.concat([ttH_df[var] for var in special_features], axis=1)
-EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
-EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
-EFT_labels = np.ones(len(EFT_weights))
-SM_weights = np.asarray(ttH_df["plot_weight"])
-SM_weights = (SM_weights/np.sum(SM_weights))*10000
-SM_labels = np.zeros(len(SM_weights))
+# EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
+# EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
+# EFT_labels = np.ones(len(EFT_weights))
+# SM_weights = np.asarray(ttH_df["plot_weight"])
+# SM_weights = (SM_weights/np.sum(SM_weights))*10000
+# SM_labels = np.zeros(len(SM_weights))
 
 
+# comb_df_SM = pd.concat([ttH_df[var] for var in special_features], axis=1)
+# comb_df_SM["weight"] = SM_weights
 
-comb_df_SM = pd.concat([ttH_df[var] for var in special_features], axis=1)
-comb_df_SM["weight"] = SM_weights
+# comb_df_EFT = comb_df_SM.copy()#pd.concat([ttH_df[var] for var in special_features], axis=1)
+# comb_df_EFT["weight"] = EFT_weights
 
-comb_df_EFT = comb_df_SM.copy()#pd.concat([ttH_df[var] for var in special_features], axis=1)
-comb_df_EFT["weight"] = EFT_weights
+# #EFT=1, SM=0
+# labels = np.concatenate([EFT_labels, SM_labels])
+# comb_df = pd.concat([comb_df_EFT, comb_df_SM], axis = 0)
+# comb_df["labels"] = labels
 
-#EFT=1, SM=0
-labels = np.concatenate([EFT_labels, SM_labels])
-comb_df = pd.concat([comb_df_EFT, comb_df_SM], axis = 0)
-comb_df["labels"] = labels
+comb_df=get_labeled_comb_df(ttH_df, "dup", special_features, c_g, c_tg)
 
 #Dropping all rows with nans
 comb_df = comb_df.dropna()
@@ -80,23 +80,27 @@ X_test = scaler.transform(X_test)
 X_val = scaler.transform(X_val)
 
 #Making sure everything is np array, only necessayr becasue of some version mismatch.
-X_train, X_test, X_val, y_train, y_test,y_val, w_train, w_test, w_val, weights = make_np_arr(X_train,
-                                                                 X_test,
-                                                                     X_val,
-                                                                   y_train,
-                                                                     y_test,
-                                                                        y_val,
-                                                                       w_train,
-                                                                         w_test,
-                                                                          w_val, weights)
-
+(X_train, X_test, X_val,
+y_train, y_test,y_val,
+w_train, w_test, w_val, weights) = make_np_arr(X_train,
+                                                X_test,
+                                                X_val,
+                                                y_train,
+                                                y_test,
+                                                y_val,
+                                                w_train,
+                                                w_test,
+                                                w_val, weights)
 #%%
 #Training nn instead
 
 y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val_tensor, X_train_tensor,X_test_tensor, X_val_tensor = get_tensors([y_train, y_test, y_val, w_train, w_test, w_val], [X_train, X_test, X_val])
 
 input_dim = X_train.shape[1]
-model = LogisticRegression(input_dim)
+hidden_dim = [256, 64, 32, 16, 16, 8]
+
+#model = LogisticRegression(input_dim)
+model = ComplexNN(input_dim, hidden_dim, 1) 
 
 #criterion = nn.BCELoss(reduction='none')  # No reduction for custom weighting
 criterion = WeightedBCELoss()
@@ -117,8 +121,14 @@ for epoch in range(num_epochs):
     loss_mean = criterion(logits, y_train_tensor, w_train_tensor)  #Mean loss values
 
     # Backward pass and optimization
+
+    #zero the gradients of the optimizer
     optimizer.zero_grad()
+
+    #Perform backward pass and calc gradients wrt weights
     loss_mean.backward()
+
+    #Take step in direction of gradients and update parameters
     optimizer.step()
 
     # VALIDATION
@@ -149,9 +159,10 @@ classification_analysis(y_test, w_test, probabilities.squeeze(), predictions.squ
 plt.figure(figsize=(10, 5))
 plt.plot(loss_values, label='Training Loss', color='blue')
 plt.plot(val_loss_values, label='Validation Loss', color='orange')
-plt.title('Training Loss Over Epochs')
+plt.title('Loss Over Epochs')
 plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.legend()
 plt.grid()
 plt.show()
+# %%

@@ -2,10 +2,34 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_curve, auc
+from sklearn.model_selection import train_test_split
 import seaborn as sns
 
 import torch
 import torch.nn as nn
+
+from EFT import *
+
+class ComplexNN(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim=1, dropout_prob=0.3):
+        super(ComplexNN, self).__init__()
+        layers = []
+        current_dim = input_dim
+    
+        for dim in hidden_dim:
+            layers.append(nn.Linear(current_dim, dim))
+            layers.append(nn.BatchNorm1d(dim))  # Batch normalization
+            layers.append(nn.LeakyReLU(negative_slope=0.01))  # LeakyReLU activation
+            layers.append(nn.Dropout(p=dropout_prob))  # Dropout
+            current_dim = dim
+        
+        layers.append(nn.Linear(current_dim, output_dim))
+        layers.append(nn.Sigmoid())
+
+        self.model = nn.Sequential(*layers)
+    
+    def forward(self, x):
+        return self.model(x)
 
 class LogisticRegression(nn.Module):
     def __init__(self, input_dim):
@@ -46,6 +70,63 @@ def plot_classifier_output(y_probs, y_true, ws, ax):
     ax.set_ylabel('Weighted Frequency')
     ax.legend()
 
+'''
+Type can be: dup (duplicate), rand (random), rand_eft (random with eft weights), rand_SM (random with SM weights)
+'''
+def get_labeled_comb_df(ttH_df, type, features, c_g, c_tg):
+        
+        if type=="dup":
+            EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
+            EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
+            EFT_labels = np.ones(len(EFT_weights))
+            SM_weights = np.asarray(ttH_df["plot_weight"])
+            SM_weights = (SM_weights/np.sum(SM_weights))*10000
+            SM_labels = np.zeros(len(SM_weights))
+
+
+            comb_df_SM = pd.concat([ttH_df[var] for var in features], axis=1)
+            comb_df_SM["weight"] = SM_weights
+
+            comb_df_EFT = comb_df_SM.copy()#pd.concat([ttH_df[var] for var in special_features], axis=1)
+            comb_df_EFT["weight"] = EFT_weights
+
+            #EFT=1, SM=0
+            labels = np.concatenate([EFT_labels, SM_labels])
+            comb_df = pd.concat([comb_df_EFT, comb_df_SM], axis = 0)
+            comb_df["labels"] = labels
+        
+        elif type[:4]=="rand":
+            EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
+            EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
+            ttH_df["EFT_weight"] = EFT_weights
+            ttH_df["plot_weight"] = (ttH_df["plot_weight"]/np.sum(ttH_df["plot_weight"]))*10000
+
+            comb_df = pd.concat([ttH_df[var] for var in features]+[ttH_df["plot_weight"], ttH_df["EFT_weight"]], axis=1)
+            comb_df_SM, comb_df_EFT = train_test_split(comb_df, test_size=0.5)
+            
+            if type[4:]=="EFT":
+                comb_df_SM.drop(columns=["plot_weight"], inplace=True)
+                comb_df_SM.rename(columns={'EFT_weight': 'weight'}, inplace=True)
+                comb_df_EFT.drop(columns=["plot_weight"], inplace=True)
+                comb_df_EFT.rename(columns={'EFT_weight': 'weight'}, inplace=True)
+            elif type[4:]=="SM":
+                comb_df_EFT.drop(columns=["EFT_weight"], inplace=True)
+                comb_df_EFT.rename(columns={'plot_weight': 'weight'}, inplace=True)
+                comb_df_SM.drop(columns=["EFT_weight"], inplace=True)
+                comb_df_SM.rename(columns={'plot_weight': 'weight'}, inplace=True)
+            else:
+                comb_df_SM.drop(columns=["EFT_weight"], inplace=True)
+                comb_df_SM.rename(columns={'plot_weight': 'weight'}, inplace=True)
+                comb_df_EFT.drop(columns=["plot_weight"], inplace=True)
+                comb_df_EFT.rename(columns={'EFT_weight': 'weight'}, inplace=True)
+
+            comb_df_SM["labels"] = np.zeros(len(comb_df_SM["weight"]))
+            comb_df_EFT["labels"] = np.ones(len(comb_df_EFT["weight"]))
+
+            comb_df = pd.concat([comb_df_EFT, comb_df_SM], axis = 0)
+        
+
+        return comb_df
 
 def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, w_train,y_proba_train, target_names):
     classification_report(y_test, y_pred, target_names=target_names, sample_weight=w_test)
