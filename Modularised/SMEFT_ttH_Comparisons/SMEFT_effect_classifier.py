@@ -161,8 +161,8 @@ plt.show()
 y_train_pred_proba = clf.predict_proba(X_train)[:, 1]
 plt.figure(figsize=(12, 8), dpi=300)
 
-plt.hist(y_proba[y_test == 1], bins=50, range=(0, 1), density=plot_fraction, histtype='step', linewidth=2, label=f"SMEFT $(c_g, c_{{tg}}) = ({cg}, {ctg})$")
-plt.hist(y_proba[y_test == 0], bins=50, range=(0, 1), density=plot_fraction, histtype='step', linewidth=2, label="SM $(c_g, c_{{tg}}) = (0, 0)$")
+plt.hist(y_proba[y_test == 1], bins=50, range=(0, 1),  density=plot_fraction, weights = w_test[y_test == 1], histtype='step', linewidth=2, label=f"SMEFT $(c_g, c_{{tg}}) = ({cg}, {ctg})$")
+plt.hist(y_proba[y_test == 0], bins=50, range=(0, 1),  density=plot_fraction, histtype='step', weights = w_test[y_test == 0], linewidth=2, label="SM $(c_g, c_{{tg}}) = (0, 0)$")
 plt.xlabel("XGBoost Classifier Output")
 plt.ylabel("Fraction of Events" if plot_fraction else "Events")
 
@@ -177,18 +177,18 @@ y_train_pred = clf.predict(X_train)
 y_test_pred = clf.predict(X_test)
 
 # Compute confusion matrices for training and test sets
-cm_train = confusion_matrix(y_train, y_train_pred)
-cm_test = confusion_matrix(y_test, y_test_pred)
+cm_train = confusion_matrix(y_train, y_train_pred, sample_weight=w_train)
+cm_test = confusion_matrix(y_test, y_test_pred, sample_weight=w_test)
 '''
 # Plot confusion matrix for training data
 disp_train = ConfusionMatrixDisplay(confusion_matrix=cm_train, display_labels=["SM", "SMEFT"])
-disp_train.plot(cmap="Blues", values_format="d")
+disp_train.plot(cmap="Blues", values_format=".2f")
 plt.title("Confusion Matrix - Training Data")
 plt.show()
 '''
 
 # Plot confusion matrix for test data
 disp_test = ConfusionMatrixDisplay(confusion_matrix=cm_test, display_labels=["SM", "SMEFT"])
-disp_test.plot(cmap="Blues", values_format="d")
+disp_test.plot(cmap="Blues", values_format=".2f")
 plt.title("Confusion Matrix - Test Data")
 plt.show()

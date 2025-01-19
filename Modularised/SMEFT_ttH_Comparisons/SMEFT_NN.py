@@ -36,7 +36,7 @@ cg = 0.3
 ctg = 0.69
 
 
-# Features to use in the XGBoost model
+
 features = ["deltaR", "HT", "n_jets", "delta_phi_gg"] 
 features = [f"{feature}_sel" for feature in features]
 
@@ -67,7 +67,7 @@ if invalid_weights.sum() > 0:
     df_tth = df_tth[~invalid_weights]
 
 # Split the dataset into two random halves
-df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=40)
+df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=35)
 
 df_smeft = add_SMEFT_weights(df_smeft, cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
 
@@ -193,23 +193,38 @@ plt.legend()
 plt.grid()
 plt.show()
 
+# Plot Histograms
+plt.figure(figsize=(12, 8), dpi=300)
+
+plt.hist(y_proba_test[y_test == 1], bins=50, range=(0, 1),  density=plot_fraction, weights = w_test[y_test == 1], histtype='step', linewidth=2, label=f"SMEFT $(c_g, c_{{tg}}) = ({cg}, {ctg})$")
+plt.hist(y_proba_test[y_test == 0], bins=50, range=(0, 1),  density=plot_fraction, histtype='step', weights = w_test[y_test == 0], linewidth=2, label="SM $(c_g, c_{{tg}}) = (0, 0)$")
+plt.xlabel("XGBoost Classifier Output")
+plt.ylabel("Fraction of Events" if plot_fraction else "Events")
+
+plt.legend(loc = "best")
+hep.cms.label("Classifier SMEFT vs SM", com="13.6", lumi=target_lumi, ax=plt.gca())
+plt.tight_layout()
+plt.show()
+
+
+
 # Generate hard predictions
-y_pred_test = (y_proba_test >= 0.5).numpy().astype(int)
-y_pred_train = (y_proba_train >= 0.5).numpy().astype(int)
+y_test_pred = (y_proba_test >= 0.5).numpy().astype(int)
+y_train_pred = (y_proba_train >= 0.5).numpy().astype(int)
 
 # Compute confusion matrices
-cm_train = confusion_matrix(y_train.numpy(), y_pred_train)
-cm_test = confusion_matrix(y_test.numpy(), y_pred_test)
+cm_train = confusion_matrix(y_train, y_train_pred, sample_weight=w_train)
+cm_test = confusion_matrix(y_test, y_test_pred, sample_weight=w_test)
 
 # Plot confusion matrices
 disp_test = ConfusionMatrixDisplay(confusion_matrix=cm_test, display_labels=["SM", "SMEFT"])
-disp_test.plot(cmap="Blues", values_format="d")
+disp_test.plot(cmap="Blues", values_format=".2f")
 plt.title("Confusion Matrix - Test Data")
 plt.show()
 
 '''
 disp_train = ConfusionMatrixDisplay(confusion_matrix=cm_train, display_labels=["SM", "SMEFT"])
-disp_train.plot(cmap="Blues", values_format="d")
+disp_train.plot(cmap="Blues", values_format=".2f")
 plt.title("Confusion Matrix - Train Data")
 plt.show()
 '''

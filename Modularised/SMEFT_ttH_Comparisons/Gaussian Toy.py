@@ -15,7 +15,7 @@ import pandas as pd
 from utils import *
 
 
-True_SMEFT_Weights = True
+True_SMEFT_Weights = False
 
 
 # Generate a single set of features
@@ -74,7 +74,7 @@ if True_SMEFT_Weights:
 else:
     # Assign weights
     df_sm['weight'] = 1  # Uniform weights for SM
-    df_smeft['weight'] = 1 + 0.5 * df_smeft['feature_2'] ** 2  # Mapping function for SMEFT
+    df_smeft['weight'] = 10 + 0.5 * df_smeft['feature_1']  # Mapping function for SMEFT
     # Normalise weights for SM
     df_sm['weight'] /= (df_sm['weight'].sum()/10000)
     
@@ -141,11 +141,11 @@ plt.hist(
 '''
 plt.hist(
     y_test_proba[y_test == 1], bins=50, range=(0, 1), histtype="step", linewidth=2,
-    label="Test SMEFT", color="blue", density=True
+    label="Test SMEFT", color="blue", density=True, weights = w_test[y_test == 1]
 )
 plt.hist(
     y_test_proba[y_test == 0], bins=50, range=(0, 1), histtype="step", linewidth=2,
-    label="Test SM", color="green", density=True
+    label="Test SM", color="green", density=True, weights = w_test[y_test == 0]
 )
 plt.xlabel("Classifier Output")
 plt.ylabel("Density")
@@ -160,18 +160,18 @@ y_train_pred = clf.predict(X_train)
 y_test_pred = clf.predict(X_test)
 
 # Compute confusion matrices for training and test sets
-cm_train = confusion_matrix(y_train, y_train_pred)
-cm_test = confusion_matrix(y_test, y_test_pred)
+cm_train = confusion_matrix(y_train, y_train_pred, sample_weight=w_train)
+cm_test = confusion_matrix(y_test, y_test_pred, sample_weight=w_test)
 
 '''
 # Plot confusion matrix for training data
 disp_train = ConfusionMatrixDisplay(confusion_matrix=cm_train, display_labels=["SM", "SMEFT"])
-disp_train.plot(cmap="Blues", values_format="d")
+disp_train.plot(cmap="Blues", values_format=".2d")
 plt.title("Confusion Matrix - Training Data")
 plt.show()
 '''
 # Plot confusion matrix for test data
 disp_test = ConfusionMatrixDisplay(confusion_matrix=cm_test, display_labels=["SM", "SMEFT"])
-disp_test.plot(cmap="Blues", values_format="d")
+disp_test.plot(cmap="Blues", values_format=".2f")
 plt.title("Confusion Matrix - Test Data")
 plt.show()
