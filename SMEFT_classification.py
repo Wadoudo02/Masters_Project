@@ -32,10 +32,10 @@ invalid_weights = ttH_df["plot_weight"] <= 0
 if invalid_weights.sum() > 0:
     print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
     ttH_df = ttH_df[~invalid_weights]
-
+print(f"--> Remaining rows = {len(ttH_df)}")
 
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
-special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel"] 
+special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel","lead_pt-over-mass_sel"] 
 # EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
 # EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
 # EFT_labels = np.ones(len(EFT_weights))
@@ -112,7 +112,7 @@ loss_values = []
 val_loss_values = []
 
 # Training loop
-num_epochs = 100
+num_epochs = 50
 
 for epoch in range(num_epochs):
     # Forward pass
@@ -166,3 +166,37 @@ plt.legend()
 plt.grid()
 plt.show()
 # %%
+
+cats = [0,0.4, 0.5, 0.6, 0.7,1]
+
+dfs = get_dfs(sample_path)
+for proc, df in dfs.items():
+    new_df = pd.concat([df[feature] for feature in special_features], axis=1)
+    dfs[proc] = torch.tensor(new_df.to_numpy())
+#%%
+dfs_preds = {}
+dfs_cats = {}
+
+for proc, df in dfs.items():
+    print(proc, df)
+    if proc=="ttH":
+        continue
+    # new_df = pd.concat([df[feature] for feature in special_features], axis=1)
+    # new_df_np = new_df.to_numpy()
+    # print(new_df_np)
+    new_df = torch.tensor(df,dtype=torch.float32)
+    probs = model(new_df)
+
+    dfs_preds[proc] = probs
+
+#%%
+for proc, df in dfs.items:
+    preds = dfs_preds[proc]
+    dfs_cats[proc]=[]
+    for i in range(1, len(cats)):
+        dfs_cats[proc].append(df[cats[i-1]<preds<cats[i]])
+
+print(dfs_cats)
+
+
+

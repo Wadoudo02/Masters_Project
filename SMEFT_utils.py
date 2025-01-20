@@ -62,8 +62,8 @@ def get_tensors(oned, twod):
     return res
 
 def plot_classifier_output(y_probs, y_true, ws, ax):
-    sm_probs = y_probs[y_true == 0].squeeze().numpy()  # Probabilities for SM (true label 0)
-    eft_probs = y_probs[y_true == 1].squeeze().numpy()  # Probabilities for EFT (true label 1)
+    sm_probs = y_probs[y_true == 0].squeeze()  # Probabilities for SM (true label 0)
+    eft_probs = y_probs[y_true == 1].squeeze()  # Probabilities for EFT (true label 1)
     ax.hist(sm_probs, weights=ws[y_true == 0], bins=30, alpha=0.7, color='blue', label="SM (True Label 0)")
     ax.hist(eft_probs, weights=ws[y_true == 1], bins=30, alpha=0.7, color='orange', label="EFT (True Label 1)")
     ax.set_xlabel('Predicted Probabilities')
