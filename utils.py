@@ -11,7 +11,8 @@ plt.style.use(hep.style.CMS)
 
 sample_path_old = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass0"
 sample_path = "/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass1"
-new_sample_path="/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass2"
+#new_sample_path="/vols/cms/jl2117/icrf/hgg/MSci_projects/samples/Pass2"
+new_sample_path = "C:/Users/avigh/Documents/MSci_proj/Data"
 
 
 plot_path = "all_plots"

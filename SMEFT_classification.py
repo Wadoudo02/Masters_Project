@@ -112,7 +112,7 @@ loss_values = []
 val_loss_values = []
 
 # Training loop
-num_epochs = 50
+num_epochs = 10
 
 for epoch in range(num_epochs):
     # Forward pass
@@ -153,7 +153,12 @@ with torch.no_grad():
     print("Predictions:", predictions.squeeze().numpy())
     print("Ground truth:", y_test_tensor.squeeze().numpy())
 
-classification_analysis(y_test, w_test, probabilities.squeeze(), predictions.squeeze(), y_train, w_train, train_proba.squeeze(), ["SM", "EFT"])
+y_test_np = y_test_tensor.cpu().numpy()
+predictions_np = predictions.cpu().numpy().flatten()
+train_proba_np = train_proba.cpu().numpy()
+
+classification_analysis(y_test_np, w_test, probabilities.squeeze().cpu().numpy(), predictions_np, y_train, w_train, train_proba_np, ["SM", "EFT"])
+#classification_analysis(y_test, w_test, probabilities.squeeze(), predictions.squeeze(), y_train, w_train, train_proba.squeeze(), ["SM", "EFT"])
 
 # Plotting the training loss values
 plt.figure(figsize=(10, 5))
@@ -166,14 +171,15 @@ plt.legend()
 plt.grid()
 plt.show()
 # %%
-
+#Extract relevant columns from overall df
 cats = [0,0.4, 0.5, 0.6, 0.7,1]
 
-dfs = get_dfs(sample_path)
+dfs = get_dfs(new_sample_path)
 for proc, df in dfs.items():
-    new_df = pd.concat([df[feature] for feature in special_features], axis=1)
-    dfs[proc] = torch.tensor(new_df.to_numpy())
+    new_df = pd.concat([df[feature] for feature in special_features]+[df["mass_sel"],df["plot_weight"]], axis=1)
+    dfs[proc] = torch.tensor(new_df.to_numpy(), dtype=torch.float32)
 #%%
+#Get predictions for all events
 dfs_preds = {}
 dfs_cats = {}
 
@@ -181,22 +187,35 @@ for proc, df in dfs.items():
     print(proc, df)
     if proc=="ttH":
         continue
-    # new_df = pd.concat([df[feature] for feature in special_features], axis=1)
-    # new_df_np = new_df.to_numpy()
-    # print(new_df_np)
-    new_df = torch.tensor(df,dtype=torch.float32)
-    probs = model(new_df)
+    mass,weight = df[:,-2],df[:,-1]
+    df = df[:,:-2]
+    #new_df = torch.tensor(df,dtype=torch.float32)
+    probs = model(df)
 
-    dfs_preds[proc] = probs
+    dfs_preds[proc] = [probs, mass,weight]
 
 #%%
-for proc, df in dfs.items:
-    preds = dfs_preds[proc]
-    dfs_cats[proc]=[]
+#Split events by category
+for proc, df in dfs.items():
+    if proc=="ttH":
+        continue
+    preds,mass, weights = dfs_preds[proc]
+    dfs_cats[proc]={"events":[], "mass":[],"weights":[]}
     for i in range(1, len(cats)):
-        dfs_cats[proc].append(df[cats[i-1]<preds<cats[i]])
+        bools = ((cats[i-1]<preds) & (preds<cats[i])).squeeze()
+        dfs_cats[proc]["events"].append(df[bools.numpy()])
+        dfs_cats[proc]["weights"].append(weights[bools.numpy()])
+        dfs_cats[proc]["mass"].append(mass[bools.numpy()])
 
-print(dfs_cats)
+#Over number of cats
+fig, ax = plt.subplots(ncols=4,figsize=(10, 5))    
+for i in range(1,len(dfs_cats["ggH"])):
+    for proc, df in dfs_cats.items():
+        print(proc, "cat: ", i)
+        print("events: ", df["events"][i].shape, "Weights: ", df["weights"][i].shape)
+        ax[i].hist(dfs_cats[proc]["mass"][i],weights=dfs_cats[proc]["weights"][i], bins=50, alpha=0.5, label=proc, )
 
 
 
+
+# %%
