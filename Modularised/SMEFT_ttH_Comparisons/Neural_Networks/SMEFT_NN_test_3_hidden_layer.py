@@ -272,3 +272,23 @@ plt.title("ROC Curve - Neural Network")
 plt.legend()
 plt.grid()
 plt.show()
+
+
+#%%
+
+
+
+# Save the model
+torch.save({"model_state": model.state_dict(), "input_dim": input_dim, "hidden_dim": hidden_dim}, "neural_network.pth")
+
+# Compute max and min probabilities
+max_proba = y_proba_test.max()
+min_proba = y_proba_test.min()
+
+# Save to a file (e.g., JSON format)
+import json
+
+proba_data = {"max_proba": float(max_proba), "min_proba": float(min_proba)}
+with open("proba_values.json", "w") as json_file:
+    json.dump(proba_data, json_file)
+
