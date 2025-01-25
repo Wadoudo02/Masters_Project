@@ -183,3 +183,14 @@ def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, w_train,y_p
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.set_title('Classifier Output over train')
     plot_classifier_output(y_proba_train.squeeze(), y_train.squeeze(), w_train.squeeze(), ax)
+
+
+def eval_in_batches(model, X, batch_size=1000):
+    model.eval()
+    with torch.no_grad():
+        y_prob = []
+        for i in range(0, len(X), batch_size):
+            X_batch = X[i:i + batch_size]
+            y_prob.append(model(X_batch).squeeze())
+        y_prob = torch.cat(y_prob)
+    return y_prob

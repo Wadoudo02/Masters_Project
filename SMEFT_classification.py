@@ -23,7 +23,7 @@ c_tg = 0.69
 do_grid_search = False
 
 ttH_df = pd.read_parquet(f"{new_sample_path}/ttH_processed_selected_with_smeft_cut_mupcleq90.parquet")
-
+#tth_df = get_selection(ttH_df, "ttH")
 ttH_df = ttH_df[(ttH_df["mass_sel"] == ttH_df["mass_sel"])]
 ttH_df['plot_weight'] *= target_lumi / total_lumi 
 #ttH_df = ttH_df.dropna()
@@ -78,6 +78,7 @@ w_train, w_test, w_val, weights) = make_np_arr(X_train,
 
 y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val_tensor, X_train_tensor,X_test_tensor, X_val_tensor = get_tensors([y_train, y_test, y_val, w_train, w_test, w_val], [X_train, X_test, X_val])
 
+#Input dim of 4 and buncha hidden layers.
 input_dim = X_train.shape[1]
 hidden_dim = [256, 64, 32, 16, 16, 8]
 
@@ -152,56 +153,7 @@ plt.ylabel('Loss')
 plt.legend()
 plt.grid()
 plt.show()
-# %%
-#Extract relevant columns from overall df
-cats = [0, 0.4, 0.5, 0.6, 0.7,1]
 
-dfs = get_dfs(new_sample_path)
-for proc, df in dfs.items():
-    if proc=="ttH":
-        df=ttH_df
-    new_df = pd.concat([df[feature] for feature in special_features]+[df["mass_sel"],df["plot_weight"]], axis=1)
-    dfs[proc] = torch.tensor(new_df.to_numpy(), dtype=torch.float32)
-#%%
-#Get predictions for all events
-dfs_preds = {}
-dfs_cats = {}
-
-for proc, df in dfs.items():
-    #print(proc, df)
-    mass,weight = df[:,-2],df[:,-1]
-    df = df[:,:-2]
-    #new_df = torch.tensor(df,dtype=torch.float32)
-    probs = model(df)
-
-    dfs_preds[proc] = [probs, mass,weight]
-
-#%%
-#Split events by category
-with_back=False
-for proc, df in dfs.items():
-    preds,mass, weights = dfs_preds[proc]
-    dfs_cats[proc]={"mass":[],"weights":[]}
-    for i in range(1, len(cats)):
-        bools = ((cats[i-1]<preds) & (preds<cats[i])).squeeze()
-        #print(i, bools.unique())
-        #dfs_cats[proc]["events"].append(df[bools.numpy()])
-        dfs_cats[proc]["weights"].append(weights[bools.numpy()])
-        dfs_cats[proc]["mass"].append(mass[bools.numpy()])
-
-#Over number of cats
-fig, ax = plt.subplots(ncols=len(dfs_cats["ggH"]["mass"]),figsize=(20, 5))    
-for i in range(len(dfs_cats["ggH"]["mass"])):
-    for proc, df in dfs_cats.items():
-        if with_back and proc=="background":
-            continue
-        #print(proc, "cat: ", i, dfs_cats[proc]["mass"][i].shape)
-        ax[i].hist(dfs_cats[proc]["mass"][i],weights=dfs_cats[proc]["weights"][i], bins=50, alpha=0.5, label=proc, )
-        ax[i].legend()
-        ax[i].set_title(f"Category {i}")
-        ax[i].set_xlabel("mass (GeV)")
-        ax[i].set_ylabel("Events")
-
-
-
+# Save the trained model
+torch.save(model.state_dict(), 'C:/Users/avigh/Documents/MSci_proj/Avighna/Masters_Project/saved_models/model.pth')
 # %%
