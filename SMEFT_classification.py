@@ -1,5 +1,5 @@
 #%%
-from EFT import *
+from EFT import * 
 from utils import *
 from selection import *
 from SMEFT_utils import *
@@ -7,6 +7,7 @@ from SMEFT_utils import *
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import joblib
 
 import xgboost as xgb
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -16,28 +17,18 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
-
+plt.style.use(hep.style.CMS)
 
 c_g = 0.3
 c_tg = 0.69
 do_grid_search = False
 
-ttH_df = pd.read_parquet(f"{new_sample_path}/ttH_processed_selected_with_smeft_cut_mupcleq90.parquet")
-#tth_df = get_selection(ttH_df, "ttH")
-ttH_df = ttH_df[(ttH_df["mass_sel"] == ttH_df["mass_sel"])]
-ttH_df['plot_weight'] *= target_lumi / total_lumi 
-#ttH_df = ttH_df.dropna()
-
-invalid_weights = ttH_df["plot_weight"] <= 0
-if invalid_weights.sum() > 0:
-    print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
-    ttH_df = ttH_df[~invalid_weights]
-print(f"--> Remaining rows = {len(ttH_df)}")
+ttH_df = get_tth_df()
 
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel","lead_pt-over-mass_sel"] 
 
-comb_df=get_labeled_comb_df(ttH_df, "dup", special_features, c_g, c_tg)
+comb_df=get_labeled_comb_df(ttH_df, "rand", special_features, c_g, c_tg)
 
 #Dropping all rows with nans
 comb_df = comb_df.dropna()
@@ -60,6 +51,7 @@ scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 X_val = scaler.transform(X_val)
+joblib.dump(scaler, "saved_models/scaler.pkl")
 
 #Making sure everything is np array, only necessayr becasue of some version mismatch.
 (X_train, X_test, X_val,
@@ -74,7 +66,7 @@ w_train, w_test, w_val, weights) = make_np_arr(X_train,
                                                 w_test,
                                                 w_val, weights)
 #%%
-#Training nn instead
+#Training nn
 
 y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val_tensor, X_train_tensor,X_test_tensor, X_val_tensor = get_tensors([y_train, y_test, y_val, w_train, w_test, w_val], [X_train, X_test, X_val])
 
@@ -155,5 +147,6 @@ plt.grid()
 plt.show()
 
 # Save the trained model
-torch.save(model.state_dict(), 'C:/Users/avigh/Documents/MSci_proj/Avighna/Masters_Project/saved_models/model.pth')
+torch.save(model.state_dict(), 'saved_models/model.pth')
+
 # %%

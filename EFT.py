@@ -27,7 +27,7 @@ n_bins = 40
 def get_features():
     return list(ttH_df.columns)
 
-def calc_weights(df, cg=0, ctg=0):
+def calc_weights(df, cg=c_g_con, ctg=c_tg_con):
     cur_weights=df["plot_weight"]*(1+df["a_cg"]*cg +
                                     df["a_ctgre"]*ctg +
                                     df["b_cg_cg"]*cg**2 +

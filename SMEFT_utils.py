@@ -191,6 +191,22 @@ def eval_in_batches(model, X, batch_size=1000):
         y_prob = []
         for i in range(0, len(X), batch_size):
             X_batch = X[i:i + batch_size]
-            y_prob.append(model(X_batch).squeeze())
-        y_prob = torch.cat(y_prob)
+            y_prob.append(model(X_batch).squeeze().numpy())
+        y_prob = np.concatenate(y_prob, axis=0)
     return y_prob
+
+def get_tth_df():
+    ttH_df = pd.read_parquet(f"{new_sample_path}/ttH_processed_selected_with_smeft_cut_mupcleq90.parquet")
+    #tth_df = get_selection(ttH_df, "ttH")
+    ttH_df = ttH_df[(ttH_df["mass_sel"] == ttH_df["mass_sel"])]
+    ttH_df['plot_weight'] *= target_lumi / total_lumi
+    ttH_df['true_weight_sel'] = ttH_df['plot_weight'] / 10  # Remove x10 multiplier
+    #ttH_df = ttH_df.dropna()
+
+    invalid_weights = ttH_df["plot_weight"] <= 0
+    if invalid_weights.sum() > 0:
+        print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
+        ttH_df = ttH_df[~invalid_weights]
+    print(f"--> Remaining rows = {len(ttH_df)}")
+    ttH_df["EFT_weight"] = np.asarray(calc_weights(ttH_df))
+    return ttH_df

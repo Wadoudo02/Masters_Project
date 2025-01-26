@@ -76,9 +76,9 @@ def get_dfs(sample_path):
 def get_selection(df, proc):
     
     yield_before_sel = df['true_weight'+col_name].sum()
-    mask = df['n_jets_sel'] >= 2
-    mask = mask & (df['max_b_tag_score'] > 0.7)
-    mask = mask & (df['second_max_b_tag_score'] > 0.4)
+    mask = df['n_jets_sel'] >= 0
+    mask = mask & (df['max_b_tag_score'] > 0.4)
+    #mask = mask & (df['second_max_b_tag_score'] > 0.4)
 
     df = df[mask]
     yield_after_sel = df['true_weight'+col_name].sum()
