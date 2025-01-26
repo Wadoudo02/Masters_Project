@@ -10,6 +10,20 @@ def TwoDeltaNLL(x):
     x = np.array(x)
     return 2*(x-x.min())
 
+def calc_nll_simple(hists, mus, signal="ttH"):
+    nll = 0
+    for cat, yields in hists.items():
+        e = 0
+        n = 0
+        for proc, bin_yields in yields.items():
+            if proc == signal:
+                e += mus[cat]*bin_yields
+            else:
+                e += bin_yields
+            n += bin_yields
+        nll += e - n*np.log(e)
+    return np.array(nll).sum()
+
 #Takes optional param cat which if provided only get NLL over that category
 def calc_NLL(hists, mus, conf_matrix = [],signal='ttH'):
     NLL_vals = []
@@ -97,9 +111,8 @@ def plot_mu_scan(mu_idx, mu_vals, other_mus):
     
 
 # Scans over 1 mu index and at each step minimises all others so gives best fit for that mu value
-def profiled_NLL_fit(combined_histogram, conf_matrix, mu_idx, mu_vals):
-    num_truth = len(conf_matrix[0])
-    init_mus = [1,1,1,1,1]
+def profiled_NLL_fit(combined_histogram, num_truth, mu_idx, mu_vals):
+    init_mus = np.ones(num_truth)
     #mu_vals = np.linspace(0, 3, 100)
     nll = []
     nll_frozen = []

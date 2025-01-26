@@ -29,15 +29,15 @@ b_cg_cg_ord, b_cg_ctg_ord,
 b_ctg_ctg_ord) = order_data(a_cg, a_ctg,
                                      b_cg_cg, b_cg_ctg,
                                      b_ctg_ctg, order=order)
-def mu_c(c_g, c_tg, second_order=False):
+def mu_c(c_g, c_tg,a_cgs=a_cg_ord,a_ctgs=a_ctg_ord,b_cg_cgs=b_cg_cg_ord,b_ctg_ctgs = b_ctg_ctg_ord,b_cg_ctgs=b_cg_ctg_ord , second_order=False):
     mus = []
-    for i in range(len(a_cg_ord)):
-        curmu = float(1 + c_g*a_cg_ord[i]
-                          + c_tg*a_ctg_ord[i])
+    for i in range(len(a_cgs)):
+        curmu = float(1 + c_g*a_cgs[i]
+                          + c_tg*a_ctgs[i])
         if second_order:
-            curmu += float((c_g**2)*b_cg_cg_ord[i]
-                             + c_g*c_tg*b_cg_ctg_ord[i]
-                             + (c_tg**2)*b_ctg_ctg_ord[i])
+            curmu += float((c_g**2)*b_cg_cgs[i]
+                             + c_g*c_tg*b_cg_ctgs[i]
+                             + (c_tg**2)*b_ctg_ctgs[i])
 
         mus.append(curmu)
     return mus
