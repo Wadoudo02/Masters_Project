@@ -140,29 +140,39 @@ for proc in procs.keys():
             hist_counts = np.histogram(dfs_cats[proc][v][cat], mass_bins, mass_range, weights=dfs_cats[proc]['weights'][cat])[0]
         hists[proc] = np.append(hists[proc], hist_counts)
 
-nll_vals = []
-for c_g in c_vals:
-    nll_val = calc_nll_simple(hists, mu_c(c_g=c_g, c_tg=0, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True))
+#%%
+#Frozen scan over c_g and c_tg
+
+nll_vals_cg = []
+nll_vals_ctg = []
+
+for c in c_vals:
+    nll_vals_cg.append(calc_nll_simple(hists, mu_c(c_g=c, c_tg=0, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True)))
+    nll_vals_ctg.append(calc_nll_simple(hists, mu_c(c_g=0, c_tg=c, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True)))
+
     #print(nll_val)
-    nll_vals.append(nll_val)
 #print(nll_vals)
-dnll = TwoDeltaNLL(nll_vals)
-plt.plot(c_vals, dnll)
+dnll_cg = TwoDeltaNLL(nll_vals_cg)
+dnll_ctg = TwoDeltaNLL(nll_vals_ctg)
+
 #%%
 #New NLL analysis for original method of pt categorisation
 
 comb_hist = joblib.load("saved_models/comb_hist.pkl")
 
-nll_vals_pt = []
-for c_g in c_vals:
-    nll_val = calc_NLL_comb(comb_hist, mu_c(c_g=c_g, c_tg=0, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True))
-    nll_vals_pt.append(nll_val)
+nll_vals_pt_cg = []
+nll_vals_pt_ctg = []
 
-dnll_pt = TwoDeltaNLL(nll_vals_pt)
+for c in c_vals:
+    nll_vals_pt_cg.append(calc_NLL_comb(comb_hist, mu_c(c_g=c, c_tg=0, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True)))
+    nll_vals_pt_ctg.append(calc_NLL_comb(comb_hist, mu_c(c_g=0, c_tg=c, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True)))
+    
 
-plotter.overlay_line_plots(c_vals, [dnll, dnll_pt], "Delta nll minimisation over c_g","c_g", "2*Delta NLL", ["nn categorisation", "Pt categorisation"])
-plotter.line_plot(c_vals, dnll_pt, "Delta nll minimisation over c_g","c_g", "2*Delta NLL")
+dnll_pt_cg = TwoDeltaNLL(nll_vals_pt_cg)
+dnll_pt_ctg = TwoDeltaNLL(nll_vals_pt_ctg)
 
-
+plotter.overlay_line_plots(x=c_vals, y_datasets=[dnll_cg, dnll_pt_cg], title="Delta nll minimisation over c_g",xlabel="c_g", ylabel="2*Delta NLL", labels=["nn categorisation", "Pt categorisation"])
+plotter.overlay_line_plots(x=c_vals, y_datasets=[dnll_ctg, dnll_pt_ctg], title="Delta nll minimisation over c_tg",xlabel="c_tg", ylabel="2*Delta NLL", labels=["nn categorisation", "Pt categorisation"])
 
 # %%
+#TODO Get contraints for cg and repeat for ctg

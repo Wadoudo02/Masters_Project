@@ -47,16 +47,16 @@ def get_background_dist(back_data, num_cats=5):
 def get_back_int(data, cat, bounds, n_bins, num_cats=5):
     p_fit = get_background_dist(data,num_cats)[cat]
     lam, A = p_fit
-    print("CAT: ", cat, "Lam: ", lam, "A: ", A)
+    #print("CAT: ", cat, "Lam: ", lam, "A: ", A)
     events = []
     bin_width = (bounds[1]-bounds[0])/n_bins
 
     for i in range(n_bins):
         lower_bound = bounds[0] + i * bin_width
         upper_bound = lower_bound + bin_width
-        print("Integral bounds: ", lower_bound, upper_bound)
+        #print("Integral bounds: ", lower_bound, upper_bound)
         integral = quad(exp, lower_bound, upper_bound, args=(lam, A))
-        print("Integral: ", integral)
+        #print("Integral: ", integral)
         events.append(integral[0])
     return np.array(events)
 

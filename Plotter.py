@@ -16,7 +16,8 @@ class Plotter:
         plt.figure(figsize=(8, 6))
         
         # Create the histogram
-        sns.histplot(data, bins=bins, kde=False, color=color, alpha=alpha, stat='density' if density else 'count', label=legend_label, element="step")
+        #sns.histplot(data, bins=bins, kde=False, color=color, alpha=alpha, stat='density' if density else 'count', label=legend_label, element="step")
+        hep.histplot(data, bins=bins, label=legend_label, color=color, alpha=alpha, density=density)
 
         # Customize the plot
         plt.title(title, fontsize=18)
