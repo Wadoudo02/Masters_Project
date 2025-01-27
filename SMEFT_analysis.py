@@ -9,6 +9,7 @@ from background_dist import get_back_int
 import joblib
 import copy
 from Plotter import Plotter
+
 plt.style.use(hep.style.CMS)
 
 plotter = Plotter()
@@ -93,7 +94,8 @@ for i in range(len(dfs_cats["ggH"]["mass"])):
         mass = dfs_cats[proc]["mass"][i]
         weight = dfs_cats[proc]["weights"][i]
         #print(proc, "cat: ", i, dfs_cats[proc]["mass"][i].shape)
-        sns.histplot(x=mass, weights=weight, bins=50, label=proc, ax=ax[i], fill=False, element="step")
+        ax[i].hist(mass, bins=50, weights=weight, label=proc, histtype="step")
+        #sns.histplot(x=mass, weights=weight, bins=50, label=proc, ax=ax[i], fill=False, element="step")
         ax[i].legend()
         ax[i].set_title(f"Category {i}")
         ax[i].set_xlabel("mass (GeV)")
@@ -155,6 +157,10 @@ for c in c_vals:
 dnll_cg = TwoDeltaNLL(nll_vals_cg)
 dnll_ctg = TwoDeltaNLL(nll_vals_ctg)
 
+cg_fit, cg_cons_up, cg_cons_down = find_crossings([c_vals, dnll_cg], 1.)
+cg_cons = (cg_cons_up, cg_cons_down)
+ctg_fit, ctg_cons_up, ctg_cons_down = find_crossings([c_vals, dnll_ctg], 1.)
+ctg_cons = (ctg_cons_up, ctg_cons_down)
 #%%
 #New NLL analysis for original method of pt categorisation
 
@@ -171,8 +177,112 @@ for c in c_vals:
 dnll_pt_cg = TwoDeltaNLL(nll_vals_pt_cg)
 dnll_pt_ctg = TwoDeltaNLL(nll_vals_pt_ctg)
 
-plotter.overlay_line_plots(x=c_vals, y_datasets=[dnll_cg, dnll_pt_cg], title="Delta nll minimisation over c_g",xlabel="c_g", ylabel="2*Delta NLL", labels=["nn categorisation", "Pt categorisation"])
-plotter.overlay_line_plots(x=c_vals, y_datasets=[dnll_ctg, dnll_pt_ctg], title="Delta nll minimisation over c_tg",xlabel="c_tg", ylabel="2*Delta NLL", labels=["nn categorisation", "Pt categorisation"])
+pt_cg_fit, pt_cg_cons_up, pt_cg_cons_down = find_crossings([c_vals, dnll_pt_cg], 1.)
+pt_cg_cons = (pt_cg_cons_up, pt_cg_cons_down)
+pt_ctg_fit, pt_ctg_cons_up, pt_ctg_cons_down = find_crossings([c_vals, dnll_pt_ctg], 1.)
+pt_ctg_cons = (pt_ctg_cons_up, pt_ctg_cons_down)
+
+print(f"Crossing for cg with pt: {pt_cg_cons} and ctg: {pt_ctg_cons}")
+print(f"Crossing for cg with nn: {cg_cons} and ctg: {ctg_cons}")
+
+fig, ax = plt.subplots(1,2, figsize=(10, 6))
+fig.suptitle("NLL frozen minimisation over c_g and c_tg")
+ax[0].set_ylim(0, 3000)
+ax[1].set_ylim(0, 3000)
+plotter.overlay_line_plots(
+    x=c_vals,
+    y_datasets=[dnll_cg, dnll_pt_cg],
+    title="Delta nll minimisation over c_g",
+    xlabel="c_g",
+    ylabel="2*Delta NLL",
+    labels=[
+        fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$",
+        fr"Pt cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$"
+    ],
+    axes=ax[0])
+plotter.overlay_line_plots(
+    x=c_vals,
+    y_datasets=[dnll_ctg, dnll_pt_ctg],
+    title="Delta nll minimisation over c_tg",
+    xlabel="c_tg", ylabel="2*Delta NLL",
+    labels=[
+        fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$",
+        fr"Pt cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$"
+    ],
+    axes=ax[1])
 
 # %%
-#TODO Get contraints for cg and repeat for ctg
+#Profiled scan over c_g and c_tg
+
+nll_vals_cg = []
+nll_vals_ctg = []
+
+for c in c_vals:
+    res_cg = minimize(
+        lambda x: calc_nll_simple(hists, mu_c(c_g=c, c_tg=x, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True), "ttH"),0,method='Nelder-Mead')
+    res_ctg = minimize(
+        lambda x: calc_nll_simple(hists, mu_c(c_g=x, c_tg=c, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True), "ttH"),0,method='Nelder-Mead')
+    nll_vals_cg.append(res_cg.fun)
+    nll_vals_ctg.append(res_ctg.fun)
+
+    #print(nll_val)
+#print(nll_vals)
+dnll_cg = TwoDeltaNLL(nll_vals_cg)
+dnll_ctg = TwoDeltaNLL(nll_vals_ctg)
+
+cg_fit, cg_cons_up, cg_cons_down = find_crossings([c_vals, dnll_cg], 1.)
+cg_cons = (cg_cons_up, cg_cons_down)
+ctg_fit, ctg_cons_up, ctg_cons_down = find_crossings([c_vals, dnll_ctg], 1.)
+ctg_cons = (ctg_cons_up, ctg_cons_down)
+
+#Profiled  NLL analysis for original method of pt categorisation
+nll_vals_pt_cg = []
+nll_vals_pt_ctg = []
+
+for c in c_vals:
+    res_cg = minimize(
+        lambda x: calc_NLL_comb(comb_hist, mu_c(c_g=c, c_tg=x, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True), "ttH"),0,method='Nelder-Mead')
+    res_ctg = minimize(
+        lambda x: calc_NLL_comb(comb_hist, mu_c(c_g=x, c_tg=c, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True), "ttH"),0,method='Nelder-Mead')
+    nll_vals_pt_cg.append(res_cg.fun)
+    nll_vals_pt_ctg.append(res_ctg.fun)
+    
+
+dnll_pt_cg = TwoDeltaNLL(nll_vals_pt_cg)
+dnll_pt_ctg = TwoDeltaNLL(nll_vals_pt_ctg)
+
+pt_cg_fit, pt_cg_cons_up, pt_cg_cons_down = find_crossings([c_vals, dnll_pt_cg], 1.)
+pt_cg_cons = (pt_cg_cons_up, pt_cg_cons_down)
+pt_ctg_fit, pt_ctg_cons_up, pt_ctg_cons_down = find_crossings([c_vals, dnll_pt_ctg], 1.)
+pt_ctg_cons = (pt_ctg_cons_up, pt_ctg_cons_down)
+
+print(f"Crossing for cg with pt: {pt_cg_cons} and ctg: {pt_ctg_cons}")
+print(f"Crossing for cg with nn: {cg_cons} and ctg: {ctg_cons}")
+
+fig, ax = plt.subplots(1,2, figsize=(10, 6))
+fig.suptitle("NLL Profiled minimisation over c_g and c_tg")
+ax[0].set_ylim(0, 1500)
+ax[1].set_ylim(0, 1500)
+plotter.overlay_line_plots(
+    x=c_vals,
+    y_datasets=[dnll_cg, dnll_pt_cg],
+    title="Delta nll minimisation over c_g",
+    xlabel="c_g",
+    ylabel="2*Delta NLL",
+    labels=[
+        fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$",
+        fr"Pt cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$"
+    ],
+    axes=ax[0])
+plotter.overlay_line_plots(
+    x=c_vals,
+    y_datasets=[dnll_ctg, dnll_pt_ctg],
+    title="Delta nll minimisation over c_tg",
+    xlabel="c_tg", ylabel="2*Delta NLL",
+    labels=[
+        fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$",
+        fr"Pt cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$"
+    ],
+    axes=ax[1])
+
+#%%

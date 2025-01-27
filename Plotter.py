@@ -9,7 +9,7 @@ plt.style.use(hep.style.CMS)
 class Plotter:
     def __init__(self, style='whitegrid', font_scale=1.5):
         """Initialize the plotter with a default seaborn style."""
-        sns.set_theme(style=style, font_scale=font_scale)
+        #sns.set_theme(style=style, font_scale=font_scale)
 
     def histogram(self, data, bins=30, title='', xlabel='', ylabel='', legend_label='', color='blue', alpha=0.7, density=False):
         """Create a histogram with custom labels and formatting."""
@@ -89,28 +89,28 @@ class Plotter:
         plt.tight_layout()
 
         plt.show()
-    def overlay_line_plots(self, x, y_datasets, title='', xlabel='', ylabel='', labels=None, colors=None, linewidth=2, linestyles=None):
+    def overlay_line_plots(self, x, y_datasets, title='', xlabel='', ylabel='', labels=None, colors=None, linewidth=2, linestyles=None, axes=None):
         """Create overlaid line plots for multiple datasets."""
-        plt.figure(figsize=(8, 6))
-
+        #axes.figure(figsize=(8, 6))
+        if axes is None:
+            fig, axes = plt.subplots(figsize=(8, 6))
+        
         # Plot each dataset
         for i, y in enumerate(y_datasets):
             label = labels[i] if labels else None
             color = colors[i] if colors else None
             linestyle = linestyles[i] if linestyles else '-'
-            plt.plot(x, y, color=color, linewidth=linewidth, linestyle=linestyle, label=label)
+            axes.plot(x, y, color=color, linewidth=linewidth, linestyle=linestyle, label=label)
 
         # Customize the plot
-        plt.title(title, fontsize=18)
-        plt.xlabel(xlabel, fontsize=16)
-        plt.ylabel(ylabel, fontsize=16)
+        axes.set_title(title, fontsize=18)
+        axes.set_xlabel(xlabel, fontsize=16)
+        axes.set_ylabel(ylabel, fontsize=16)
         if labels:
-            plt.legend(fontsize=14)
-
-        # Improve layout
+            axes.legend(fontsize=14)
         plt.tight_layout()
 
-        plt.show()
+        #plt.show()
     def set_global_style(self, style='whitegrid', font_scale=1.5):
         """Set a global style for all plots."""
         sns.set_theme(style=style, font_scale=font_scale)
