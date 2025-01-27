@@ -8,6 +8,10 @@ from nll import *
 from background_dist import get_back_int
 import joblib
 import copy
+from Plotter import Plotter
+plt.style.use(hep.style.CMS)
+
+plotter = Plotter()
 
 #Extract relevant columns from overall df
 cats = [0, 0.4, 0.5, 0.6, 0.7,1]
@@ -124,17 +128,17 @@ mass_bins = 5
 v = 'mass'
 c_vals = np.linspace(-3, 3, 100)
 
-#TODO: Not fitting background dsitribution right now but can.
-for cat in range(len(cats)-1):
-    hists[cat] = {}
-    for proc in procs.keys():
+
+for proc in procs.keys():
+    hists[proc] = np.array([])
+    for cat in range(len(cats)-1):
         #Adding background events from background distribution
-        # if proc=="background":
-        #     hist_counts=get_back_int(dfs_copy["background"], cat, mass_range, mass_bins, len(cats))
-        # else:
+        if proc=="background":
+            hist_counts=get_back_int(dfs_copy["background"], cat, mass_range, mass_bins, len(cats)-1)
+        else:
             #cat_mask = dfs_cats[proc]['category'] == cat
-        hist_counts = np.histogram(dfs_cats[proc][v][cat], mass_bins, mass_range, weights=dfs_cats[proc]['weights'][cat])[0]
-        hists[cat][proc] = hist_counts
+            hist_counts = np.histogram(dfs_cats[proc][v][cat], mass_bins, mass_range, weights=dfs_cats[proc]['weights'][cat])[0]
+        hists[proc] = np.append(hists[proc], hist_counts)
 
 nll_vals = []
 for c_g in c_vals:
@@ -144,3 +148,21 @@ for c_g in c_vals:
 #print(nll_vals)
 dnll = TwoDeltaNLL(nll_vals)
 plt.plot(c_vals, dnll)
+#%%
+#New NLL analysis for original method of pt categorisation
+
+comb_hist = joblib.load("saved_models/comb_hist.pkl")
+
+nll_vals_pt = []
+for c_g in c_vals:
+    nll_val = calc_NLL_comb(comb_hist, mu_c(c_g=c_g, c_tg=0, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True))
+    nll_vals_pt.append(nll_val)
+
+dnll_pt = TwoDeltaNLL(nll_vals_pt)
+
+plotter.overlay_line_plots(c_vals, [dnll, dnll_pt], "Delta nll minimisation over c_g","c_g", "2*Delta NLL", ["nn categorisation", "Pt categorisation"])
+plotter.line_plot(c_vals, dnll_pt, "Delta nll minimisation over c_g","c_g", "2*Delta NLL")
+
+
+
+# %%

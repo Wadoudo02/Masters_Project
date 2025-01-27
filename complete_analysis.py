@@ -5,6 +5,7 @@ from IPython.display import display
 
 import matplotlib.pyplot as plt
 import mplhep as hep
+import joblib
 plt.style.use(hep.style.CMS)
 
 from utils import *
@@ -78,6 +79,7 @@ print(f'''Before combining
       {hists}
       ''')
 comb_hist = build_combined_histogram(hists, conf_matrix, mass_bins=5)
+joblib.dump(comb_hist, 'saved_models/comb_hist.pkl')
 print(hists)
 print(comb_hist)
 print(conf_matrix)
@@ -92,9 +94,9 @@ NLL PROFILED SCAN USING COMBINED HISTOGRAM
 best_mus = np.ones(5)
 fig, ax = plt.subplots(1, 5, figsize=(40, 7))
 for idx in range(len(conf_matrix)):
-    best_mus[idx], nll_mu, nll_frozen = profiled_NLL_fit(comb_hist,conf_matrix, idx, mu_vals)
+    best_mus[idx], nll_mu, nll_frozen = profiled_NLL_fit(comb_hist,len(best_mus), idx, mu_vals)
     vals = find_crossings((mu_vals, TwoDeltaNLL(nll_mu)), 1.)
-    print("Best mu for idx:", idx, "is", vals[0] ,"+/-", vals[1:])
+    #print("Best mu for idx:", idx, "is", vals[0] ,"+/-", vals[1:])
     label = add_val_label(vals)
     #print(mu_vals, nll_mu, nll_frozen)
     ax[idx].plot(mu_vals, TwoDeltaNLL(nll_mu), label=label)

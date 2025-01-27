@@ -10,19 +10,64 @@ def TwoDeltaNLL(x):
     x = np.array(x)
     return 2*(x-x.min())
 
+# def calc_nll_simple(hists, mus, signal="ttH"):
+#     nll = 0
+#     for cat, yields in hists.items():
+#         e = 0
+#         n = 0
+#         for proc, bin_yields in yields.items():
+#             if proc == signal:
+#                 e += mus[cat]*bin_yields
+#             else:
+#                 e += bin_yields
+#             n += bin_yields
+#         nll += e - n*np.log(e)
+#     return np.array(nll).sum()
 def calc_nll_simple(hists, mus, signal="ttH"):
-    nll = 0
-    for cat, yields in hists.items():
-        e = 0
-        n = 0
-        for proc, bin_yields in yields.items():
+    """
+    Calculate the negative log-likelihood (NLL) for a given set of histograms and signal strength modifiers.
+
+    Parameters:
+    - hists: Dictionary where each key is a production mode, and the value is an array of 25 bin yields.
+    - mus: Array of 5 signal strength modifiers, one for each category.
+    - signal: Name of the signal production mode (default is "ttH").
+
+    Returns:
+    - nll: The negative log-likelihood value.
+    """
+    nll = 0  # Initialize NLL
+    bins_per_category = 5  # Bins per category
+    n_categories = len(hists["background"])//bins_per_category  # Number of categories
+
+    # Iterate over categories
+    for cat in range(n_categories):
+        # Get the bin range for this category
+        start_bin = cat * bins_per_category
+        end_bin = (cat + 1) * bins_per_category
+
+        # Initialize expected and observed yields for this category
+        e = np.zeros(bins_per_category)  # Expected (signal + background)
+        n = np.zeros(bins_per_category)  # Observed
+
+        # Iterate over production modes
+        for proc, bin_yields in hists.items():
+            # Extract the bins for this category
+            cat_bin_yields = bin_yields[start_bin:end_bin]
+
             if proc == signal:
-                e += mus[cat]*bin_yields
+                # Scale signal by the corresponding mu value
+                e += mus[cat] * cat_bin_yields
             else:
-                e += bin_yields
-            n += bin_yields
-        nll += e - n*np.log(e)
-    return np.array(nll).sum()
+                # Add background yields
+                e += cat_bin_yields
+
+            # Sum observed yields (all processes contribute to observed data)
+            n += cat_bin_yields
+
+        # Calculate NLL for this category and add to total NLL
+        nll += np.sum(e - n * np.log(e + 1e-10))  # Safeguard log with 1e-10
+
+    return nll
 
 #Takes optional param cat which if provided only get NLL over that category
 def calc_NLL(hists, mus, conf_matrix = [],signal='ttH'):

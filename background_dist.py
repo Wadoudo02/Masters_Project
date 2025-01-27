@@ -21,7 +21,7 @@ def get_background_dist(back_data, num_cats=5):
     for cat in range(num_cats):
         mask = back_data["categories"]==cat
         cur_cat = back_mass[mask]
-        ax[cat].hist(cur_cat, bins=num_bins, range=(100,180), weights = back_data["plot_weight"][mask])
+        ax[cat].hist(cur_cat, bins=num_bins, range=(100,180), weights = back_data["plot_weight"][mask], histtype="step")
         counts, bin_edges = np.histogram(cur_cat, bins = num_bins, range= (100,180), weights = back_data["plot_weight"][mask])
         bin_centres = (bin_edges[:-1]+bin_edges[1:])/2
 
