@@ -274,7 +274,7 @@ def perform_NLL_scan_and_profile_and_other_mus(
             obj_func = lambda reduced_mus: objective_function(
                 reduced_mus, fixed_mu_index=i, fixed_mu_value=mu, combined_histogram=combined_histogram
             )
-            result = minimize(obj_func, initial_guess, bounds=bounds, method='L-BFGS-B')
+            result = minimize(obj_func, initial_guess, bounds=bounds, method ='L-BFGS-B')
             profile_NLL_vals.append(result.fun)
             
             # Store the profiled other mus
@@ -341,3 +341,5 @@ def perform_NLL_scan_and_profile_and_other_mus(
         plt.show()
     
     return frozen_optimised_mus, profile_optimised_mus
+
+

@@ -545,3 +545,95 @@ def plot_combined_histogram(combined_histogram, categories, mass_bins=5, process
 
     plt.tight_layout()
     plt.show()
+    
+def build_combined_histogram_NN(
+       dfs, procs, categories, background_estimates,
+       mass_var="mass_sel", weight_var="plot_weight", 
+       mass_range=(120, 130), mass_bins=5
+   ):
+       """
+       Builds a single histogram with (num_categories * mass_bins) bins,
+       splitting mass into 'mass_bins' in [mass_range], for each of the NN categories.
+
+       Parameters
+       ----------
+       dfs : dict of pd.DataFrame
+           Dictionary of DataFrames, keyed by process.
+       procs : dict
+           Dictionary describing processes, e.g. { "background": ["Background", "black"], ... }.
+           We only need the keys to iterate here.
+       categories : list of str
+           List of category labels, e.g. ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D'].
+       background_estimates : dict
+           A nested dictionary of the form:
+               {
+                 'NN Cat A': {'background': [bin_0, bin_1, ..., bin_(mass_bins-1)]},
+                 'NN Cat B': {'background': [ ... ]},
+                 ...
+               }
+           giving the background yield estimates for each category & mass bin.
+       mass_var : str, optional
+           Name of the column in dfs[proc] with the diphoton mass (default "mass_sel").
+       weight_var : str, optional
+           Name of the column with the event weight (default "plot_weight").
+       mass_range : tuple, optional
+           (min_mass, max_mass). Default is (120, 130).
+       mass_bins : int, optional
+           Number of bins to slice mass_range into. Default is 5.
+
+       Returns
+       -------
+       combined_histogram : dict
+           A dictionary of 1D arrays keyed by process. Each array has
+           (num_categories * mass_bins) bins, representing (category_idx × mass_bin_idx).
+       hists_by_category : dict
+           An intermediate dictionary that holds the (mass_bins) histogram
+           for each category & process.
+           e.g. hists_by_category['NN Cat A']['background'] = [ ... 5 bin yields ... ]
+       """
+
+       # 1. Build per-category, per-process histograms
+       hists_by_category = {}
+       for cat in categories:
+           cat_dict = {}
+           for proc in procs:
+               if proc == "background":
+                   # Use the *fitted* background estimates (already integrated by mass bin)
+                   bin_counts = np.array(background_estimates[cat]["background"])
+               else:
+                   # Normal histogram from the data frames
+                   cat_mask = (dfs[proc]["category"] == cat)
+                   mass_vals = dfs[proc][mass_var][cat_mask]
+                   weights   = dfs[proc][weight_var][cat_mask]
+
+                   bin_counts, _ = np.histogram(
+                       mass_vals,
+                       bins=mass_bins,
+                       range=mass_range,
+                       weights=weights
+                   )
+
+               cat_dict[proc] = bin_counts
+           hists_by_category[cat] = cat_dict
+
+       # 2. Combine into a single histogram ( (num_categories * mass_bins) bins ) per process
+       num_categories = len(categories)
+       combined_bins = num_categories * mass_bins
+
+       # Prepare the output structure
+       combined_histogram = {}
+       for proc in procs:
+           combined_histogram[proc] = np.zeros(combined_bins)
+
+       # Fill the combined histogram
+       for i, cat in enumerate(categories):
+           for proc in procs:
+               bin_yields = hists_by_category[cat][proc]  # length == mass_bins
+               for mbin in range(mass_bins):
+                   combined_bin_idx = i * mass_bins + mbin
+                   combined_histogram[proc][combined_bin_idx] += bin_yields[mbin]
+
+       return combined_histogram, hists_by_category 
+    
+    
+
