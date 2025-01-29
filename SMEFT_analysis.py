@@ -259,30 +259,38 @@ pt_ctg_cons = (pt_ctg_cons_up, pt_ctg_cons_down)
 print(f"Crossing for cg with pt: {pt_cg_cons} and ctg: {pt_ctg_cons}")
 print(f"Crossing for cg with nn: {cg_cons} and ctg: {ctg_cons}")
 
-fig, ax = plt.subplots(1,2, figsize=(10, 6))
+
+#Getting values from chi squared analysis
+chi_2_c_g, chi_2_c_tg, best_cg_chi, conf_cg_chi, best_ctg_chi, conf_ctg_chi=joblib.load("saved_models/chi2.pkl")
+
+fig, ax = plt.subplots(1,2, figsize=(12, 6))
 fig.suptitle("NLL Profiled minimisation over c_g and c_tg")
 ax[0].set_ylim(0, 1500)
 ax[1].set_ylim(0, 1500)
 plotter.overlay_line_plots(
     x=c_vals,
-    y_datasets=[dnll_cg, dnll_pt_cg],
+    y_datasets=[dnll_cg, dnll_pt_cg, chi_2_c_g],
     title="Delta nll minimisation over c_g",
     xlabel="c_g",
     ylabel="2*Delta NLL",
     labels=[
         fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$",
-        fr"Pt cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$"
+        fr"Pt cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$",
+        fr"Chi2 cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
     ],
+    colors=["red", "blue", "green"],
     axes=ax[0])
 plotter.overlay_line_plots(
     x=c_vals,
-    y_datasets=[dnll_ctg, dnll_pt_ctg],
+    y_datasets=[dnll_ctg, dnll_pt_ctg, chi_2_c_tg],
     title="Delta nll minimisation over c_tg",
     xlabel="c_tg", ylabel="2*Delta NLL",
     labels=[
         fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$",
-        fr"Pt cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$"
+        fr"Pt cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$",
+        fr"Pt cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
     ],
+    colors=["red", "blue", "green"],
     axes=ax[1])
 
 #%%

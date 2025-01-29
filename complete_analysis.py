@@ -149,7 +149,7 @@ print(get_uncertainties(get_cov(hessian_comb)))
 
 #print(c_g_coef, c_tg_coef)
 
-c_vals = np.linspace(-2, 2, 1000)
+c_vals = np.linspace(-3, 3, 100)
 c_tg=0
 chi_squared = []
 second_order = True
@@ -261,6 +261,7 @@ axes[1][1].set_xlabel('c_tg')
 axes[1][1].set_title('min cg over ctg profiled fit')
 axes[1][1].set_xlim(-xlim,xlim)
 
+joblib.dump([chi_2_c_g, chi_2_c_tg, best_c_g, conf_interval_68_c_g, best_c_tg, conf_interval_68_c_tg], 'saved_models/chi2.pkl')
 plt.tight_layout()
 # %%
 #Grid minimisation

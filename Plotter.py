@@ -9,6 +9,10 @@ plt.style.use(hep.style.CMS)
 class Plotter:
     def __init__(self, style='whitegrid', font_scale=1.5):
         """Initialize the plotter with a default seaborn style."""
+        self.colors = {"red":"#0200FB",
+                       "blue":"#FF0F17",
+                       "green":"#58D354",
+                       "black":"#000000",}
         #sns.set_theme(style=style, font_scale=font_scale)
 
     def histogram(self, data, bins=30, title='', xlabel='', ylabel='', legend_label='', color='blue', alpha=0.7, density=False):
@@ -56,7 +60,7 @@ class Plotter:
         # Create overlaid histograms
         for i, data in enumerate(datasets):
             label = labels[i] if labels else None
-            color = colors[i] if colors else None
+            color = self.colors[colors[i]] if colors else None
             sns.histplot(data, bins=bins, kde=False, color=color, alpha=alpha, stat='density' if density else 'count', label=label)
 
         # Customize the plot
@@ -64,7 +68,7 @@ class Plotter:
         plt.xlabel(xlabel, fontsize=16)
         plt.ylabel(ylabel, fontsize=16)
         if labels:
-            plt.legend(fontsize=14)
+            plt.legend(fontsize=14, loc="best")
         
         # Improve layout
         plt.tight_layout()
@@ -107,7 +111,7 @@ class Plotter:
         axes.set_xlabel(xlabel, fontsize=16)
         axes.set_ylabel(ylabel, fontsize=16)
         if labels:
-            axes.legend(fontsize=14)
+            axes.legend(fontsize=14, loc="best")
         plt.tight_layout()
 
         #plt.show()
