@@ -9,6 +9,7 @@ from background_dist import get_back_int
 import joblib
 import copy
 from Plotter import Plotter
+from chi2 import get_chi_squared
 
 plt.style.use(hep.style.CMS)
 
@@ -294,3 +295,62 @@ plotter.overlay_line_plots(
     axes=ax[1])
 
 #%%
+#Grid minimisation
+
+width = 6
+hessian_comb = joblib.load("saved_models/hessian_comb.pkl")
+
+cg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed
+ctg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed
+
+# Initialize a 2D grid for chi-squared values
+chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))
+nll_grid_pt = np.zeros((len(cg_values), len(ctg_values)))
+nll_grid_nn = np.zeros((len(cg_values), len(ctg_values)))
+
+for i, cg in enumerate(cg_values):
+    for j, ctg in enumerate(ctg_values):
+        chi_squared_grid[i][j] = get_chi_squared(np.ones(5), cg, ctg, hessian_comb, second_order=True)
+        nll_grid_pt[i][j] = calc_NLL_comb(comb_hist, mu_c(c_g=cg, c_tg=ctg, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True), "ttH")
+        nll_grid_nn[i][j] = calc_nll_simple(hists, mu_c(c_g=cg, c_tg=ctg, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True), "ttH")
+#print(min(nll_grid_pt)+1, min(nll_grid_pt)+4)
+fig, ax = plt.subplots(ncols=3, nrows=1,figsize=(20, 8))
+
+cg_grid, ctg_grid = np.meshgrid(cg_values, ctg_values)  # Create grid for plotting
+
+ax[0].contourf(cg_grid, ctg_grid, chi_squared_grid.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
+contour_plot = ax[0].contour(cg_grid, ctg_grid, chi_squared_grid.T, levels=[2.3, 5.99], colors=['yellow', 'green'], linestyles=['--', '-'])
+ax[0].clabel(contour_plot, fmt={2.3: '68%', 5.99: '95%'}, inline=True, fontsize=20)  # Add labels to the contours
+ax[0].scatter(best_cg_chi, best_ctg_chi, color='red', label='Minimum $\chi^2$', zorder=5)
+
+# Plot the second contour plot
+ax[1].contourf(cg_grid, ctg_grid, nll_grid_pt.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
+contour2 = ax[1].contour(cg_grid, ctg_grid, nll_grid_pt.T, levels=[np.min(nll_grid_pt)+1, np.min(nll_grid_pt)+4], colors=['yellow', 'green'], linestyles=['--', '-'])
+ax[1].clabel(contour2, fmt={np.min(nll_grid_pt)+1: '68%', np.min(nll_grid_pt)+4: '95%'}, inline=True, fontsize=20)
+ax[1].scatter(cg_fit, ctg_fit, color='red', label='Minimum NLL', zorder=5)
+
+
+# Plot the third contour plot
+contour3 = ax[2].contour(cg_grid, ctg_grid, nll_grid_nn.T, levels=[np.min(nll_grid_nn)+1, np.min(nll_grid_nn)+4], colors=['yellow', 'green'], linestyles=['--', '-'])
+ax[2].clabel(contour3, fmt={np.min(nll_grid_nn)+1: '68%', np.min(nll_grid_nn)+4: '95%'}, inline=True, fontsize=20)
+ax[2].contourf(cg_grid, ctg_grid, nll_grid_nn.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
+ax[2].scatter(pt_cg_fit, pt_ctg_fit, color='red', label='Minimum NLL', zorder=5)
+
+
+# Add colorbar
+cbar = fig.colorbar(ax[0].collections[0], ax=ax, orientation='vertical', fraction=0.02, pad=0.04)
+cbar.set_label(r"$\chi^2$")
+
+fig.supxlabel(r"Wilson coefficient $c_{g}$")
+fig.supylabel(r"Wilson coefficient $c_{tg}$")
+
+ax[0].set_title(r"Contour Plot of $\chi^2$")
+ax[1].set_title(r"Contour Plot of $\mathrm{NLL}_{pt}$")
+ax[2].set_title(r"Contour Plot of $\mathrm{NLL}_{nn}$")
+
+ax[0].legend(frameon=True, edgecolor='black', loc='best')
+ax[1].legend(frameon=True, edgecolor='black', loc='best')
+ax[2].legend(frameon=True, edgecolor='black', loc='best')
+
+#plt.grid()
+plt.show()

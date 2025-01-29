@@ -143,7 +143,7 @@ correlation_matrix = get_correlation_matrix(get_cov(hessian_comb))
 show_matrix(correlation_matrix, "Correlation matrix", ax[2])
 print(get_uncertainties(get_cov(hessian_comb)))
 
-
+joblib.dump([hessian_comb], 'saved_models/hessian_comb.pkl')
 # %%
 #Chi squared fit of mu(c)
 
