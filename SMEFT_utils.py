@@ -135,11 +135,16 @@ def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, w_train,y_p
     print(f"Classifier Accuracy: {accuracy:.4f}")
 
     fpr, tpr, _ = roc_curve(y_test, y_proba, pos_label=1, sample_weight=w_test)
-    roc_auc = auc(fpr, tpr)
+    unique_fpr, indices = np.unique(fpr, return_index=True)
+    unique_tpr = tpr[indices]
+    #fpr, tpr = np.unique(fpr, return_index=True)[0], np.unique(tpr, return_index=True)[0]
+    roc_auc = auc(unique_fpr, unique_tpr)
     print(f"ROC AUC: {roc_auc:.4f}")
-
     fpr_train, tpr_train, _ = roc_curve(y_train, y_proba_train, pos_label=1, sample_weight=w_train)
-    roc_auc_train = auc(fpr_train, tpr_train)
+    #fpr_train, tpr_train = np.unique(fpr_train, return_index=True)[0], np.unique(tpr_train, return_index=True)[0]  # Ensure unique values
+    unique_fpr_train, indices_train = np.unique(fpr_train, return_index=True)
+    unique_tpr_train = tpr_train[indices_train]
+    roc_auc_train = auc(unique_fpr_train, unique_tpr_train)
     print(f"ROC AUC (Train): {roc_auc_train:.4f}")
 
 
