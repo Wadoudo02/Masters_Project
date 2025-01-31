@@ -16,29 +16,6 @@ import torch
 
 from NN_utils import *
 
-# Define the NeuralNetwork class as in the original script
-class NeuralNetwork(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim):
-        super(NeuralNetwork, self).__init__()
-        self.hidden = torch.nn.Linear(input_dim, hidden_dim)
-        self.activation = torch.nn.ReLU()
-        self.dropout = torch.nn.Dropout(0.3)
-        self.batchnorm = torch.nn.BatchNorm1d(hidden_dim)
-        self.output = torch.nn.Linear(hidden_dim, 1)
-        
-        # Xavier initialisation
-        torch.nn.init.xavier_uniform_(self.hidden.weight)
-        torch.nn.init.zeros_(self.hidden.bias)
-        torch.nn.init.xavier_uniform_(self.output.weight)
-        torch.nn.init.zeros_(self.output.bias)
-
-    def forward(self, x):
-        x = self.hidden(x)
-        x = self.batchnorm(x)
-        x = self.activation(x)
-        x = self.dropout(x)
-        x = self.output(x)
-        return torch.sigmoid(x)
 
 # Load the model checkpoint
 checkpoint = torch.load("neural_network.pth")
@@ -360,7 +337,7 @@ quadratic_order = True
 
 
 
-NLL_Results = NN_NLL_scans(np.linspace(-1, 1, 1000), quadratic_order)
+NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order)
 
 
 #%%

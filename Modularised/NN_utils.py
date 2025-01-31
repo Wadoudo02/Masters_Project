@@ -25,6 +25,30 @@ import torch
 from NLL import *
 from Chi_Squared import *
 
+# Define the NeuralNetwork class as in the original script
+class NeuralNetwork(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim):
+        super(NeuralNetwork, self).__init__()
+        self.hidden = torch.nn.Linear(input_dim, hidden_dim)
+        self.activation = torch.nn.ReLU()
+        self.dropout = torch.nn.Dropout(0.3)
+        self.batchnorm = torch.nn.BatchNorm1d(hidden_dim)
+        self.output = torch.nn.Linear(hidden_dim, 1)
+        
+        # Xavier initialisation
+        torch.nn.init.xavier_uniform_(self.hidden.weight)
+        torch.nn.init.zeros_(self.hidden.bias)
+        torch.nn.init.xavier_uniform_(self.output.weight)
+        torch.nn.init.zeros_(self.output.bias)
+
+    def forward(self, x):
+        x = self.hidden(x)
+        x = self.batchnorm(x)
+        x = self.activation(x)
+        x = self.dropout(x)
+        x = self.output(x)
+        return torch.sigmoid(x)
+
 
 # SMEFT weighting function
 def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
@@ -258,7 +282,9 @@ def calc_NLL_Simple(hists, mu_array, signal="ttH"):
 
 
 def NN_NLL_scans(
+    hists,
     range_of_values,
+    cat_averages,
     quadratic_order=True,
     fixed_ctg=0,
     fixed_cg=0,
