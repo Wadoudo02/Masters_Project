@@ -9,7 +9,28 @@ import torch
 import torch.nn as nn
 
 from EFT import *
+class WadNeuralNetwork(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim):
+        super(WadNeuralNetwork, self).__init__()
+        self.hidden = torch.nn.Linear(input_dim, hidden_dim)
+        self.activation = torch.nn.ReLU()
+        self.dropout = torch.nn.Dropout(0.3)
+        self.batchnorm = torch.nn.BatchNorm1d(hidden_dim)
+        self.output = torch.nn.Linear(hidden_dim, 1)
+        
+        # Xavier initialisation
+        torch.nn.init.xavier_uniform_(self.hidden.weight)
+        torch.nn.init.zeros_(self.hidden.bias)
+        torch.nn.init.xavier_uniform_(self.output.weight)
+        torch.nn.init.zeros_(self.output.bias)
 
+    def forward(self, x):
+        x = self.hidden(x)
+        x = self.batchnorm(x)
+        x = self.activation(x)
+        x = self.dropout(x)
+        x = self.output(x)
+        return torch.sigmoid(x)
 class ComplexNN(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim=1, dropout_prob=0.3):
         super(ComplexNN, self).__init__()
@@ -64,8 +85,9 @@ def get_tensors(oned, twod):
 def plot_classifier_output(y_probs, y_true, ws, ax):
     sm_probs = y_probs[y_true == 0].squeeze()  # Probabilities for SM (true label 0)
     eft_probs = y_probs[y_true == 1].squeeze()  # Probabilities for EFT (true label 1)
-    ax.hist(sm_probs, weights=ws[y_true == 0], bins=30, alpha=0.7, color='blue', label="SM (True Label 0)")
-    ax.hist(eft_probs, weights=ws[y_true == 1], bins=30, alpha=0.7, color='orange', label="EFT (True Label 1)")
+    ax.hist(sm_probs, weights=ws[y_true == 0], histtype="step",bins=30, alpha=0.7, color='blue', label="SM (cg=0, ctg=0)", linewidth=2)
+    ax.hist(eft_probs, weights=ws[y_true == 1], histtype="step", bins=30, alpha=0.7, color='orange', label="EFT (cg=0.3, ctg=0.69)", linewidth=2)
+    ax.set_xlim(0, 1)
     ax.set_xlabel('Predicted Probabilities')
     ax.set_ylabel('Weighted Frequency')
     ax.legend()

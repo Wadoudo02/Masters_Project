@@ -17,7 +17,7 @@ plotter = Plotter()
 
 #Extract relevant columns from overall df
 cats = [0, 0.4, 0.5, 0.6, 0.7,1]
-special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel","lead_pt-over-mass_sel"] 
+special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel"]#,"lead_pt-over-mass_sel"] 
 ttH_df = get_tth_df()
 scaler = joblib.load('saved_models/scaler.pkl')
 
@@ -57,6 +57,8 @@ dfs_cats = {}
 #Loading model
 input_dim = len(special_features)
 hidden_dim = [256, 64, 32, 16, 16, 8]
+
+#model = WadNeuralNetwork(input_dim, input_dim*3)
 model = ComplexNN(input_dim, hidden_dim, 1)
 model.load_state_dict(torch.load("saved_models/model.pth"))
 model.eval()

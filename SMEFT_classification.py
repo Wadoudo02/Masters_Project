@@ -26,7 +26,7 @@ do_grid_search = False
 ttH_df = get_tth_df()
 
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
-special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel","lead_pt-over-mass_sel"] 
+special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel"]#,"lead_pt-over-mass_sel"] 
 
 comb_df=get_labeled_comb_df(ttH_df, "rand", special_features, c_g, c_tg)
 
@@ -76,7 +76,7 @@ hidden_dim = [256, 64, 32, 16, 16, 8]
 
 #model = LogisticRegression(input_dim)
 model = ComplexNN(input_dim, hidden_dim, 1) 
-
+#model = WadNeuralNetwork(input_dim, input_dim*3)
 #criterion = nn.BCELoss(reduction='none')  # No reduction for custom weighting
 criterion = WeightedBCELoss()
 
@@ -116,7 +116,10 @@ for epoch in range(num_epochs):
 
     if (epoch + 1) % 10 == 0:
         print(f"Epoch [{epoch+1}/{num_epochs}], Weighted Loss: {loss_mean.item():.4f}")
-
+# checkpoints = torch.load("saved_models/wad_neural_network.pth")
+# model = WadNeuralNetwork(checkpoints["input_dim"], checkpoints["hidden_dim"])
+# model.load_state_dict(checkpoints["model_state"])
+# model.eval()
 # Evaluate the model on the test and train set
 with torch.no_grad():
     probabilities = model(X_test_tensor)
