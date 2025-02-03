@@ -28,8 +28,8 @@ ttH_df = get_tth_df()
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel","lead_pt-over-mass_sel"]
 
+#Df with all SM events on top and all EFT events on bottom
 comb_df=get_labeled_comb_df(ttH_df, "rand", special_features+["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"], 0, 0)
-
 #Dropping all rows with nans
 comb_df = comb_df.dropna()
 
@@ -126,8 +126,8 @@ pairs = [(0.5, 0.5), (0.5, 0.75), (0.75, 0.75), (0.25, 0.25), (0.25, 0.75), (0.5
 
 y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val_tensor, X_train_tensor,X_test_tensor, X_val_tensor = get_tensors([y_train, y_test, y_val, w_train, w_test, w_val], [X_train, X_test, X_val])
 
-#Input dim of 4 + 2 for parameters and buncha hidden layers.
-input_dim = 7#X_train.shape[1]-4
+#Input dim of 10(features + coefs) + 2(cg, ctg) -5(coefs) for parameters and buncha hidden layers.
+input_dim = X_train.shape[1]-3
 hidden_dim = [256, 64, 32, 16, 16, 8]
 
 #model = LogisticRegression(input_dim)
@@ -146,11 +146,10 @@ val_loss_values = []
 num_epochs = 500
 
 for epoch in range(num_epochs):
-    # cg = np.random.uniform(*c_g_range)
-    # ctg = np.random.uniform(*c_tg_range)
-    cg, ctg = pairs[np.random.choice(len(pairs))]
+    cg = np.random.uniform(*c_g_range)
+    ctg = np.random.uniform(*c_tg_range)
+    #cg, ctg = pairs[np.random.choice(len(pairs))]
     
-
     w_train_new = calc_weights(pd.DataFrame(np.hstack((X_train,w_train)),
                                               columns=special_features+["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre","plot_weight"]),
                                               cg=cg, ctg=ctg)
@@ -166,9 +165,7 @@ for epoch in range(num_epochs):
     X_train_new = X_train[:,:-5]
     X_val_new = X_val[:,:-5]
 
-    cg_col = np.full((X_train_new.shape[0], 1), cg)
-    ctg_col = np.full((X_train_new.shape[0], 1), ctg)
-    X_train_aug = np.hstack([X_train_new, cg_col, ctg_col])  # Add parameters as input features
+    X_train_aug = np.hstack([X_train_new, np.full((X_train_new.shape[0], 1), cg), np.full((X_train_new.shape[0], 1), ctg)])  # Add parameters as input features
     X_val_aug = np.hstack([X_val_new, np.full((X_val_new.shape[0], 1), cg), np.full((X_val_new.shape[0], 1), ctg)])  # Add parameters as input features
 
     # Convert to PyTorch tensors

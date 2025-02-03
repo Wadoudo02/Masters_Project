@@ -93,7 +93,7 @@ class Plotter:
         plt.tight_layout()
 
         plt.show()
-    def overlay_line_plots(self, x, y_datasets, title='', xlabel='', ylabel='', labels=None, colors=None, linewidth=2, linestyles=None, axes=None):
+    def overlay_line_plots(self, x, y_datasets, title='', xlabel='', ylabel='', labels=None, colors=None, linewidth=2, linestyles=None, axes=None, xlim = None, ylim = None):
         """Create overlaid line plots for multiple datasets."""
         #axes.figure(figsize=(8, 6))
         if axes is None:
@@ -110,6 +110,10 @@ class Plotter:
         axes.set_title(title, fontsize=18)
         axes.set_xlabel(xlabel, fontsize=16)
         axes.set_ylabel(ylabel, fontsize=16)
+        if xlim:
+            axes.set_xlim(xlim)
+        if ylim:
+            axes.set_ylim(ylim)
         if labels:
             axes.legend(fontsize=14, loc="best")
         plt.tight_layout()

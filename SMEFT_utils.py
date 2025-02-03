@@ -90,7 +90,7 @@ def plot_classifier_output(y_probs, y_true, ws, ax):
     ax.set_xlim(0, 1)
     ax.set_xlabel('Predicted Probabilities')
     ax.set_ylabel('Weighted Frequency')
-    ax.legend()
+    ax.legend(loc="best")
 
 '''
 Type can be: dup (duplicate), rand (random), rand_eft (random with eft weights), rand_SM (random with SM weights)

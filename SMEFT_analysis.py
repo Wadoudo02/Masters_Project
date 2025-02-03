@@ -63,17 +63,27 @@ model = ComplexNN(input_dim, hidden_dim, 1)
 model.load_state_dict(torch.load("saved_models/model.pth"))
 model.eval()
 
+#Plotting classifier output
+fig, ax = plt.subplots(ncols=len(dfs.keys()),figsize=(35, 8))
+fig.suptitle("Classifier output for all processes")
+plt.tight_layout()
+i=0
 for proc, df in dfs.items():
     #print(proc, df)
     mass,weight = df[:,-2],df[:,-1]
     df = df[:,:-2]
     
     probs = eval_in_batches(model, df)
+    plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax[i])
+    ax[i].set_title(f"{proc}")
+    ax[i].legend().remove()
+
     # fig, ax, = plt.subplots(figsize=(10, 6))
     # plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax)
     # probs = model(df)
     #print(proc, list(probs))
     dfs_preds[proc] = [probs, mass.flatten().numpy(),weight.flatten().numpy()]
+    i+=1
 with_back=True
 order = ["ttH_EFT","background","ggH","VBF", "VH","ttH"]
 for proc in order:
@@ -202,7 +212,8 @@ plotter.overlay_line_plots(
         fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$",
         fr"Pt cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$"
     ],
-    axes=ax[0])
+    axes=ax[0],
+    ylim=[0, 10])
 plotter.overlay_line_plots(
     x=c_vals,
     y_datasets=[dnll_ctg, dnll_pt_ctg],
@@ -212,7 +223,10 @@ plotter.overlay_line_plots(
         fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$",
         fr"Pt cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$"
     ],
-    axes=ax[1])
+    axes=ax[1],
+    ylim=[0, 10])
+ax[0].plot(c_vals, np.ones(len(c_vals)), linestyle="--")
+ax[1].plot(c_vals, np.ones(len(c_vals)),linestyle="--" )
 
 # %%
 #Profiled scan over c_g and c_tg
@@ -282,7 +296,8 @@ plotter.overlay_line_plots(
         fr"Chi2 cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
     ],
     colors=["red", "blue", "green"],
-    axes=ax[0])
+    axes=ax[0],
+    ylim=[0, 10])
 plotter.overlay_line_plots(
     x=c_vals,
     y_datasets=[dnll_ctg, dnll_pt_ctg, chi_2_c_tg],
@@ -294,7 +309,11 @@ plotter.overlay_line_plots(
         fr"Pt cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
     ],
     colors=["red", "blue", "green"],
-    axes=ax[1])
+    axes=ax[1],
+    ylim=[0, 10])
+ax[0].plot(c_vals, np.ones(len(c_vals)), linestyle="--")
+ax[1].plot(c_vals, np.ones(len(c_vals)),linestyle="--" )
+
 
 #%%
 #Grid minimisation
