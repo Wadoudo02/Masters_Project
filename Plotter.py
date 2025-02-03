@@ -12,16 +12,18 @@ class Plotter:
         self.colors = {"red":"#0200FB",
                        "blue":"#FF0F17",
                        "green":"#58D354",
-                       "black":"#000000",}
+                       "black":"#000000",
+                       "purple":"mediumorchid",
+                       "orange":"darkorange"}
         #sns.set_theme(style=style, font_scale=font_scale)
 
-    def histogram(self, data, bins=30, title='', xlabel='', ylabel='', legend_label='', color='blue', alpha=0.7, density=False):
+    def histogram(self, data, bins=30, weights = None,title='', xlabel='', ylabel='', legend_label='', color='blue', alpha=0.7, density=False):
         """Create a histogram with custom labels and formatting."""
         plt.figure(figsize=(8, 6))
         
         # Create the histogram
         #sns.histplot(data, bins=bins, kde=False, color=color, alpha=alpha, stat='density' if density else 'count', label=legend_label, element="step")
-        hep.histplot(data, bins=bins, label=legend_label, color=color, alpha=alpha, density=density)
+        hep.histplot(data, bins=bins,weights=weights if weights else np.ones(len(data)), label=legend_label, color=color, alpha=alpha, density=density)
 
         # Customize the plot
         plt.title(title, fontsize=18)
@@ -53,27 +55,38 @@ class Plotter:
         
         plt.show()
 
-    def overlay_histograms(self, datasets, bins=30, title='', xlabel='', ylabel='', labels=None, colors=None, alpha=0.6, density=False):
+    def overlay_histograms(self, datasets, bins=30, weights=None,title='', xlabel='', ylabel='', labels=None, colors=None, alpha=0.6, density=False, axes = None, type="bars", fill=False):
         """Create overlaid histograms for multiple datasets."""
-        plt.figure(figsize=(8, 6))
+        # plt.figure(figsize=(8, 6))
+        if not axes:
+            fig, axes = plt.subplots(figsize=(8, 6))
 
         # Create overlaid histograms
         for i, data in enumerate(datasets):
             label = labels[i] if labels else None
             color = self.colors[colors[i]] if colors else None
-            sns.histplot(data, bins=bins, kde=False, color=color, alpha=alpha, stat='density' if density else 'count', label=label)
+            sns.histplot(x=data,
+                         bins=bins,
+                         weights=list(weights[i]) if weights else np.ones(len(data)),
+                         kde=False,
+                         color=color,
+                         alpha=alpha,
+                         stat='density' if density else 'count', label=label, 
+                         ax=axes, 
+                         element=type,
+                         fill=fill)
 
         # Customize the plot
-        plt.title(title, fontsize=18)
-        plt.xlabel(xlabel, fontsize=16)
-        plt.ylabel(ylabel, fontsize=16)
+        axes.set_title(title, fontsize=18)
+        axes.set_xlabel(xlabel, fontsize=16)
+        axes.set_ylabel(ylabel, fontsize=16)
         if labels:
-            plt.legend(fontsize=14, loc="best")
+            axes.legend(fontsize=14, loc="best")
         
         # Improve layout
         plt.tight_layout()
 
-        plt.show()
+        #plt.show()
 
     def scatter_plot(self, x, y, title='', xlabel='', ylabel='', legend_label='', color='green', marker='o', alpha=0.8):
         """Create a scatter plot with custom labels and formatting."""

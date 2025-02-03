@@ -150,6 +150,6 @@ plt.grid()
 plt.show()
 
 # Save the trained model
-torch.save(model.state_dict(), 'saved_models/model.pth')
+#torch.save(model.state_dict(), 'saved_models/model.pth')
 
 # %%

@@ -18,6 +18,11 @@ plotter = Plotter()
 #Extract relevant columns from overall df
 cats = [0, 0.4, 0.5, 0.6, 0.7,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel"]#,"lead_pt-over-mass_sel"] 
+
+#%%
+plot_SMEFT_features(special_features)
+#%%
+
 ttH_df = get_tth_df()
 scaler = joblib.load('saved_models/scaler.pkl')
 
@@ -50,6 +55,7 @@ for proc, df in dfs.items():
     new_df = np.concatenate([new_df, mass.to_numpy().reshape(-1,1), weight.to_numpy().reshape(-1,1)], axis=1)
     dfs[proc] = torch.tensor(new_df, dtype=torch.float32)
 
+#%%
 #Get predictions for all events
 dfs_preds = {}
 dfs_cats = {}
@@ -82,13 +88,13 @@ for proc, df in dfs.items():
     # plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax)
     # probs = model(df)
     #print(proc, list(probs))
-    dfs_preds[proc] = [probs, mass.flatten().numpy(),weight.flatten().numpy()]
+    dfs_preds[proc] = [probs, mass.flatten().numpy(),weight.flatten().numpy(), df.numpy()]
     i+=1
 with_back=True
 order = ["ttH_EFT","background","ggH","VBF", "VH","ttH"]
 for proc in order:
-    preds,mass, weights = dfs_preds[proc]
-    dfs_cats[proc]={"mass":[],"weights":[]}
+    preds,mass, weights, feats = dfs_preds[proc]
+    dfs_cats[proc]={"mass":[],"weights":[], "features":[]}
     for i in range(1, len(cats)):
         bools = ((cats[i-1]<preds) & (preds<cats[i])).squeeze()
         #dfs_cats[proc]["events"].append(df[bools.numpy()])
@@ -97,11 +103,18 @@ for proc in order:
         #     dfs_copy[proc]["categories"] = np.where(bools, i, dfs_copy[proc]["categories"])
         dfs_cats[proc]["weights"].append(weights[bools])
         dfs_cats[proc]["mass"].append(mass[bools])
+        dfs_cats[proc]["features"].append(feats[bools])
+
+num_cats = len(dfs_cats["ggH"]["mass"])
+
+
+#Diphoton mass distribution
+fig, ax = plt.subplots(ncols=num_cats,figsize=(30, 5))    
 
 #Over number of cats
-fig, ax = plt.subplots(ncols=len(dfs_cats["ggH"]["mass"]),figsize=(30, 5))    
 for i in range(len(dfs_cats["ggH"]["mass"])):
-    for proc in order:
+    for j in range(len(order)):
+        proc = order[j]
         if not with_back and proc=="background":
             continue
         mass = dfs_cats[proc]["mass"][i]
@@ -113,6 +126,24 @@ for i in range(len(dfs_cats["ggH"]["mass"])):
         ax[i].set_title(f"Category {i}")
         ax[i].set_xlabel("mass (GeV)")
         ax[i].set_ylabel("Events")
+
+#Plotting features after categorisation
+fig, ax = plt.subplots(ncols = len(special_features),figsize=(30, 5))
+
+#Over features
+for feat in range(len(special_features)):
+    
+    plotter.overlay_histograms(
+        [dfs_cats["ttH"]["features"][i][:,feat] for i in range(len(dfs_cats["ttH"]["features"]))],
+        bins=50,
+        title=f"{special_features[feat]} distribution", xlabel=special_features[feat],
+        ylabel="Events", labels=[f"Cat {i}" for i in range(num_cats)],
+        colors=["red", "blue", "green", "black", "purple"],
+        weights = [dfs_cats["ttH"]["weights"][i] for i in range(num_cats)],
+        axes=ax[feat],
+        type="step",
+        density=True
+        )
 
 #%%
 #Getting weighted average of coefficients
