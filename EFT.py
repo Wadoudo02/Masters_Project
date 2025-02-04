@@ -27,12 +27,13 @@ n_bins = 40
 def get_features():
     return list(ttH_df.columns)
 
+#Can provide a single value of cg and ctg for all events or a list of values for each event
 def calc_weights(df, cg=c_g_con, ctg=c_tg_con):
     cur_weights=df["plot_weight"]*(1+df["a_cg"]*cg +
                                     df["a_ctgre"]*ctg +
-                                    df["b_cg_cg"]*cg**2 +
+                                    df["b_cg_cg"]*(cg**2 if not isinstance(cg, (list, np.ndarray)) else [i**2 for i in cg]) +
                                     df["b_cg_ctgre"]*ctg*cg + 
-                                    df["b_ctgre_ctgre"]*ctg**2)
+                                    df["b_ctgre_ctgre"]*(ctg**2 if not isinstance(ctg, (list, np.ndarray)) else [i**2 for i in ctg]))
     return cur_weights
 def apply_weight_change(df, ax, cg=0, ctg=0, var="mass_sel"):
     
