@@ -408,66 +408,91 @@ def NN_NLL_scans(
     }
       
 
-
-
-
-
-def compare_frozen_scans(NLL_Results, chi_squared_Results):
-    # Extract the relevant arrays
-    cg_values = NLL_Results["cg_values"]
-    ctg_values = NLL_Results["ctg_values"]
-
-    # NLL frozen
-    frozen_NLL_cg = NLL_Results["frozen_NN_NLL_vals_cg"]
-    frozen_NLL_ctg = NLL_Results["frozen_NN_NLL_vals_ctg"]
+def compare_frozen_scans(*datasets):
+    """
+    Compare 'frozen' scans (c_tg set to 0 when scanning over c_g, or c_g set to 0
+    when scanning over c_tg). Accepts any number of data dictionaries.
     
-    # Chi-squared frozen
-    frozen_chi2_cg = chi_squared_Results["frozen_chi_squared_cg"]
-    frozen_chi2_ctg = chi_squared_Results["frozen_chi_squared_ctg"]
-
-    # Labels from the dictionaries (for c_g and c_tg)
-    # e.g. '$0.00^{+0.29}_{-0.26}$'
-    label_NLL_cg = NLL_Results["frozen_cg_label"]
-    label_chi2_cg = chi_squared_Results["frozen_cg_label"]
-
-    label_NLL_ctg = NLL_Results["frozen_ctg_label"]
-    label_chi2_ctg = chi_squared_Results["frozen_ctg_label"]
-
-    # Plot
+    Each dictionary can contain:
+      - "Name": a string to identify the data set in the legend (optional).
+      - "cg_values" and "ctg_values": arrays of the scanned Wilson coefficients.
+      - Keys for 'frozen' results, e.g.:
+          "frozen_NN_NLL_vals_cg", "frozen_NN_NLL_vals_ctg"
+          "frozen_chi_squared_cg", "frozen_chi_squared_ctg"
+      - Corresponding label keys, e.g.:
+          "frozen_cg_label", "frozen_ctg_label"
+    """
+    # Prepare figure and subplots
     fig, axes = plt.subplots(1, 2, figsize=(18, 12))
-    fig.suptitle("Comparison of FROZEN Scans: NLL vs. Chi-Squared. Other value is set to 0.")
+    fig.suptitle("Comparison of FROZEN Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
 
-    ############################################################################
-    # Left subplot: c_g scan (frozen c_tg)
-    ############################################################################
+    # -- Left subplot: c_g scan (frozen c_tg) --
     ax_left = axes[0]
-    ax_left.plot(cg_values, frozen_NLL_cg,
-                 label=f"NN NLL (frozen c_tg) {label_NLL_cg}", lw=2)
-    ax_left.plot(cg_values, frozen_chi2_cg,
-                 label=rf"STXS $\chi^2$ (frozen c_tg) {label_chi2_cg}", lw=2)
+    left_keys = [
+        ("frozen_NN_NLL_vals_cg",    "NN NLL (frozen c_tg)",    "frozen_cg_label"),
+        ("frozen_chi_squared_cg",    r"STXS $\chi^2$ (frozen c_tg)", "frozen_cg_label"),
+    ]
+    
+    for data in datasets:
+        cg_values = data["cg_values"]  # The x-values for the c_g scan
+        dataset_name = data.get("Name", "")  # Might be empty if not provided
 
-    # Confidence lines for single‐parameter scans
+        for data_key, method_label, dict_label_key in left_keys:
+            if data_key in data:
+                user_label = data.get(dict_label_key, "")
+                
+                # Build the legend label, including the Name only if it exists
+                if dataset_name:
+                    legend_label = f"{dataset_name} - {method_label}"
+                else:
+                    legend_label = method_label
+                
+                # Add user_label if it exists
+                if user_label:
+                    legend_label += f" {user_label}"
+
+                ax_left.plot(cg_values, data[data_key], label=legend_label, lw=2)
+
+    # Horizontal lines for confidence regions
     ax_left.axhline(1.0, color="red", linestyle="--", label="68% CL (2ΔNLL = 1)")
     ax_left.axhline(4.0, color="blue", linestyle="--", label="95% CL (2ΔNLL = 4)")
-
+    
+    ax_left.set_ylim(0, 10)
     ax_left.set_xlabel(r"$c_g$")
     ax_left.set_ylabel("2ΔNLL or Δχ²")
     ax_left.legend()
     ax_left.grid(True)
 
-    ############################################################################
-    # Right subplot: c_tg scan (frozen c_g)
-    ############################################################################
+    # -- Right subplot: c_tg scan (frozen c_g) --
     ax_right = axes[1]
-    ax_right.plot(ctg_values, frozen_NLL_ctg,
-                  label=f"NN NLL (frozen c_g) {label_NLL_ctg}", lw=2)
-    ax_right.plot(ctg_values, frozen_chi2_ctg,
-                  label=rf"STXS $\chi^2$ (frozen c_g) {label_chi2_ctg}", lw=2)
+    right_keys = [
+        ("frozen_NN_NLL_vals_ctg",    "NN NLL (frozen c_g)",    "frozen_ctg_label"),
+        ("frozen_chi_squared_ctg",    r"STXS $\chi^2$ (frozen c_g)", "frozen_ctg_label"),
+    ]
 
-    # Confidence lines for single‐parameter scans
+    for data in datasets:
+        ctg_values = data["ctg_values"]  # The x-values for the c_tg scan
+        dataset_name = data.get("Name", "")
+
+        for data_key, method_label, dict_label_key in right_keys:
+            if data_key in data:
+                user_label = data.get(dict_label_key, "")
+
+                if dataset_name:
+                    legend_label = f"{dataset_name} - {method_label}"
+                else:
+                    legend_label = method_label
+                
+                if user_label:
+                    legend_label += f" {user_label}"
+
+                ax_right.plot(ctg_values, data[data_key], label=legend_label, lw=2)
+
+    # Horizontal lines for confidence regions
     ax_right.axhline(1.0, color="red", linestyle="--", label="68% CL (2ΔNLL = 1)")
     ax_right.axhline(4.0, color="blue", linestyle="--", label="95% CL (2ΔNLL = 4)")
 
+    ax_right.set_ylim(0, 10)
     ax_right.set_xlabel(r"$c_{tg}$")
     ax_right.set_ylabel("2ΔNLL or Δχ²")
     ax_right.legend()
@@ -475,40 +500,50 @@ def compare_frozen_scans(NLL_Results, chi_squared_Results):
 
     plt.tight_layout()
     plt.show()
+
+
+def compare_profile_scans(*datasets):
+    """
+    Compare 'profile' scans (profiling over c_tg when scanning c_g, or profiling
+    over c_g when scanning c_tg). Accepts any number of data dictionaries.
     
-
-def compare_profile_scans(NLL_Results, chi_squared_Results):
-    # Extract the relevant arrays
-    cg_values = NLL_Results["cg_values"]
-    ctg_values = NLL_Results["ctg_values"]
-
-    # NLL profile
-    profile_NLL_cg = NLL_Results["profile_NN_NLL_vals_cg"]
-    profile_NLL_ctg = NLL_Results["profile_NN_NLL_vals_ctg"]
-    
-    # Chi-squared profile
-    profile_chi2_cg = chi_squared_Results["profile_chi_squared_cg"]
-    profile_chi2_ctg = chi_squared_Results["profile_chi_squared_ctg"]
-
-    # Labels from the dictionaries (for c_g and c_tg)
-    label_NLL_cg = NLL_Results["profile_cg_label"]
-    label_chi2_cg = chi_squared_Results["profile_cg_label"]
-
-    label_NLL_ctg = NLL_Results["profile_ctg_label"]
-    label_chi2_ctg = chi_squared_Results["profile_ctg_label"]
-
-    # Plot
+    Each dictionary can contain:
+      - "Name": a string to identify the data set in the legend (optional).
+      - "cg_values" and "ctg_values": arrays of the scanned Wilson coefficients.
+      - Keys for 'profile' results, e.g.:
+          "profile_NN_NLL_vals_cg", "profile_NN_NLL_vals_ctg"
+          "profile_chi_squared_cg", "profile_chi_squared_ctg"
+      - Corresponding label keys, e.g.:
+          "profile_cg_label", "profile_ctg_label"
+    """
+    # Prepare figure and subplots
     fig, axes = plt.subplots(1, 2, figsize=(18, 12))
-    fig.suptitle("Comparison of PROFILE Scans: NLL vs. Chi-Squared")
+    fig.suptitle("Comparison of PROFILE Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
 
-    ############################################################################
-    # Left subplot: c_g profile scan (profiling over c_tg)
-    ############################################################################
+    # -- Left subplot: c_g profile scan (profiling over c_tg) --
     ax_left = axes[0]
-    ax_left.plot(cg_values, profile_NLL_cg,
-                 label=f"NN NLL (profiled over c_tg) {label_NLL_cg}", lw=2)
-    ax_left.plot(cg_values, profile_chi2_cg,
-                 label=rf"STXS $\chi^2$ (profiled over c_tg) {label_chi2_cg}", lw=2)
+    left_keys = [
+        ("profile_NN_NLL_vals_cg",    "NN NLL (profiled over c_tg)",    "profile_cg_label"),
+        ("profile_chi_squared_cg",    r"STXS $\chi^2$ (profiled over c_tg)", "profile_cg_label"),
+    ]
+    
+    for data in datasets:
+        cg_values = data["cg_values"]
+        dataset_name = data.get("Name", "")
+
+        for data_key, method_label, dict_label_key in left_keys:
+            if data_key in data:
+                user_label = data.get(dict_label_key, "")
+                
+                if dataset_name:
+                    legend_label = f"{dataset_name} - {method_label}"
+                else:
+                    legend_label = method_label
+                
+                if user_label:
+                    legend_label += f" {user_label}"
+
+                ax_left.plot(cg_values, data[data_key], label=legend_label, lw=2)
 
     # Confidence lines
     ax_left.axhline(1.0, color="red", linestyle="--", label="68% CL (2ΔNLL = 1)")
@@ -517,16 +552,33 @@ def compare_profile_scans(NLL_Results, chi_squared_Results):
     ax_left.set_xlabel(r"$c_g$")
     ax_left.set_ylabel("2ΔNLL or Δχ²")
     ax_left.legend()
+    ax_left.set_ylim(0, 10)
     ax_left.grid(True)
 
-    ############################################################################
-    # Right subplot: c_tg profile scan (profiling over c_g)
-    ############################################################################
+    # -- Right subplot: c_tg profile scan (profiling over c_g) --
     ax_right = axes[1]
-    ax_right.plot(ctg_values, profile_NLL_ctg,
-                  label=f"NN NLL (profiled over c_g) {label_NLL_ctg}", lw=2)
-    ax_right.plot(ctg_values, profile_chi2_ctg,
-                  label=rf"STXS $\chi^2$ (profiled over c_g) {label_chi2_ctg}", lw=2)
+    right_keys = [
+        ("profile_NN_NLL_vals_ctg",    "NN NLL (profiled over c_g)",    "profile_ctg_label"),
+        ("profile_chi_squared_ctg",    r"STXS $\chi^2$ (profiled over c_g)", "profile_ctg_label"),
+    ]
+    
+    for data in datasets:
+        ctg_values = data["ctg_values"]
+        dataset_name = data.get("Name", "")
+
+        for data_key, method_label, dict_label_key in right_keys:
+            if data_key in data:
+                user_label = data.get(dict_label_key, "")
+                
+                if dataset_name:
+                    legend_label = f"{dataset_name} - {method_label}"
+                else:
+                    legend_label = method_label
+                
+                if user_label:
+                    legend_label += f" {user_label}"
+
+                ax_right.plot(ctg_values, data[data_key], label=legend_label, lw=2)
 
     # Confidence lines
     ax_right.axhline(1.0, color="red", linestyle="--", label="68% CL (2ΔNLL = 1)")
@@ -535,8 +587,37 @@ def compare_profile_scans(NLL_Results, chi_squared_Results):
     ax_right.set_xlabel(r"$c_{tg}$")
     ax_right.set_ylabel("2ΔNLL or Δχ²")
     ax_right.legend()
+    ax_right.set_ylim(0, 10)
     ax_right.grid(True)
 
     plt.tight_layout()
     plt.show()
+
+def weighted_quantile(values, quantiles, weights):
+    """
+    Compute weighted percentiles
+    
+    Parameters:
+    values: array-like of values
+    quantiles: array-like of quantiles to compute (between 0 and 1)
+    weights: array-like of weights for each value
+    
+    Returns:
+    array-like of weighted percentiles
+    """
+    values = np.array(values)
+    quantiles = np.array(quantiles)
+    weights = np.array(weights)
+    
+    # Sort values and weights
+    sorter = np.argsort(values)
+    values = values[sorter]
+    weights = weights[sorter]
+    
+    # Calculate cumulative weights
+    weighted_quantiles = np.cumsum(weights) - 0.5 * weights
+    weighted_quantiles /= np.sum(weights)
+    
+    # Interpolate
+    return np.interp(quantiles, weighted_quantiles, values)
     

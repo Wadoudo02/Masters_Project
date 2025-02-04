@@ -635,5 +635,17 @@ def build_combined_histogram_NN(
 
        return combined_histogram, hists_by_category 
     
+def Save_Results_to_JSON(results, filename):
+    import json
+
+    for key, value in results.items():
+        if isinstance(value, np.ndarray):
+            results[key] = value.tolist()
+
+
+    with open(filename, 'w') as f:
+        json.dump(results, f)
+
+    print(f"Data saved to {filename}.")
     
 

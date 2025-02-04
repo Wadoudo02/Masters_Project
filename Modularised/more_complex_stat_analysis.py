@@ -313,19 +313,8 @@ quadratic_order = True
 
 Chi_Squared_Results = chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-1, 1, 1000), quadratic_order)
 #%%
+Save_Results_to_JSON(Chi_Squared_Results, 'chi_squared_results.json')
 
-import json
-
-for key, value in Chi_Squared_Results.items():
-    if isinstance(value, np.ndarray):
-        Chi_Squared_Results[key] = value.tolist()
-
-# Write the dictionary to a file in JSON format
-filename = 'chi_squared_results.json'
-with open(filename, 'w') as f:
-    json.dump(Chi_Squared_Results, f)
-
-print(f"Data saved to {filename}.")
 
 #%%
 

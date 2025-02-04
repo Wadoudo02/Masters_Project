@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Feb  4 14:21:56 2025
+
+@author: wadoudcharbak
+"""
+
 import numpy as np
 import pandas as pd
 
@@ -18,7 +26,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("neural_network.pth")
+checkpoint = torch.load("neural_network_parameterised.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -29,11 +37,11 @@ loaded_model.load_state_dict(checkpoint["model_state"])
 # Set model to evaluation mode
 loaded_model.eval()
 
-'''
+
 import json
 
 # Load the probability values
-with open("proba_values.json", "r") as json_file:
+with open("proba_values_PNN.json", "r") as json_file:
     proba_data = json.load(json_file)
 
 max_proba = proba_data["max_proba"]
@@ -45,9 +53,7 @@ proba_range = max_proba - min_proba
 category_boundaries = [
     min_proba + i * (proba_range / 4) for i in range(5)  # 5 boundaries for 4 categories
 ]
-'''
 
-category_boundaries = [0, 0.24066145, 0.29167122, 0.33349041, 1] # Background Percentiles
 
 # category_boundaries[0] = 0
 # category_boundaries[4] = 1
@@ -73,9 +79,8 @@ procs = {
 
 plot_size = (12, 8)
 
-
-cg = 0.3
-ctg = 0.69
+cg_min, cg_max = -0.5, 0.5
+ctg_min, ctg_max = -0.5, 1
 
 
 # Load dataframes
@@ -143,10 +148,16 @@ for i, proc in enumerate(procs.keys()):
     if proc == "ttH_SMEFT":
         dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
 
+    N = len(dfs[proc])
 
+    dfs[proc]["cg"]  = np.random.uniform(low=cg_min,  high=cg_max,  size=N)
+    dfs[proc]["ctg"] = np.random.uniform(low=ctg_min, high=ctg_max, size=N)
+    
      # Extract the features for NN input
     features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
     features = [f"{feature}_sel" for feature in features]
+    features.append("cg")
+    features.append("ctg")
     
     if not all(feature in dfs[proc].columns for feature in features):
         raise ValueError(f"Missing one or more required features in process {proc}")
@@ -436,9 +447,8 @@ quadratic_order = True
 
 
 
-NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order)
-
-Save_Results_to_JSON(NLL_Results, 'standard_NN_results.json')
+PNN_NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order)
+PNN_NLL_Results["Name"] = "P"
 
 #%%
 
@@ -450,12 +460,20 @@ filename = 'chi_squared_results.json'
 # Read the JSON data back into a Python dictionary
 with open(filename, 'r') as file:
     chi_squared_Results = json.load(file)
+    
+    
+# Specify the filename to read the JSON data from
+filename = 'standard_NN_results.json'
+
+# Read the JSON data back into a Python dictionary
+with open(filename, 'r') as file:
+    standard_NN_Results = json.load(file)
 
 #%%
 
 
 
 
-compare_frozen_scans(NLL_Results, chi_squared_Results) 
-compare_profile_scans(NLL_Results, chi_squared_Results)
+compare_frozen_scans(standard_NN_Results, chi_squared_Results, PNN_NLL_Results) 
+compare_profile_scans(standard_NN_Results, chi_squared_Results, PNN_NLL_Results)
 
