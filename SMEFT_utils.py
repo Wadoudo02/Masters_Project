@@ -95,7 +95,7 @@ def plot_classifier_output(y_probs, y_true, ws, ax):
 '''
 Type can be: dup (duplicate), rand (random), rand_eft (random with eft weights), rand_SM (random with SM weights)
 '''
-def get_labeled_comb_df(ttH_df, type, features, c_g, c_tg):
+def get_labeled_comb_df(ttH_df, type, features, c_g, c_tg, norm_weights = True):
         
         if type=="dup":
             EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
@@ -119,9 +119,11 @@ def get_labeled_comb_df(ttH_df, type, features, c_g, c_tg):
         
         elif type[:4]=="rand":
             EFT_weights = np.asarray(calc_weights(ttH_df, cg=c_g, ctg=c_tg))
-            EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
+            if norm_weights:
+                EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
             ttH_df["EFT_weight"] = EFT_weights
-            ttH_df["plot_weight"] = (ttH_df["plot_weight"]/np.sum(ttH_df["plot_weight"]))*10000
+            if norm_weights:
+                ttH_df["plot_weight"] = (ttH_df["plot_weight"]/np.sum(ttH_df["plot_weight"]))*10000
 
             comb_df = pd.concat([ttH_df[var] for var in features]+[ttH_df["plot_weight"], ttH_df["EFT_weight"]], axis=1)
             comb_df_SM, comb_df_EFT = train_test_split(comb_df, test_size=0.5)
@@ -146,7 +148,7 @@ def get_labeled_comb_df(ttH_df, type, features, c_g, c_tg):
             comb_df_EFT["labels"] = np.ones(len(comb_df_EFT["weight"]))
 
             comb_df = pd.concat([comb_df_EFT, comb_df_SM], axis = 0)
-        
+    
 
         return comb_df
 
@@ -227,7 +229,7 @@ def get_tth_df():
     #tth_df = get_selection(ttH_df, "ttH")
     ttH_df = ttH_df[(ttH_df["mass_sel"] == ttH_df["mass_sel"])]
     ttH_df['plot_weight'] *= target_lumi / total_lumi
-    ttH_df['true_weight_sel'] = ttH_df['plot_weight'] / 10  # Remove x10 multiplier
+    ttH_df['true_weight_sel'] = ttH_df['plot_weight']  # Remove x10 multiplier
     #ttH_df = ttH_df.dropna()
 
     invalid_weights = ttH_df["plot_weight"] <= 0

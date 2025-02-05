@@ -28,8 +28,8 @@ def get_features():
     return list(ttH_df.columns)
 
 #Can provide a single value of cg and ctg for all events or a list of values for each event
-def calc_weights(df, cg=c_g_con, ctg=c_tg_con):
-    cur_weights=df["plot_weight"]*(1+df["a_cg"]*cg +
+def calc_weights(df, cg=c_g_con, ctg=c_tg_con, weight_col = "plot_weight"):
+    cur_weights=df[weight_col]*(1+df["a_cg"]*cg +
                                     df["a_ctgre"]*ctg +
                                     df["b_cg_cg"]*(cg**2 if not isinstance(cg, (list, np.ndarray)) else [i**2 for i in cg]) +
                                     df["b_cg_ctgre"]*ctg*cg + 
