@@ -20,7 +20,14 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
 plt.style.use(hep.style.CMS)
-
+def add_SMEFT_weights_random(proc_data):
+    cg_vals  = proc_data["cg"]
+    ctg_vals = proc_data["ctg"]
+    # baseline: 
+    new_w = proc_data["weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
+    # optional quadratic:
+    new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
+    return new_w
 c_g_range = [-0.5, 0.5]
 c_tg_range = [-0.5, 1]
 do_grid_search = False
@@ -44,25 +51,31 @@ rand_ctg = np.random.uniform(*c_tg_range, size=len(comb_df))
 comb_df["cg"] = rand_cg
 comb_df["ctg"] = rand_ctg
 comb_df["labels"] = 0
+comb_df["weight"]/=comb_df["weight"].sum()
+comb_df["weight"]*=10**4
 
 comb_df.reset_index(drop=True, inplace=True)
 
-# comb_df_eft = comb_df.copy()
-# rand_cg_eft = np.random.uniform(*c_g_range, size=len(comb_df_eft))
-# rand_ctg_eft = np.random.uniform(*c_tg_range, size=len(comb_df_eft))
+comb_df_eft = comb_df.copy()
+rand_cg_eft = np.random.uniform(*c_g_range, size=len(comb_df_eft))
+rand_ctg_eft = np.random.uniform(*c_tg_range, size=len(comb_df_eft))
 
-# comb_df_eft["cg"] = rand_cg_eft
-# comb_df_eft["ctg"] = rand_ctg_eft
-# comb_df_eft["labels"] = 1
-# comb_df_eft["weight"] = calc_weights(comb_df, cg=rand_cg, ctg=rand_ctg, weight_col="weight")
+comb_df_eft["cg"] = rand_cg_eft
+comb_df_eft["ctg"] = rand_ctg_eft
+comb_df_eft["labels"] = 1
+#comb_df_eft["weight"] = calc_weights(comb_df, cg=rand_cg, ctg=rand_ctg, weight_col="weight")
+comb_df_eft["weight"] = add_SMEFT_weights_random(comb_df_eft)
+comb_df_eft["weight"] /= comb_df_eft["weight"].sum()
+comb_df_eft["weight"] *= 10**4
 
-# comb_df = pd.concat([comb_df, comb_df_eft], axis=0, ignore_index=True)
+comb_df = pd.concat([comb_df, comb_df_eft], axis=0, ignore_index=True)
 
 #Randomly assigning EFT events and changing the weight for EFT events
-for index, row in comb_df.iterrows():
-    if random.choice([True, False]):
-        comb_df.at[index, "weight"] = calc_weights(row, cg=row["cg"], ctg=row["ctg"], weight_col="weight")
-        comb_df.at[index, "labels"] = 1
+# for index, row in comb_df.iterrows():
+#     if random.choice([True, False]):
+#         #comb_df.at[index, "weight"] = add_SMEFT_weights_random(row)
+#         comb_df.at[index, "weight"] = calc_weights(row, cg=row["cg"], ctg=row["ctg"], weight_col="weight")
+#         comb_df.at[index, "labels"] = 1
 
 weights = comb_df["weight"]
 labels = comb_df["labels"]
@@ -76,12 +89,12 @@ labels = comb_df["labels"]
 # # Update the DataFrame with the normalized weights
 # weights[labels == 1] = normalized_weights
 
-weights_eft = weights.loc[labels == 1]
-weights.loc[labels == 1] = (weights_eft / weights_eft.sum())*10**4
+# weights_eft = weights.loc[labels == 1]
+# weights.loc[labels == 1] = (weights_eft / weights_eft.sum())*10**4
 
-# Normalize the weights for rows where labels are 0
-weights_sm = weights.loc[labels == 0]
-weights.loc[labels == 0] = (weights_sm / weights_sm.sum())*10**4
+# # Normalize the weights for rows where labels are 0
+# weights_sm = weights.loc[labels == 0]
+# weights.loc[labels == 0] = (weights_sm / weights_sm.sum())*10**4
 
 comb_df = comb_df.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
 # print("Final training data columns: ", comb_df.columns)
@@ -94,15 +107,15 @@ y_test, w_train_init, w_test) = train_test_split(comb_df,
                                                 random_state=45, shuffle=True)
 
 # Define the ColumnTransformer
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('scaler', StandardScaler(), special_features)
-    ],
-    remainder='passthrough'  # Keep other columns unchanged
-)
+# preprocessor = ColumnTransformer(
+#     transformers=[
+#         ('scaler', StandardScaler(), special_features)
+#     ],
+#     remainder='passthrough'  # Keep other columns unchanged
+# )
 
-X_train_init = preprocessor.fit_transform(X_train_init)
-X_test = preprocessor.transform(X_test)
+# X_train_init = preprocessor.fit_transform(X_train_init)
+# X_test = preprocessor.transform(X_test)
 
 
 
@@ -124,23 +137,9 @@ X_test = preprocessor.transform(X_test)
 # X_train = np.hstack((X_train[:,:-7], X_train[:,-2:]))
 #_____________________________________________________
 
-#w_train_init=w_train_init.reshape(-1,1)
-
-# w_train = np.array(calc_weights(pd.DataFrame(np.hstack((X_train_init,w_train_init)),
-#                                             columns=special_features+["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre","plot_weight"]),
-#                                             cg=rand_cg, ctg=rand_ctg))
-
-#Removing last 5 coefficient columns and adding cg and ctg
-# X_train = np.hstack([X_train_init[:,:-5], rand_cg.reshape(-1,1), rand_ctg.reshape(-1,1)])  # Add parameters as input features
 
 (X_train, X_val, y_train,
  y_val, w_train, w_val)= train_test_split(X_train, y_train, w_train, test_size=0.2, random_state=42, shuffle=True)
-
-
-# scaler = StandardScaler()
-# X_train = scaler.fit_transform(X_train)
-# X_test = scaler.transform(X_test)
-# X_val = scaler.transform(X_val)
 
 
 #Making sure everything is np array, only necessayr becasue of some version mismatch.
@@ -168,31 +167,16 @@ criterion = WeightedBCELoss()
 # Define optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
+#Scheduler to adjust learning rate
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+
+
 loss_values = []
 val_loss_values = []
 
 # Training loop
 num_epochs = 30
 
-#cg, ctg = pairs[np.random.choice(len(pairs))]
-
-# w_val_new = calc_weights(pd.DataFrame(np.hstack((X_val,
-#                                             w_val)),
-#                                             columns=special_features+["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre","plot_weight"]),
-#                                             cg=rand_cg, ctg=rand_ctg)
-
-# w_train_tensor = torch.tensor(w_train_new, dtype=torch.float32)
-# w_val_tensor = torch.tensor(w_val_new, dtype=torch.float32)
-
-#Removing coeffiicent columns
-# X_train_new = X_train[:,:-5]
-# X_val_new = X_val[:,:-5]
-
-
-
-# Convert to PyTorch tensors
-# X_train_tensor = torch.tensor(X_train_aug, dtype=torch.float32)
-# X_val_tensor = torch.tensor(X_val_aug, dtype=torch.float32)
 
 # Create a TensorDataset and DataLoader for training data
 train_dataset = TensorDataset(X_train_tensor, y_train_tensor, w_train_tensor)
@@ -237,10 +221,13 @@ for epoch in range(num_epochs):
             val_loss_mean = criterion(val_logits, y_batch, w_batch)  # Mean loss values
             val_loss += val_loss_mean.item()
 
+    
     # Calculate average validation loss for the epoch
     val_loss /= len(val_loader)
     val_loss_values.append(val_loss)
 
+    # Adjust learning rate
+    scheduler.step()
     if (epoch + 1) % 10 == 0:
         print(f"Epoch [{epoch+1}/{num_epochs}], Weighted train Loss: {epoch_loss:.4f}, Weighted val Loss: {val_loss:.4f}")
 
