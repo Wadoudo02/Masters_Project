@@ -26,7 +26,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("neural_network_parameterised.pth")
+checkpoint = torch.load("neural_network_parameterised_2.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -41,7 +41,7 @@ loaded_model.eval()
 import json
 
 # Load the probability values
-with open("proba_values_PNN.json", "r") as json_file:
+with open("proba_values_PNN_2.json", "r") as json_file:
     proba_data = json.load(json_file)
 
 max_proba = proba_data["max_proba"]

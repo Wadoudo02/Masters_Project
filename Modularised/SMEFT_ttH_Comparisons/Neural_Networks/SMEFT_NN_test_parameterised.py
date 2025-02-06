@@ -35,7 +35,7 @@ from utils import *
 plt.style.use(hep.style.CMS)
 
 # Random seed for reproducibility
-seed_number = 42
+seed_number = 45
 np.random.seed(seed_number)
 torch.manual_seed(seed_number)
 
@@ -49,7 +49,7 @@ Quadratic = True
 PlotInputFeatures = False
 LossPlotLog = True  # Toggle for log scale
 
-
+sample_path="/Users/wadoudcharbak/Downloads/Pass2"
 # -------------------------------------------------------------------------
 #                         SMEFT WEIGHTING FUNCTION
 # -------------------------------------------------------------------------
@@ -91,6 +91,7 @@ if invalid_weights.any():
     print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
     df_tth = df_tth[~invalid_weights]
 
+#df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
 
 N = len(df_tth)  # number of events in baseline
 cg_min, cg_max = -0.5, 0.5
@@ -101,10 +102,10 @@ ctg_min, ctg_max = -0.5, 1
 rnd_cg  = np.random.uniform(low=cg_min,  high=cg_max,  size=N)
 rnd_ctg = np.random.uniform(low=ctg_min, high=ctg_max, size=N)
 
-# 2) Make a copy of df_tth
-df_smeft = df_tth.copy()
 
 # 3) Add columns for c_g, c_tg
+df_smeft = df_tth.copy()
+
 df_smeft["cg"]  = rnd_cg
 df_smeft["ctg"] = rnd_ctg
 df_smeft["label"] = 1  # "SMEFT"
@@ -129,6 +130,7 @@ df_smeft["plot_weight"] *= 1e4
 # 6) If you want some pure SM events labeled "0" (c_g=0, c_tg=0):
 rnd_cg_sm  = np.random.uniform(low=cg_min,  high=cg_max,  size=N)
 rnd_ctg_sm = np.random.uniform(low=ctg_min, high=ctg_max, size=N)
+
 df_sm = df_tth.copy()
 df_sm["label"] = 0
 df_sm["cg"] = rnd_cg_sm
@@ -138,6 +140,7 @@ df_sm["plot_weight"] *= 1e4
 
 # 7) Concatenate
 df_combined = pd.concat([df_smeft, df_sm], ignore_index=True)
+df_combined["original_index"] = np.arange(len(df_combined))
 
 # -------------------------------------------------------------------------
 #                 OPTIONAL: PLOT INPUT FEATURE DISTRIBUTIONS
@@ -175,8 +178,15 @@ X = df_combined[features].values
 y = df_combined["label"].values
 w = df_combined["plot_weight"].values
 
-X_train, X_test, y_train, y_test, w_train, w_test = train_test_split(
-    X, y, w, test_size=0.3, random_state=seed_number
+# We also keep the original index as a separate array
+idx = df_combined["original_index"].values
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test, w_train, w_test, idx_train, idx_test = train_test_split(
+    X, y, w, idx,
+    test_size=0.3,
+    random_state=seed_number
 )
 
 # Convert to PyTorch tensors
@@ -233,7 +243,7 @@ scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
 # -------------------------------------------------------------------------
 #                             TRAINING LOOP
 # -------------------------------------------------------------------------
-epochs = 1000
+epochs = 100
 train_losses = []
 test_losses = []
 
@@ -390,14 +400,144 @@ model_ckpt = {
     "input_dim": input_dim,
     "hidden_dim": hidden_dim
 }
-torch.save(model_ckpt, "neural_network_parameterised.pth")
+torch.save(model_ckpt, "neural_network_parameterised_2.pth")
 
 max_proba = float(y_proba_test.max())
 min_proba = float(y_proba_test.min())
 proba_data = {"max_proba": max_proba, "min_proba": min_proba}
 
-with open("proba_values_PNN.json", "w") as json_file:
+with open("proba_values_PNN_2.json", "w") as json_file:
     json.dump(proba_data, json_file)
 
 print(f" --> Saved model to 'neural_network_parameterised.pth'")
 print(f" --> Probability range: min={min_proba}, max={max_proba}")
+
+
+#%%
+
+
+#%% 2) ISOLATE A PURE-SM TEST SUBSET
+# Filter out events with label = 0 (SM)
+df_combined_test = df_combined.loc[idx_test].copy()
+
+# Now df_combined_test has all the columns from df_combined, e.g.:
+#   - "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"
+#   - The features used in X, plus any others.
+#   - "plot_weight", "label", etc.
+
+df_sm_test = df_combined_test[df_combined_test["label"] == 0].copy()
+
+# For safety, ensure their cg, ctg columns are 0,0
+# (this depends on how your data was constructed originally)
+df_sm_test["cg"]  = 0.0
+df_sm_test["ctg"] = 0.0
+
+
+#%% 4) FUNCTION TO COMPUTE AUC GIVEN TWO DATAFRAMES (SM + pseudo-SMEFT)
+def compute_auc_for_dataset(df_class0, df_class1, model, feature_cols):
+    """
+    Combines df_class0(label=0) and df_class1(label=1), 
+    runs the model, computes weighted AUC.
+    """
+    #breakpoint()
+    df_combined = pd.concat([df_class0, df_class1], ignore_index=True)
+    
+    X_data = torch.tensor(df_combined[feature_cols].values, dtype=torch.float32)
+    y_true = df_combined["label"].values
+    w_data = df_combined["plot_weight"].values
+    
+    # Model predictions
+    model.eval()
+    with torch.no_grad():
+        y_proba = model(X_data).squeeze().numpy()
+    
+    # Weighted ROC
+    fpr, tpr, _ = roc_curve(y_true, y_proba, sample_weight=w_data)
+    auc_val = auc(fpr, tpr)
+    return auc_val
+
+#%% 5) SCAN OVER c_g (KEEP c_{tg}=0), PLOT AUC
+cg_values = np.linspace(-2, 2, 20)
+auc_vs_cg = []
+
+
+for cg_val in cg_values:
+    df_smeft_test = df_sm_test.copy()
+    df_smeft_test["cg"]  = cg_val
+    df_smeft_test["ctg"] = 0.0
+    df_smeft_test["label"] = 1
+    df_smeft_test["plot_weight"] = add_SMEFT_weights_random(df_smeft_test)
+    auc_score = compute_auc_for_dataset(
+        df_sm_test,
+        df_smeft_test,
+        model,
+        feature_cols=features
+    )
+    auc_vs_cg.append(auc_score)
+
+# Plot
+plt.figure(figsize=(8,6))
+plt.plot(cg_values, auc_vs_cg, marker='o')
+plt.xlabel(r"$c_g$")
+plt.ylabel("AUC")
+plt.title(r"AUC vs $c_g$ (with $c_{tg}=0$)")
+plt.grid(True)
+plt.show()
+
+#%% 6) SCAN OVER c_{tg} (KEEP c_g=0), PLOT AUC
+ctg_values = np.linspace(-2, 2, 20)
+auc_vs_ctg = []
+
+for ctg_val in ctg_values:
+    df_smeft_test = df_sm_test.copy()
+    df_smeft_test["cg"]  = 0.0
+    df_smeft_test["ctg"] = ctg_val
+    df_smeft_test["label"] = 1
+    df_smeft_test["plot_weight"] = add_SMEFT_weights_random(df_smeft_test)
+    auc_score = compute_auc_for_dataset(
+        df_sm_test,
+        df_smeft_test,
+        model,
+        feature_cols=features
+    )
+    auc_vs_ctg.append(auc_score)
+
+
+plt.figure(figsize=(8,6))
+plt.plot(ctg_values, auc_vs_ctg, marker='s', color='red')
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel("AUC")
+plt.title(r"AUC vs $c_{tg}$ (with $c_g=0$)")
+plt.grid(True)
+plt.show()
+
+#%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
+cg_range = np.linspace(-2, 2, 20)
+ctg_range = np.linspace(-2, 2, 20)
+auc_grid = np.zeros((len(cg_range), len(ctg_range)))
+
+for i, cg_val in enumerate(cg_range):
+    for j, ctg_val in enumerate(ctg_range):
+        df_smeft_test = df_sm_test.copy()
+        df_smeft_test["cg"]  = cg_val
+        df_smeft_test["ctg"] = ctg_val
+        df_smeft_test["label"] = 1
+        df_smeft_test["plot_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        auc_grid[i, j] = compute_auc_for_dataset(
+            df_test_sm,
+            df_smeft_test,
+            model,
+            feature_cols=features
+        )
+
+# Create mesh for plotting
+CG, CTG = np.meshgrid(ctg_range, cg_range)  
+# We'll put c_{tg} on the x-axis and c_g on the y-axis.
+
+plt.figure(figsize=(8,6))
+cs = plt.contourf(CG, CTG, auc_grid, levels=20, cmap="viridis")
+plt.colorbar(cs, label="AUC Score")
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel(r"$c_{g}$")
+plt.title(r"2D Contour of AUC vs $(c_g, c_{tg})$")
+plt.show()
