@@ -7,6 +7,7 @@ from SMEFT_utils import *
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import copy
 import joblib
 import random
 
@@ -20,136 +21,107 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
 plt.style.use(hep.style.CMS)
-def add_SMEFT_weights_random(proc_data):
-    cg_vals  = proc_data["cg"]
-    ctg_vals = proc_data["ctg"]
-    # baseline: 
-    new_w = proc_data["weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
-    # optional quadratic:
-    new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
-    return new_w
-c_g_range = [-0.5, 0.5]
-c_tg_range = [-0.5, 1]
-do_grid_search = False
+
+
 
 ttH_df = get_tth_df()
 
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
-special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel","lead_pt-over-mass_sel"]
+special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel"]#,"lead_pt-over-mass_sel"]
 
-#Df with all SM events on top and all EFT events on bottom
-# comb_df=get_labeled_comb_df(ttH_df, "rand", special_features+["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"], 0, 0, norm_weights=True)
-# #Dropping all rows with nans
-comb_df = pd.concat([ttH_df[var] for var in special_features+["true_weight_sel","a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]], axis=1)
-comb_df.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
+c_g_range = (-1, 1)
+c_tg_range = (-1,1)
 
-comb_df = comb_df.dropna()
+comb_df_init = pd.concat([ttH_df[var] for var in special_features+["true_weight_sel","a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]], axis=1)
+comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
 
-rand_cg = np.random.uniform(*c_g_range, size=len(comb_df))
-rand_ctg = np.random.uniform(*c_tg_range, size=len(comb_df))
+comb_df_init = comb_df_init.dropna()
 
-comb_df["cg"] = rand_cg
-comb_df["ctg"] = rand_ctg
-comb_df["labels"] = 0
-comb_df["weight"]/=comb_df["weight"].sum()
-comb_df["weight"]*=10**4
+#Duplicating dataset for eft and sm
+# comb_df_eft = copy.deepcopy(comb_df_init)
+#comb_df_sm=copy.deepcopy(comb_df_init)
 
-comb_df.reset_index(drop=True, inplace=True)
+#Randomly splitting same dataset into eft and sm
+comb_df_sm, comb_df_eft = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
 
-comb_df_eft = comb_df.copy()
+
+rand_cg_sm = np.random.uniform(*c_g_range, size=len(comb_df_sm))
+rand_ctg_sm = np.random.uniform(*c_tg_range, size=len(comb_df_sm))
+
+comb_df_sm["cg"] = rand_cg_sm
+comb_df_sm["ctg"] = rand_ctg_sm
+comb_df_sm["labels"] = 0
+comb_df_sm["weight"]/=comb_df_sm["weight"].sum()
+comb_df_sm["weight"]*=10**4
+
+comb_df_sm.reset_index(drop=True, inplace=True)
+
 rand_cg_eft = np.random.uniform(*c_g_range, size=len(comb_df_eft))
 rand_ctg_eft = np.random.uniform(*c_tg_range, size=len(comb_df_eft))
 
 comb_df_eft["cg"] = rand_cg_eft
 comb_df_eft["ctg"] = rand_ctg_eft
 comb_df_eft["labels"] = 1
-#comb_df_eft["weight"] = calc_weights(comb_df, cg=rand_cg, ctg=rand_ctg, weight_col="weight")
-comb_df_eft["weight"] = add_SMEFT_weights_random(comb_df_eft)
+comb_df_eft["weight"] = calc_weights(comb_df_eft, cg=rand_cg_eft, ctg=rand_ctg_eft, weight_col="weight")
+
+
 comb_df_eft["weight"] /= comb_df_eft["weight"].sum()
 comb_df_eft["weight"] *= 10**4
 
-comb_df = pd.concat([comb_df, comb_df_eft], axis=0, ignore_index=True)
+comb_df = pd.concat([comb_df_sm, comb_df_eft], axis=0, ignore_index=True)
 
-#Randomly assigning EFT events and changing the weight for EFT events
-# for index, row in comb_df.iterrows():
-#     if random.choice([True, False]):
-#         #comb_df.at[index, "weight"] = add_SMEFT_weights_random(row)
-#         comb_df.at[index, "weight"] = calc_weights(row, cg=row["cg"], ctg=row["ctg"], weight_col="weight")
-#         comb_df.at[index, "labels"] = 1
+weights, labels = comb_df["weight"], comb_df["labels"]
 
-weights = comb_df["weight"]
-labels = comb_df["labels"]
-
-# # Filter rows where labels are 1
-# eft_weights = weights[labels == 1]
-
-# # Normalize the weights for these rows
-# normalized_weights = eft_weights / eft_weights.sum()
-
-# # Update the DataFrame with the normalized weights
-# weights[labels == 1] = normalized_weights
-
-# weights_eft = weights.loc[labels == 1]
-# weights.loc[labels == 1] = (weights_eft / weights_eft.sum())*10**4
-
-# # Normalize the weights for rows where labels are 0
-# weights_sm = weights.loc[labels == 0]
-# weights.loc[labels == 0] = (weights_sm / weights_sm.sum())*10**4
+#Saving coefs for testing
+a_cg, a_ctgre, b_cg_cg, b_cg_ctgre, b_ctgre_ctgre = comb_df["a_cg"], comb_df["a_ctgre"], comb_df["b_cg_cg"], comb_df["b_cg_ctgre"], comb_df["b_ctgre_ctgre"]
 
 comb_df = comb_df.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
 # print("Final training data columns: ", comb_df.columns)
 
-(X_train_init, X_test, y_train,
-y_test, w_train_init, w_test) = train_test_split(comb_df,
-                                                labels,
-                                                weights,
-                                                test_size=0.2,
-                                                random_state=45, shuffle=True)
 
-# Define the ColumnTransformer
-# preprocessor = ColumnTransformer(
-#     transformers=[
-#         ('scaler', StandardScaler(), special_features)
-#     ],
-#     remainder='passthrough'  # Keep other columns unchanged
-# )
+X, y, w = comb_df.values, labels.values, weights.values
 
-# X_train_init = preprocessor.fit_transform(X_train_init)
-# X_test = preprocessor.transform(X_test)
+(X_train, X_test, y_train,
+y_test, w_train, w_test,
+a_cg_train, a_cg_test,
+a_ctgre_train, a_ctgre_test,
+b_cg_cg_train, b_cg_cg_test,
+b_cg_ctgre_train, b_cg_ctgre_test,
+b_ctgre_ctgre_train, b_ctgre_ctgre_test) = train_test_split(X,
+                                                            y,
+                                                            w,
+                                                            a_cg,
+                                                            a_ctgre,
+                                                            b_cg_cg,
+                                                            b_cg_ctgre,
+                                                            b_ctgre_ctgre,
+                                                            test_size=0.2,
+                                                            random_state=45, shuffle=True)
+
+# Define the ColumnTransformer to transform features
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('scaler', StandardScaler(), np.arange(len(special_features)))  # Scale only the features
+    ],
+    remainder='passthrough'  # Keep other columns unchanged
+)
+
+X_train = preprocessor.fit_transform(X_train)
+X_test = preprocessor.transform(X_test)
 
 
-
-(X_train, X_test,
- y_train, y_test,
- w_train, w_test, weights) = make_np_arr(X_train_init,
-                                                X_test,
-                                                y_train,
-                                                y_test,
-                                                w_train_init,
-                                                w_test,
-                                                weights)
-
-
-#_____________________________________________________
-#coefs_test = pd.DataFrame(X_test[:,-7:-2], columns=["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
+#To allow recalculation of weights when it 
+# coefs_test = pd.DataFrame(X_test[:,-7:-2], columns=["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
 
 # X_test = np.hstack((X_test[:,:-7], X_test[:,-2:]))
 # X_train = np.hstack((X_train[:,:-7], X_train[:,-2:]))
-#_____________________________________________________
+# _____________________________________________________
 
 
 (X_train, X_val, y_train,
  y_val, w_train, w_val)= train_test_split(X_train, y_train, w_train, test_size=0.2, random_state=42, shuffle=True)
 
 
-#Making sure everything is np array, only necessayr becasue of some version mismatch.
-
-
-w_train = w_train.reshape(-1, 1)
-w_val = w_val.reshape(-1, 1)
-w_test = w_test.reshape(-1, 1)
-
-pairs = [(0.5, 0.5), (0.5, 0.75), (0.75, 0.75), (0.25, 0.25), (0.25, 0.75), (0.5, 0.25), (0.75, 0.25), (0.25, 0.5), (0.75, 0.5)]
 
 y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val_tensor, X_train_tensor,X_test_tensor, X_val_tensor = get_tensors([y_train, y_test, y_val, w_train, w_test, w_val], [X_train, X_test, X_val])
 
@@ -157,25 +129,24 @@ y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val
 input_dim = X_train.shape[1]
 hidden_dim = [256, 64, 32, 16, 16, 8]
 
-#model = LogisticRegression(input_dim)
-#model = ComplexNN(input_dim, hidden_dim, 1) 
-model = WadNeuralNetwork(input_dim, input_dim*4)
+model = ComplexNN(input_dim, hidden_dim, 1) 
+#model = WadNeuralNetwork(input_dim, input_dim*4)
 
 #criterion = nn.BCELoss(reduction='none')  # No reduction for custom weighting
 criterion = WeightedBCELoss()
 
 # Define optimizer
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 #Scheduler to adjust learning rate
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
 
 
 loss_values = []
 val_loss_values = []
 
 # Training loop
-num_epochs = 30
+num_epochs = 50
 
 
 # Create a TensorDataset and DataLoader for training data
@@ -235,64 +206,71 @@ for epoch in range(num_epochs):
 #Testing
 model.eval()
 #for cg, ctg in [(i,j) for i in np.arange(0, 2, 0.5) for j in np.arange(0, 2, 0.5)]:
-# X_test_df = pd.concat([pd.DataFrame(np.hstack((X_test,
-#                                     w_test)),
-#                                     columns=special_features+["cg","ctg","plot_weight"]), coefs_test], axis=1)
-# X_test_df.reset_index(drop=True, inplace=True)
-#for cg, ctg in [(-0.5, -0.5),(-0.75,-0.5),(0.75, 0.75), (0.5,0.5), (0.5, 0.75)]:
-    #_____________________________________________________
-#     print("--------cg:", cg, "ctg:", ctg, "-----------")
-#     for idx, row in X_test_df.iterrows():
-#         if y_test[idx] == 1:
-#             X_test_df.at[idx, "plot_weight"] = calc_weights(row, cg=cg, ctg=ctg)
-#     w_test_new = X_test_df["plot_weight"]
+X_test_df = pd.concat([pd.DataFrame(np.hstack((
+                        np.array(X_test),
+                        np.array(w_test).reshape(-1, 1),
+                        np.array(a_cg_test).reshape(-1, 1),
+                        np.array(a_ctgre_test).reshape(-1, 1),
+                        np.array(b_cg_cg_test).reshape(-1, 1),
+                        np.array(b_cg_ctgre_test).reshape(-1, 1),
+                        np.array(b_ctgre_ctgre_test).reshape(-1, 1)
+                    )),
+                                    columns=special_features+["cg","ctg","plot_weight", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])], axis=1)
+X_test_df.reset_index(drop=True, inplace=True)
+for cg, ctg in [(0.5,0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
+    print("--------cg:", cg, "ctg:", ctg, "-----------")
+    eft_sum = sum(w_test[y_test==1])
+    w_test[y_test==1]= calc_weights(X_test_df[y_test==1], cg=cg, ctg=ctg)
+    w_test[y_test==1] *= eft_sum/sum(w_test[y_test==1])
 
-#     print(len(w_test_new))
-#    # w_test_new = calc_weights(pd.concat(pd.DataFrame(np.hstack((X_test,
-#                                                 # w_test)),
-#                                                 # columns=special_features+["plot_weight"]),coefs_test),
-#                                                 # cg=cg, ctg=ctg)
-#     #X_test_new = X_test[:,:-5]
-#     #X_train_new = X_train[:,:-5]
+    #w_test_new = X_test_df["plot_weight"]
 
-#     #Removing random cg and ctg assigned at the start
-#     X_test_new = X_test[:,:-2]
+    #print(len(w_test_new))
+   # w_test_new = calc_weights(pd.concat(pd.DataFrame(np.hstack((X_test,
+                                                # w_test)),
+                                                # columns=special_features+["plot_weight"]),coefs_test),
+                                                # cg=cg, ctg=ctg)
+    #X_test_new = X_test[:,:-5]
+    #X_train_new = X_train[:,:-5]
 
-#     X_test_aug = np.hstack([X_test_new, np.full((X_test_new.shape[0], 1), cg), np.full((X_test_new.shape[0], 1), ctg)])  # Add parameters as input features
-#     X_test_tensor = torch.tensor(X_test_aug, dtype=torch.float32)
-    #_______________________________________________
-    # X_train_aug = np.hstack([X_train_new, np.full((X_train_new.shape[0], 1), cg), np.full((X_train_new.shape[0], 1), ctg)])  # Add parameters as input features
+    #Removing random cg and ctg assigned at the start
+    X_test_new = X_test[:,:-2]
+
+    X_test_aug = np.hstack([X_test_new, np.full((X_test_new.shape[0], 1), cg), np.full((X_test_new.shape[0], 1), ctg)])  # Add parameters as input features
+    X_test_tensor = torch.tensor(X_test_aug, dtype=torch.float32)
+    
+    #X_train_aug = np.hstack([X_train_new, np.full((X_train_new.shape[0], 1), cg), np.full((X_train_new.shape[0], 1), ctg)])  # Add parameters as input features
     #X_train_tensor = torch.tensor(X_train_aug, dtype=torch.float32)
     # Evaluate the model on the test and train set
-with torch.no_grad():
-    probabilities = model(X_test_tensor)
-    train_proba = model(X_train_tensor)
-    
-    predictions = probabilities > 0.5  # Threshold at 0.5
-    accuracy = (predictions.eq(y_test_tensor).sum() / y_test_tensor.shape[0]).item()
-    print("Probabilities:", probabilities.squeeze().numpy())
-    print("Predictions:", predictions.squeeze().numpy())
-    print("Ground truth:", y_test_tensor.squeeze().numpy())
+    with torch.no_grad():
+        probabilities = model(X_test_tensor)
+        train_proba = model(X_train_tensor)
+        
+        predictions = probabilities > 0.5  # Threshold at 0.5
+        accuracy = (predictions.eq(y_test_tensor).sum() / y_test_tensor.shape[0]).item()
+        print("Probabilities:", probabilities.squeeze().numpy())
+        print("Predictions:", predictions.squeeze().numpy())
+        print("Ground truth:", y_test_tensor.squeeze().numpy())
 
-y_test_np = y_test_tensor.cpu().numpy()
-predictions_np = predictions.cpu().numpy().flatten()
-train_proba_np = train_proba.cpu().numpy()
+    y_test_np = y_test_tensor.cpu().numpy()
+    predictions_np = predictions.cpu().numpy().flatten()
+    train_proba_np = train_proba.cpu().numpy()
 
 
-#print(len(y_test_np), len(probabilities), len(w_test_new))
-classification_analysis(y_test_np, w_test.flatten(), probabilities.squeeze().cpu().numpy(), predictions_np, y_train, w_train, train_proba_np, ["SM", "EFT"])
-#classification_analysis(y_test, w_test, probabilities.squeeze(), predictions.squeeze(), y_train, w_train, train_proba.squeeze(), ["SM", "EFT"])
+    #print(len(y_test_np), len(probabilities), len(w_test_new))
+    classification_analysis(y_test_np, w_test.flatten(), probabilities.squeeze().cpu().numpy(), predictions_np, y_train, w_train, train_proba_np, ["SM", "EFT"])
+    #classification_analysis(y_test, w_test, probabilities.squeeze(), predictions.squeeze(), y_train, w_train, train_proba.squeeze(), ["SM", "EFT"])
 
-# Plotting the training loss values
-plt.figure(figsize=(10, 5))
-plt.plot(loss_values, label='Training Loss', color='blue')
-plt.plot(val_loss_values, label='Validation Loss', color='orange')
-plt.title('Loss Over Epochs')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.legend()
-plt.grid()
-plt.show()
+    # Plotting the training loss values
+    plt.figure(figsize=(10, 5))
+    plt.plot(loss_values, label='Training Loss', color='blue')
+    plt.plot(val_loss_values, label='Validation Loss', color='orange')
+    plt.title('Loss Over Epochs')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 # Save the trained model
 #torch.save(model.state_dict(), 'saved_models/model.pth')
