@@ -9,19 +9,20 @@ from utils import get_pt_cat
 
 def exp(x, lam, A):
     return A*np.exp(-lam*(x-100))
-def get_background_dist(back_data, num_cats=5):
+def get_background_dist(back_data, num_cats=5, plot = False):
     back_mass = back_data["mass_sel"]
     back_pt = back_data["pt-over-mass_sel"]*back_mass
     back_data["categories"] = get_pt_cat(back_pt)
-
-    fig,ax = plt.subplots(ncols=5, figsize=(20,5))
+    if plot:
+        fig,ax = plt.subplots(ncols=5, figsize=(20,5))
 
     num_bins = 80 # Keep at 80 otherwise integral messes up
     fits = []
     for cat in range(num_cats):
         mask = back_data["categories"]==cat
         cur_cat = back_mass[mask]
-        ax[cat].hist(cur_cat, bins=num_bins, range=(100,180), weights = back_data["plot_weight"][mask], histtype="step")
+        if plot:
+            ax[cat].hist(cur_cat, bins=num_bins, range=(100,180), weights = back_data["plot_weight"][mask], histtype="step")
         counts, bin_edges = np.histogram(cur_cat, bins = num_bins, range= (100,180), weights = back_data["plot_weight"][mask])
         bin_centres = (bin_edges[:-1]+bin_edges[1:])/2
 
@@ -31,15 +32,15 @@ def get_background_dist(back_data, num_cats=5):
 
         
         p_fit, p_cov = curve_fit(exp, bin_centres, counts,p0=[0.001, 10000])
-        
-        ax[cat].plot(np.arange(100, 180), exp(np.arange(100, 180), *p_fit))
-        ax[cat].plot(bin_centres, counts, linestyle="", marker="x")
-        ax[cat].axvline(120, color="green")
-        ax[cat].axvline(130, color="green")
+        if plot:
+            ax[cat].plot(np.arange(100, 180), exp(np.arange(100, 180), *p_fit))
+            ax[cat].plot(bin_centres, counts, linestyle="", marker="x")
+            ax[cat].axvline(120, color="green")
+            ax[cat].axvline(130, color="green")
 
-        ax[cat].set_xlabel("Mass (GeV)")
-        ax[cat].set_ylabel("Events")
-        ax[cat].set_title(f"Category {cat}")
+            ax[cat].set_xlabel("Mass (GeV)")
+            ax[cat].set_ylabel("Events")
+            ax[cat].set_title(f"Category {cat}")
         fits.append(p_fit)
     #fig.savefig(f"{analysis_path}/back_mass.png", bbox_inches="tight")
     return fits

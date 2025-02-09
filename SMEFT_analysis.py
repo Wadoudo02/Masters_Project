@@ -16,8 +16,11 @@ plt.style.use(hep.style.CMS)
 plotter = Plotter()
 
 #Extract relevant columns from overall df
-cats = [0, 0.4, 0.5, 0.6, 0.7,1]
-special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel"]#,"lead_pt-over-mass_sel"] 
+cats=[0,0.32249033, 0.37249033, 0.55603562, 0.72428047,1]
+#cats = [0, 0.39059744, 0.44059744, 0.49059744, 0.66444074,1]
+
+#cats = [0, 0.4, 0.5, 0.6, 0.7,1]
+special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
 
 #%%
 plot_SMEFT_features(special_features)
@@ -33,9 +36,15 @@ for i, proc in enumerate(procs.keys()):
     dfs[proc] = get_selection(dfs[proc], proc)
 
     invalid_weights = dfs[proc]["true_weight_sel"] <= 0
+    init_yield = dfs[proc]["true_weight_sel"].sum()
     if invalid_weights.sum() > 0:
         print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
         dfs[proc] = dfs[proc][~invalid_weights]
+    
+    new_yield = dfs[proc]["true_weight_sel"].sum()
+
+    #Making sure final yield is the same as initial yield.
+    dfs[proc]["true_weight_sel"] = dfs[proc]["true_weight_sel"]*init_yield/new_yield
 
 dfs_copy = copy.deepcopy(dfs)
 dfs["ttH"] = ttH_df
@@ -324,7 +333,7 @@ plotter.overlay_line_plots(
     labels=[
         fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$",
         fr"Pt cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$",
-        fr"Chi2 cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
+        fr"$\chi^2$ cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
     ],
     colors=["red", "blue", "green"],
     axes=ax[0],
@@ -337,7 +346,7 @@ plotter.overlay_line_plots(
     labels=[
         fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$",
         fr"Pt cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$",
-        fr"Pt cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
+        fr"$\chi^2$ cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
     ],
     colors=["red", "blue", "green"],
     axes=ax[1],
@@ -349,7 +358,7 @@ ax[1].plot(c_vals, np.ones(len(c_vals)),linestyle="--" )
 #%%
 #Grid minimisation
 
-width = 6
+width = 4
 hessian_comb = joblib.load("saved_models/hessian_comb.pkl")
 
 cg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed

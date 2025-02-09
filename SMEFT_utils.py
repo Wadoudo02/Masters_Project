@@ -229,13 +229,20 @@ def get_tth_df():
     #tth_df = get_selection(ttH_df, "ttH")
     ttH_df = ttH_df[(ttH_df["mass_sel"] == ttH_df["mass_sel"])]
     ttH_df['plot_weight'] *= target_lumi / total_lumi
-    ttH_df['true_weight_sel'] = ttH_df['plot_weight']  # Remove x10 multiplier
+    ttH_df['true_weight_sel'] = ttH_df['plot_weight']/10  # Remove x10 multiplier
     #ttH_df = ttH_df.dropna()
 
     invalid_weights = ttH_df["plot_weight"] <= 0
+    init_yield = ttH_df["plot_weight"].sum()
     if invalid_weights.sum() > 0:
         print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
         ttH_df = ttH_df[~invalid_weights]
+    
+    new_yield = ttH_df["plot_weight"].sum()
+
+    #Making sure yield after removing neg weights is same as yield after
+    ttH_df["plot_weight"] = (ttH_df["plot_weight"] / new_yield) * init_yield
+
     print(f"--> Remaining rows = {len(ttH_df)}")
     ttH_df["EFT_weight"] = np.asarray(calc_weights(ttH_df))
     return ttH_df

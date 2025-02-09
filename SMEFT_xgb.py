@@ -29,10 +29,14 @@ ttH_df['plot_weight'] *= target_lumi / total_lumi
 #ttH_df = ttH_df.dropna()
 
 invalid_weights = ttH_df["plot_weight"] <= 0
+init_yield = ttH_df["plot_weight"].sum()
 if invalid_weights.sum() > 0:
     print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
     ttH_df = ttH_df[~invalid_weights]
 
+new_yield = ttH_df["plot_weight"].sum()
+
+ttH_df["plot_weight"] = ttH_df["plot_weight"]*init_yield/new_yield
 
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel"] 
