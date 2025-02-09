@@ -60,7 +60,7 @@ def get_dfs(sample_path):
             dfs[proc]['true_weight'+col_name] = dfs[proc]['plot_weight']/10
         else:
             dfs[proc]['true_weight'+col_name] = dfs[proc]['plot_weight']
-
+        dfs[proc] = dfs[proc][dfs[proc]['true_weight'+col_name] < 100]
         # Add variables
         b_tag_scores = np.array(dfs[proc][['j0_btagB'+col_name, 'j1_btagB'+col_name, 'j2_btagB'+col_name, 'j3_btagB'+col_name]])
         b_tag_scores = np.nan_to_num(b_tag_scores, nan=-1)

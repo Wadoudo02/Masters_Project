@@ -16,8 +16,8 @@ plt.style.use(hep.style.CMS)
 plotter = Plotter()
 
 #Extract relevant columns from overall df
-cats=[0,0.32249033, 0.37249033, 0.55603562, 0.72428047,1]
-#cats = [0, 0.39059744, 0.44059744, 0.49059744, 0.66444074,1]
+#cats=[0,0.32249033, 0.37249033, 0.55603562, 0.72428047,1]
+cats = [0, 0.39059744, 0.44059744, 0.49059744, 0.66444074,1]
 
 #cats = [0, 0.4, 0.5, 0.6, 0.7,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
