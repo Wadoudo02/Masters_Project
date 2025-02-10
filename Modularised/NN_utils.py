@@ -52,7 +52,7 @@ class NeuralNetwork(torch.nn.Module):
 
 # SMEFT weighting function
 def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
-    proc_data[name] = proc_data['plot_weight'] * (1 + proc_data['a_cg'] * cg + proc_data['a_ctgre'] * ctg)
+    proc_data[name] = proc_data['true_weight'] * (1 + proc_data['a_cg'] * cg + proc_data['a_ctgre'] * ctg)
     if quadratic:
         proc_data[name] += (
             (cg ** 2) * proc_data["b_cg_cg"]
@@ -63,7 +63,7 @@ def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
 
 def build_combined_histogram_NN(
     dfs, procs, categories, background_estimates,
-    mass_var="mass_sel", weight_var="plot_weight", 
+    mass_var="mass_sel", weight_var="true_weight", 
     mass_range=(120, 130), mass_bins=5):
     """
     Builds a single histogram with (num_categories * mass_bins) bins,
@@ -89,7 +89,7 @@ def build_combined_histogram_NN(
     mass_var : str, optional
         Name of the column in dfs[proc] with the diphoton mass (default "mass_sel").
     weight_var : str, optional
-        Name of the column with the event weight (default "plot_weight").
+        Name of the column with the event weight (default "true_weight").
     mass_range : tuple, optional
         (min_mass, max_mass). Default is (120, 130).
     mass_bins : int, optional
@@ -404,7 +404,13 @@ def NN_NLL_scans(
         'profile_cg_label': profile_cg_label,
         'frozen_ctg_label': frozen_ctg_label,
         'profile_ctg_label': profile_ctg_label,
-        'order': order
+        'order': order,
+        'frozen_cg_vals': frozen_cg_vals,
+        'profile_cg_vals': profile_cg_vals,
+        'frozen_ctg_vals': frozen_ctg_vals,
+        'profile_ctg_vals': profile_ctg_vals,
+        
+        
     }
       
 

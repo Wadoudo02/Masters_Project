@@ -17,11 +17,11 @@ vars_plotting_dict = {
     "sublead_pixelSeed": [2, (0, 2), False, "Sublead pixel seed"],
     "deltaR": [50, (0, 5), False, "$\\Delta R$"],
     "delta_eta_gg": [50, (0, 5), False, "$\\Delta \\eta_{\\gamma\\gamma}$"],
-    "delta_phi_gg": [50, (0, 5), False, "$\\Delta \\phi_{\\gamma\\gamma}$"],
+    "delta_phi_gg": [50, (-2, 5), False, "$\\Delta \\phi_{\\gamma\\gamma}$"],
     "delta_eta_jj": [50, (0, 5), False, "$\\Delta \\eta_{jj}$"],
     "delta_phi_jj": [50, (0, 5), False, "$\\Delta \\phi_{jj}$"],
     "dijet_mass": [100, (0, 300), False, "Dijet mass [GeV]"],
-    "delta_phi_gg_jj": [50, (0, 5), False, "$\\Delta \\phi_{\\gamma\\gamma, jj}$"],
+    "delta_phi_gg_jj": [50, (-2, 5), False, "$\\Delta \\phi_{\\gamma\\gamma, jj}$"],
     "min_delta_R_j_g": [50, (0, 5), False, "Minimum $\\Delta R(j, \\gamma)$"],
     "lead_pt-over-mass": [50, (0, 5), False, "Lead $p_T/m$"],
     "sublead_pt-over-mass": [50, (0, 5), False, "Sublead $p_T/m$"],
@@ -311,14 +311,14 @@ def generate_confusion_matrices(dfs, procs_to_plot, labels, normalised=True, plo
     for proc in procs_to_plot:
 
         # Filter out rows where either category is NaN
-        valid_entries = dfs[proc].dropna(subset=['category', 'truth_category', 'plot_weight'])
+        valid_entries = dfs[proc].dropna(subset=['category', 'truth_category', 'true_weight'])
         
         # Create a weighted 2D histogram for truth vs. reconstructed categories
         confusion_matrix, _, _ = np.histogram2d(
             valid_entries['category'].cat.codes,
             valid_entries['truth_category'].cat.codes,
             bins=[len(labels), len(labels)],
-            weights=valid_entries['plot_weight']
+            weights=valid_entries['true_weight']
         )
         confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True)  # plot normalised by reco-pt row i.e. each row should sum to 1.
         
@@ -372,15 +372,17 @@ def unfiltered_ttH_confusion_matrix(bins, labels, normalised=True):
     tth_unfiltered['category'] = pd.cut(tth_unfiltered['pt_sel'], bins=bins, labels=labels, right=False)
 
     tth_unfiltered['truth_category'] = pd.cut(tth_unfiltered['HTXS_Higgs_pt_sel'], bins=bins, labels=labels, right=False)
+    
+    tth_unfiltered['true_weight'] = tth_unfiltered['plot_weight']/10
 
-    valid_entries = tth_unfiltered.dropna(subset=['mass_sel', 'plot_weight'])
+    valid_entries = tth_unfiltered.dropna(subset=['mass_sel', 'true_weight'])
 
     # Create a weighted 2D histogram for truth vs. reconstructed categories
     confusion_matrix, _, _ = np.histogram2d(
         valid_entries['truth_category'].cat.codes,
         valid_entries['category'].cat.codes,
         bins=[len(labels), len(labels)],
-        weights=valid_entries['plot_weight']
+        weights=valid_entries['true_weight']
     )
     #breakpoint()
     confusion_matrix_normalized = confusion_matrix / confusion_matrix.sum(axis=0, keepdims=True) # plot normalised by reco-pt row i.e. each row should sum to 1.
@@ -548,7 +550,7 @@ def plot_combined_histogram(combined_histogram, categories, mass_bins=5, process
     
 def build_combined_histogram_NN(
        dfs, procs, categories, background_estimates,
-       mass_var="mass_sel", weight_var="plot_weight", 
+       mass_var="mass_sel", weight_var="true_weight", 
        mass_range=(120, 130), mass_bins=5
    ):
        """
@@ -575,7 +577,7 @@ def build_combined_histogram_NN(
        mass_var : str, optional
            Name of the column in dfs[proc] with the diphoton mass (default "mass_sel").
        weight_var : str, optional
-           Name of the column with the event weight (default "plot_weight").
+           Name of the column with the event weight (default "true_weight").
        mass_range : tuple, optional
            (min_mass, max_mass). Default is (120, 130).
        mass_bins : int, optional

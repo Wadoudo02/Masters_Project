@@ -58,7 +58,7 @@ def add_SMEFT_weights(proc_data, cg_val, ctg_val, name="new_weights", quadratic=
     For each row in proc_data, calculates the reweighting factor for the 
     specified c_g and c_tg using linear and (optionally) quadratic terms.
     """
-    proc_data[name] = proc_data["plot_weight"] * (
+    proc_data[name] = proc_data["true_weight"] * (
         1.0 + proc_data["a_cg"] * cg_val + proc_data["a_ctgre"] * ctg_val
     )
     if quadratic:
@@ -81,6 +81,8 @@ df_tth = df_tth[df_tth["mass_sel"].notna()]
 
 # Rescale original weights from full to target luminosity
 df_tth["plot_weight"] *= (target_lumi / total_lumi)
+
+df_tth['true_weight'] = df_tth['plot_weight']/10
 
 # Define a derived variable: 'pt_sel' = (pt-over-mass_sel) * mass_sel
 df_tth["pt_sel"] = df_tth["pt-over-mass_sel"] * df_tth["mass_sel"]
@@ -116,16 +118,16 @@ def add_SMEFT_weights_random(proc_data):
     cg_vals  = proc_data["cg"]
     ctg_vals = proc_data["ctg"]
     # baseline:
-    new_w = proc_data["plot_weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
+    new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
     # optional quadratic:
     new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
     return new_w
 
-df_smeft["plot_weight"] = add_SMEFT_weights_random(df_smeft)
+df_smeft["true_weight"] = add_SMEFT_weights_random(df_smeft)
 
 # 5) Optionally normalise your SMEFT weights
-df_smeft["plot_weight"] /= df_smeft["plot_weight"].sum()
-df_smeft["plot_weight"] *= 1e4
+df_smeft["true_weight"] /= df_smeft["true_weight"].sum()
+df_smeft["true_weight"] *= 1e4
 
 # 6) If you want some pure SM events labeled "0" (c_g=0, c_tg=0):
 rnd_cg_sm  = np.random.uniform(low=cg_min,  high=cg_max,  size=N)
@@ -135,8 +137,8 @@ df_sm = df_tth.copy()
 df_sm["label"] = 0
 df_sm["cg"] = rnd_cg_sm
 df_sm["ctg"] = rnd_ctg_sm
-df_sm["plot_weight"] /= df_sm["plot_weight"].sum()
-df_sm["plot_weight"] *= 1e4
+df_sm["true_weight"] /= df_sm["true_weight"].sum()
+df_sm["true_weight"] *= 1e4
 
 # 7) Concatenate
 df_combined = pd.concat([df_smeft, df_sm], ignore_index=True)
@@ -157,7 +159,7 @@ if PlotInputFeatures:
             data=df_combined,
             x=feat,
             hue="label",
-            weights="plot_weight",
+            weights="true_weight",
             bins=50,
             element="step",
             common_norm=False,
@@ -176,7 +178,7 @@ if PlotInputFeatures:
 # -------------------------------------------------------------------------
 X = df_combined[features].values
 y = df_combined["label"].values
-w = df_combined["plot_weight"].values
+w = df_combined["true_weight"].values
 
 # We also keep the original index as a separate array
 idx = df_combined["original_index"].values
@@ -423,7 +425,7 @@ df_combined_test = df_combined.loc[idx_test].copy()
 # Now df_combined_test has all the columns from df_combined, e.g.:
 #   - "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"
 #   - The features used in X, plus any others.
-#   - "plot_weight", "label", etc.
+#   - "true_weight", "label", etc.
 
 df_sm_test = df_combined_test[df_combined_test["label"] == 0].copy()
 
@@ -444,7 +446,7 @@ def compute_auc_for_dataset(df_class0, df_class1, model, feature_cols):
     
     X_data = torch.tensor(df_combined[feature_cols].values, dtype=torch.float32)
     y_true = df_combined["label"].values
-    w_data = df_combined["plot_weight"].values
+    w_data = df_combined["true_weight"].values
     
     # Model predictions
     model.eval()
@@ -466,7 +468,7 @@ for cg_val in cg_values:
     df_smeft_test["cg"]  = cg_val
     df_smeft_test["ctg"] = 0.0
     df_smeft_test["label"] = 1
-    df_smeft_test["plot_weight"] = add_SMEFT_weights_random(df_smeft_test)
+    df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
     auc_score = compute_auc_for_dataset(
         df_sm_test,
         df_smeft_test,
@@ -493,7 +495,7 @@ for ctg_val in ctg_values:
     df_smeft_test["cg"]  = 0.0
     df_smeft_test["ctg"] = ctg_val
     df_smeft_test["label"] = 1
-    df_smeft_test["plot_weight"] = add_SMEFT_weights_random(df_smeft_test)
+    df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
     auc_score = compute_auc_for_dataset(
         df_sm_test,
         df_smeft_test,
@@ -512,8 +514,8 @@ plt.grid(True)
 plt.show()
 
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
-cg_range = np.linspace(-2, 2, 20)
-ctg_range = np.linspace(-2, 2, 20)
+cg_range = np.linspace(-2, 5, 100)
+ctg_range = np.linspace(-10, 2, 100)
 auc_grid = np.zeros((len(cg_range), len(ctg_range)))
 
 for i, cg_val in enumerate(cg_range):
@@ -522,7 +524,7 @@ for i, cg_val in enumerate(cg_range):
         df_smeft_test["cg"]  = cg_val
         df_smeft_test["ctg"] = ctg_val
         df_smeft_test["label"] = 1
-        df_smeft_test["plot_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
         auc_grid[i, j] = compute_auc_for_dataset(
             df_test_sm,
             df_smeft_test,

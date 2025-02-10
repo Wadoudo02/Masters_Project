@@ -114,6 +114,10 @@ for i, proc in enumerate(procs.keys()):
     else:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
         
+    # Re-normalise the weights
+    dfs[proc]["true_weight"] /= dfs[proc]["true_weight"].sum()
+        
+    dfs[proc]["true_weight"] *= 1000
 
     # Add variables
     # Example: (second-)max-b-tag score
@@ -188,7 +192,7 @@ for i, proc in enumerate(procs.keys()):
 cats_unique = labels.copy()
 
 def exponential_decay(x, A, lambd):
-    return A * np.exp(-lambd * (x - 100))
+    return A * np.exp(-lambd * (x - 120))
 
 
 
@@ -288,6 +292,9 @@ for cat in cats_unique:
 
 import seaborn as sns
 
+# Suppose you have this flag somewhere in your code:
+plot_fraction = True  # or False, depending on your needs
+
 plt.style.use(hep.style.CMS)
 
 # Define your unique category labels
@@ -306,17 +313,22 @@ axs = axs.flatten()
 # Loop over each feature and its corresponding subplot
 for i, feat in enumerate(features_to_plot):
     ax = axs[i]
+    
     # Unpack the list: number of bins, range, log flag, and label text
     bins, rng, logscale, xlabel = vars_plotting_dict[feat]
     
-    feat += "_sel"
+    feat_to_plot = feat + "_sel"
 
     # For each category, plot a separate histogram
     for cat in cats_unique:
         # Create a mask for the current category
         cat_mask = (dfs["ttH"]["category"] == cat)
-        x = dfs["ttH"][feat][cat_mask]
+        x = dfs["ttH"][feat_to_plot][cat_mask]
         w = dfs["ttH"]["plot_weight"][cat_mask]
+
+        # If requested, normalise the weights so each category's histogram has area=1
+        if plot_fraction and len(w) > 0 and w.sum() != 0:
+            w = w / w.sum()
 
         # Plot the histogram for the current category
         ax.hist(
@@ -349,18 +361,52 @@ plt.show()
 
 
 #%%
+
 plot_fraction = True
 
 if plot_entire_chain:
-    
-    plt.figure(figsize=(12, 8), dpi=300)
-    for proc in procs.keys():
-        plt.hist(dfs[proc]["NN_probabilities"], bins=50, range=(0, 1),  density=plot_fraction, weights = dfs[proc]["true_weight"], histtype='step', linewidth=2, label=f"{proc}")
-    plt.xlabel("Neural Network Output")
-    plt.ylabel("Fraction of Events" if plot_fraction else "Events")
+    # Create a 5x1 figure. Adjust figsize/dpi to your liking.
+    fig, axs = plt.subplots(5, 1, figsize=(12, 15), dpi=300, sharex=True)
+    axs = axs.flatten()  # In case of indexing convenience
 
-    plt.legend(loc = "best")
-    hep.cms.label(f"All NN Output", com="13.6", lumi=target_lumi, ax=plt.gca())
+    # Ensure the subplots do not overlap
+    plt.tight_layout(pad=3.0)
+
+    # Plot each process in its own subplot
+    for i, proc in enumerate(procs.keys()):
+        ax = axs[i]
+
+        # Grab the data and weights
+        x = dfs[proc]["NN_probabilities"]
+        w = dfs[proc]["true_weight"]
+
+        # Normalise to area=1 for this process if requested and non-zero sum
+        if plot_fraction and w.sum() > 0:
+            w = w / w.sum()  # Now the area under the histogram will be 1.
+        
+        # Plot the histogram with your chosen binning
+        ax.hist(
+            x,
+            bins=50,
+            range=(0, 1),
+            weights=w,
+            histtype='step',
+            linewidth=2,
+            label=f"{proc}",
+            density=False  # We handle normalisation ourselves
+        )
+
+        # Set axis labels
+        ax.set_xlabel("Neural Network Output")
+        ax.set_ylabel("Fraction of Events" if plot_fraction else "Events")
+
+        # Add legend
+        ax.legend(loc="best")
+
+        # Optionally add the CMS label to each subplot
+        hep.cms.label(f"{proc}", com="13.6", lumi=target_lumi, ax=ax)
+
+    # Final layout adjustments
     plt.tight_layout()
     plt.show()
 

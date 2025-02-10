@@ -12,7 +12,7 @@ import json
 from utils import *
 
 
-plot_entire_chain = False
+plot_entire_chain = True
 
 plot_fraction = False
 
@@ -59,6 +59,11 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
     else:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
+        
+    # Re-normalise the weights
+    dfs[proc]["true_weight"] /= dfs[proc]["true_weight"].sum()
+        
+    dfs[proc]["true_weight"] *= 1000
         
 
     # Add variables
@@ -108,7 +113,7 @@ for proc in procs.keys():
 cats_unique = labels.copy()
 
 def exponential_decay(x, A, lambd):
-    return A * np.exp(-lambd * (x - 100))
+    return A * np.exp(-lambd * (x - 120))
 
 
 
@@ -264,7 +269,7 @@ conf_matrix = confusion_matrices['ttH']
 
 combined_histogram = build_combined_histogram(ordered_hists, conf_matrix, signal='ttH')
 
-mu_values = np.linspace(-100, 100, 1000)  # Range for scanning a single mu
+mu_values = np.linspace(-5, 5, 1000)  # Range for scanning a single mu
 mus_initial = [1.0, 1.0, 1.0, 1.0, 1.0]
 bounds = [(0, 3) for _ in range(4)]  # Bounds for the other mu parameters
 

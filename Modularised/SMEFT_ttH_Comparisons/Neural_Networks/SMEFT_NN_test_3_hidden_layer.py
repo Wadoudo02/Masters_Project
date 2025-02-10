@@ -49,7 +49,7 @@ features = [f"{feature}_sel" for feature in features]
 
 # SMEFT weighting function
 def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
-    proc_data[name] = proc_data['plot_weight'] * (1 + proc_data['a_cg'] * cg + proc_data['a_ctgre'] * ctg)
+    proc_data[name] = proc_data['true_weight'] * (1 + proc_data['a_cg'] * cg + proc_data['a_ctgre'] * ctg)
     if quadratic:
         proc_data[name] += (
             (cg ** 2) * proc_data["b_cg_cg"]
@@ -64,6 +64,7 @@ df_tth = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
 df_tth = df_tth[(df_tth["mass_sel"] == df_tth["mass_sel"])]  # Remove NaNs in the selected variable
 df_tth['plot_weight'] *= target_lumi / total_lumi  # Reweight to target lumi
 df_tth['pt_sel'] = df_tth['pt-over-mass_sel'] * df_tth['mass_sel']
+df_tth['true_weight'] = df_tth['plot_weight']/10
 
 
 invalid_weights = df_tth["plot_weight"] <= 0
@@ -74,30 +75,31 @@ if invalid_weights.sum() > 0:
 # Split the dataset into two random halves
 df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
 
-df_smeft = add_SMEFT_weights(df_smeft, cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
+df_smeft = add_SMEFT_weights(df_smeft, cg=cg, ctg=ctg, name="true_weight", quadratic=Quadratic)
 
 '''
 # Add SMEFT weights for classification
-df_smeft = add_SMEFT_weights(df_tth.copy(), cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
+df_smeft = add_SMEFT_weights(df_tth.copy(), cg=cg, ctg=ctg, name="true_weight", quadratic=Quadratic)
 df_sm = df_tth.copy()  # SM is treated as the baseline with cg=0, ctg=0
 '''
 
-# Normalize the "plot_weight" for df_smeft
-df_smeft["plot_weight"] /= df_smeft["plot_weight"].sum()
+# Normalize the "true_weight" for df_smeft
+df_smeft["true_weight"] /= df_smeft["true_weight"].sum()
 
-# Normalize the "plot_weight" for df_sm
-df_sm["plot_weight"] /= df_sm["plot_weight"].sum()
+# Normalize the "true_weight" for df_sm
+df_sm["true_weight"] /= df_sm["true_weight"].sum()
 
 
-df_smeft["plot_weight"] *= 10**4
-df_sm["plot_weight"] *= 10**4
+df_smeft["true_weight"] *= 10**4
+df_sm["true_weight"] *= 10**4
 
 # Label SMEFT and SM data
 df_smeft['label'] = 1  # SMEFT
 df_sm['label'] = 0     # SM
 
 # Combine datasets
-df_combined = pd.concat([df_smeft, df_sm])
+df_combined = pd.concat([df_smeft, df_sm], ignore_index=True)
+df_combined["original_index"] = np.arange(len(df_combined))
 
 
 if PlotInputFeatures:
@@ -109,7 +111,7 @@ if PlotInputFeatures:
             data=df_combined,
             x=feature,
             hue="label",
-            weights="plot_weight",
+            weights="true_weight",
             bins=50,
             element="step",
             common_norm=False,
@@ -126,7 +128,11 @@ if PlotInputFeatures:
 # Features and labels
 X = df_combined[features]
 y = df_combined['label']
-weights = df_combined["plot_weight"]
+weights = df_combined["true_weight"]
+
+# We also keep the original index as a separate array
+idx = df_combined["original_index"].values
+
 
 # Convert data to PyTorch tensors
 X_tensor = torch.tensor(X.values, dtype=torch.float32)
@@ -134,8 +140,8 @@ y_tensor = torch.tensor(y.values, dtype=torch.float32)
 weights_tensor = torch.tensor(weights.values, dtype=torch.float32)
 
 # Train/test split
-X_train, X_test, y_train, y_test, w_train, w_test = train_test_split(
-    X_tensor, y_tensor, weights_tensor, test_size=0.3, random_state=seed_number
+X_train, X_test, y_train, y_test, w_train, w_test, idx_train, idx_test = train_test_split(
+    X_tensor, y_tensor, weights_tensor, idx, test_size=0.3, random_state=seed_number
 )
 
 # Define DataLoader for mini-batch training
@@ -292,3 +298,122 @@ proba_data = {"max_proba": float(max_proba), "min_proba": float(min_proba)}
 with open("proba_values.json", "w") as json_file:
     json.dump(proba_data, json_file)
 
+
+
+
+#%% 2) ISOLATE A PURE-SM TEST SUBSET
+# Filter out events with label = 0 (SM)
+df_combined_test = df_combined.loc[idx_test].copy()
+
+# Now df_combined_test has all the columns from df_combined, e.g.:
+#   - "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"
+#   - The features used in X, plus any others.
+#   - "true_weight", "label", etc.
+
+df_sm_test = df_combined_test[df_combined_test["label"] == 0].copy()
+
+
+
+
+#%% 4) FUNCTION TO COMPUTE AUC GIVEN TWO DATAFRAMES (SM + pseudo-SMEFT)
+def compute_auc_for_dataset(df_class0, df_class1, model, feature_cols):
+    """
+    Combines df_class0(label=0) and df_class1(label=1), 
+    runs the model, computes weighted AUC.
+    """
+    #breakpoint()
+    df_combined = pd.concat([df_class0, df_class1], ignore_index=True)
+    
+    X_data = torch.tensor(df_combined[feature_cols].values, dtype=torch.float32)
+    y_true = df_combined["label"].values
+    w_data = df_combined["true_weight"].values
+    
+    # Model predictions
+    model.eval()
+    with torch.no_grad():
+        y_proba = model(X_data).squeeze().numpy()
+    
+    # Weighted ROC
+    fpr, tpr, _ = roc_curve(y_true, y_proba, sample_weight=w_data)
+    auc_val = auc(fpr, tpr)
+    return auc_val
+
+#%% 5) SCAN OVER c_g (KEEP c_{tg}=0), PLOT AUC
+cg_values = np.linspace(-2, 2, 20)
+auc_vs_cg = []
+
+
+for cg_val in cg_values:
+    df_smeft_test = df_sm_test.copy()
+    df_smeft_test["label"] = 1
+    df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=0, name="true_weight", quadratic=Quadratic)
+    auc_score = compute_auc_for_dataset(
+        df_sm_test,
+        df_smeft_test,
+        model,
+        feature_cols=features
+    )
+    auc_vs_cg.append(auc_score)
+
+# Plot
+plt.figure(figsize=(8,6))
+plt.plot(cg_values, auc_vs_cg, marker='o')
+plt.xlabel(r"$c_g$")
+plt.ylabel("AUC")
+plt.title(r"AUC vs $c_g$ (with $c_{tg}=0$)")
+plt.grid(True)
+plt.show()
+
+#%% 6) SCAN OVER c_{tg} (KEEP c_g=0), PLOT AUC
+ctg_values = np.linspace(-2, 2, 20)
+auc_vs_ctg = []
+
+for ctg_val in ctg_values:
+    df_smeft_test = df_sm_test.copy()
+    df_smeft_test["label"] = 1
+    df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=0, ctg=ctg_val, name="true_weight", quadratic=Quadratic)
+    auc_score = compute_auc_for_dataset(
+        df_sm_test,
+        df_smeft_test,
+        model,
+        feature_cols=features
+    )
+    auc_vs_ctg.append(auc_score)
+
+
+plt.figure(figsize=(8,6))
+plt.plot(ctg_values, auc_vs_ctg, marker='s', color='red')
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel("AUC")
+plt.title(r"AUC vs $c_{tg}$ (with $c_g=0$)")
+plt.grid(True)
+plt.show()
+
+#%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
+cg_range = np.linspace(-2, 2, 20)
+ctg_range = np.linspace(-2, 2, 20)
+auc_grid = np.zeros((len(cg_range), len(ctg_range)))
+
+for i, cg_val in enumerate(cg_range):
+    for j, ctg_val in enumerate(ctg_range):
+        df_smeft_test = df_sm_test.copy()
+        df_smeft_test["label"] = 1
+        df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=ctg_val, name="true_weight", quadratic=Quadratic)
+        auc_grid[i, j] = compute_auc_for_dataset(
+            df_test_sm,
+            df_smeft_test,
+            model,
+            feature_cols=features
+        )
+
+# Create mesh for plotting
+CG, CTG = np.meshgrid(ctg_range, cg_range)  
+# We'll put c_{tg} on the x-axis and c_g on the y-axis.
+
+plt.figure(figsize=(8,6))
+cs = plt.contourf(CG, CTG, auc_grid, levels=20, cmap="viridis")
+plt.colorbar(cs, label="AUC Score")
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel(r"$c_{g}$")
+plt.title(r"2D Contour of AUC vs $(c_g, c_{tg})$")
+plt.show()
