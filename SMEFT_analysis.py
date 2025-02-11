@@ -17,13 +17,13 @@ plotter = Plotter()
 
 #Extract relevant columns from overall df
 #cats=[0,0.32249033, 0.37249033, 0.55603562, 0.72428047,1]
-cats = [0, 0.39059744, 0.44059744, 0.49059744, 0.66444074,1]
-
+#cats = [0, 0.39059744, 0.44059744, 0.49059744, 0.66444074,1]
+cats = [0, 0.32, 0.5, 0.68, 0.75, 1]
 #cats = [0, 0.4, 0.5, 0.6, 0.7,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
 
 #%%
-plot_SMEFT_features(special_features)
+#plot_SMEFT_features(special_features)
 #%%
 
 ttH_df = get_tth_df()
@@ -73,7 +73,8 @@ dfs_cats = {}
 input_dim = len(special_features)
 hidden_dim = [256, 64, 32, 16, 16, 8]
 
-#model = WadNeuralNetwork(input_dim, input_dim*3)
+# model = WadNeuralNetwork(input_dim, input_dim*3)
+# model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
 model = ComplexNN(input_dim, hidden_dim, 1)
 model.load_state_dict(torch.load("saved_models/model.pth"))
 model.eval()

@@ -37,23 +37,25 @@ class Plotter:
         
         plt.show()
 
-    def line_plot(self, x, y, title='', xlabel='', ylabel='', legend_label='', color='red', linewidth=2, linestyle='-'):
-        plt.figure(figsize=(8, 6))
+    def line_plot(self, x, y, title='', xlabel='', ylabel='', legend_label='', color='red', linewidth=2, linestyle='-', axes = None):
+
+        if not axes:
+            fig, axes = plt.subplots(figsize=(8, 6))
         
         # Create the line plot
-        sns.lineplot(x=x, y=y, linewidth=linewidth, linestyle=linestyle, label=legend_label)
+        sns.lineplot(x=x, y=y, linewidth=linewidth, linestyle=linestyle, label=legend_label, ax=axes, color=color)
 
         # Customize the plot
-        plt.title(title, fontsize=18)
-        plt.xlabel(xlabel, fontsize=16)
-        plt.ylabel(ylabel, fontsize=16)
+        axes.set_title(title, fontsize=18)
+        axes.set_xlabel(xlabel, fontsize=16)
+        axes.set_ylabel(ylabel, fontsize=16)
         if legend_label:
-            plt.legend(fontsize=14)
+            axes.legend(fontsize=14)
 
         # Improve layout
-        plt.tight_layout()
+        # plt.tight_layout()
         
-        plt.show()
+        # plt.show()
 
     def overlay_histograms(self, datasets, bins=30, weights=None,title='', xlabel='', ylabel='', labels=None, colors=None, alpha=0.6, density=False, axes = None, type="bars", fill=False):
         """Create overlaid histograms for multiple datasets."""

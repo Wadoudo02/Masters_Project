@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 plt.style.use(hep.style.CMS)
 
 c_g = 0.3
-c_tg = 0.69
+c_tg = 0
 do_grid_search = False
 
 ttH_df = get_tth_df()
@@ -150,6 +150,6 @@ plt.grid()
 plt.show()
 
 # Save the trained model
-torch.save(model.state_dict(), 'saved_models/model.pth')
-
+#torch.save(model.state_dict(), 'saved_models/model2.pth')
+#torch.save(model.state_dict(), 'saved_models/wad_neural_network.pth')
 # %%
