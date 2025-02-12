@@ -29,7 +29,7 @@ loaded_model.load_state_dict(checkpoint["model_state"])
 # Set model to evaluation mode
 loaded_model.eval()
 
-
+'''
 import json
 
 # Load the probability values
@@ -46,11 +46,13 @@ category_boundaries = [
     min_proba + i * (proba_range / 4) for i in range(5)  # 5 boundaries for 4 categories
 ]
 
-
+'''
 #category_boundaries = [0, 0.24066145, 0.29167122, 0.33349041, 1] # Background Percentiles
 
-category_boundaries[0] = 0
-category_boundaries[4] = 1
+#category_boundaries[0] = 0
+#category_boundaries[4] = 1
+
+category_boundaries = [0, 0.3207786035656651, 0.5000000000000001, 0.679221396434335,0.75, 1]
 
 plot_entire_chain = True
 
@@ -77,12 +79,13 @@ plot_size = (12, 8)
 cg = 0.3
 ctg = 0.69
 
+Quadratic = True
 
 # Load dataframes
 
 
 # Labels for the categories
-labels = ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D'] # Labels for each category
+labels = ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D', 'NN Cat E'] # Labels for each category
 
 
 dfs = {}
@@ -93,6 +96,7 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc] = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
     else:
         dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
+
 
     # Remove nans from dataframe
     dfs[proc] = dfs[proc][(dfs[proc]['mass_sel'] == dfs[proc]['mass_sel'])]
@@ -110,9 +114,10 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
         
     # Re-normalise the weights
-    dfs[proc]["true_weight"] /= dfs[proc]["true_weight"].sum()
+    #dfs[proc]["true_weight"] /= dfs[proc]["true_weight"].sum()
     
-    dfs[proc]["true_weight"] *= 1000
+    #dfs[proc]["true_weight"] *= 1000
+    
 
     # Add variables
     # Example: (second-)max-b-tag score
@@ -134,7 +139,7 @@ for i, proc in enumerate(procs.keys()):
     
     mask = dfs[proc]['n_jets_sel'] >= 0
     mask = mask & (dfs[proc]['max_b_tag_score_sel'] > 0.4)
-    mask = mask & (dfs[proc]['second_max_b_tag_score_sel'] > 0.4)
+    #mask = mask & (dfs[proc]['second_max_b_tag_score_sel'] > 0.4)
     #mask = mask & (dfs[proc]['HT_sel'] > 200)
     
     dfs[proc] = dfs[proc][mask]
@@ -208,7 +213,7 @@ for cat in cats_unique:
         x = np.array(dfs[proc][v_dfs][cat_mask])
 
         # Event weight
-        w = np.array(dfs[proc]['plot_weight'])[cat_mask]
+        w = np.array(dfs[proc]['true_weight'])[cat_mask]
 
         counts, bin_edges = np.histogram(x, bins=nbins, range=xrange, weights=w)
 
@@ -248,7 +253,7 @@ for cat in cats_unique:
             x = np.array(dfs[proc][v_dfs][cat_mask])
 
             # Event weight
-            w = np.array(dfs[proc]['plot_weight'])[cat_mask]
+            w = np.array(dfs[proc]['true_weight'])[cat_mask]
             
 
             counts, bin_edges, _ = ax.hist(x, nbins, xrange, density = plot_fraction, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
@@ -350,7 +355,7 @@ plt.show()
 
 
 #%%
-plot_fraction = False
+plot_fraction = True
 
 if plot_entire_chain:
     # Create a 5x1 figure. Adjust figsize/dpi to your liking.

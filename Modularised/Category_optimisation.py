@@ -45,7 +45,7 @@ total_lumi = 7.9804
 target_lumi = 300
 
 def bounds_of_wilson_coefficients(category_bounds):
-
+    
     category_boundaries = sorted(category_bounds)
     
     #breakpoint()
@@ -293,7 +293,7 @@ def bounds_of_wilson_coefficients(category_bounds):
 
 
     
-    return np.sum([abs(num) for num in flattened_list])
+    return 10000 * np.sum([abs(num) for num in flattened_list])
 
 #%%
 
@@ -304,7 +304,7 @@ print(bounds_of_wilson_coefficients([0, 0.3488496281206608, 0.5095711573958397, 
 #%%
 
 
-def optimize_category_bounds(fix_ends=True):
+def optimize_category_bounds(fix_ends=False):
     """
     Minimises the scalar returned by `bounds_of_wilson_coefficients` 
     with respect to the internal category boundaries.
@@ -343,8 +343,14 @@ def optimize_category_bounds(fix_ends=True):
         # A sensible initial guess for three internal boundaries in [0,1]:
         x0 = [0.24066145, 0.29167122, 0.33349041]
 
-        result = minimize(objective, x0, method='SLSQP', constraints=constraints)
 
+        result = minimize(
+                    objective, 
+                    x0, 
+                    method='SLSQP', 
+                    constraints=constraints,
+                    options={'maxiter': 500, 'ftol': 1e-10, 'disp': True}
+                )
         if not result.success:
             print("Minimisation failed:", result.message)
 
@@ -378,10 +384,14 @@ def optimize_category_bounds(fix_ends=True):
         )
 
         # An initial guess spaced evenly:
-        x0 = [0, 0.24066145, 0.29167122, 0.33349041, 1]
+        x0 = [0.2, 0.24066145, 0.29167122, 0.33349041, 0.6]
 
-        result = minimize(objective, x0, method='SLSQP', constraints=constraints)
-
+        result = minimize(
+            objective, x0, 
+            method='SLSQP', 
+            constraints=constraints,
+            options={'ftol': 1e-12, 'maxiter': 300, 'disp': True}
+        )
         if not result.success:
             print("Minimisation failed:", result.message)
 
@@ -392,15 +402,173 @@ def optimize_category_bounds(fix_ends=True):
 #%%
 # Example usage
 
-best_bounds_fixed, min_obj_fixed = optimize_category_bounds(fix_ends=True)
-print("Fixed boundary result:", best_bounds_fixed, "Objective:", min_obj_fixed)
+#best_bounds_fixed, min_obj_fixed = optimize_category_bounds(fix_ends=True)
+#print("Fixed boundary result:", best_bounds_fixed, "Objective:", min_obj_fixed)
 
 best_bounds_free, min_obj_free = optimize_category_bounds(fix_ends=False)
 print("Free boundary result:", best_bounds_free, "Objective:", min_obj_free)
 
+#%%
 
+def optimize_category_bounds_improved(fix_ends=False):
+    """
+    Improved optimization of category boundaries using multiple strategies
+    """
+    num_categories = 4
+    num_bounds = num_categories + 1
 
+    if fix_ends:
+        def objective(internal_bounds):
+            sorted_bounds = [0.0] + sorted(internal_bounds) + [1.0]
+            return bounds_of_wilson_coefficients(sorted_bounds)
 
+        bounds = [(0.01, 0.99) for _ in range(num_bounds-2)]
+        constraints = [
+            {'type': 'ineq', 'fun': lambda x: x[1] - x[0] - 0.01},  # Minimum gap between boundaries
+            {'type': 'ineq', 'fun': lambda x: x[2] - x[1] - 0.01},
+            {'type': 'ineq', 'fun': lambda x: x[0]},
+            {'type': 'ineq', 'fun': lambda x: 1 - x[2]}
+        ]
+
+        # Try multiple initial points
+        best_result = None
+        best_value = float('inf')
+        
+        initial_guesses = [
+            [0.24, 0.29, 0.33],  # Your original guess
+            [0.2, 0.4, 0.6],     # Evenly spread
+            [0.3, 0.4, 0.5],     # Center-focused
+            [0.1, 0.3, 0.5]      # Lower-focused
+        ]
+
+        for x0 in initial_guesses:
+            # Try with different optimizers
+            try:
+                # SLSQP with tighter tolerances
+                result_slsqp = minimize(
+                    objective, 
+                    x0,
+                    method='SLSQP',
+                    bounds=bounds,
+                    constraints=constraints,
+                    options={
+                        'maxiter': 1000,
+                        'ftol': 1e-12,
+                        'eps': 1e-8,
+                        'disp': True
+                    }
+                )
+                
+                if result_slsqp.success and result_slsqp.fun < best_value:
+                    best_result = result_slsqp
+                    best_value = result_slsqp.fun
+
+                # Try Nelder-Mead as well (without constraints)
+                result_nm = minimize(
+                    objective,
+                    x0,
+                    method='Nelder-Mead',
+                    options={
+                        'maxiter': 2000,
+                        'xatol': 1e-8,
+                        'fatol': 1e-13
+                    }
+                )
+                
+                if result_nm.fun < best_value:
+                    best_result = result_nm
+                    best_value = result_nm.fun
+
+            except Exception as e:
+                print(f"Optimization failed for x0={x0}: {str(e)}")
+                continue
+
+        if best_result is None:
+            raise ValueError("All optimization attempts failed")
+
+        final_sorted_bounds = [0.0] + sorted(best_result.x) + [1.0]
+        return final_sorted_bounds, best_result.fun
+
+    else:
+        def objective(bounds):
+            return bounds_of_wilson_coefficients(sorted(bounds))
+
+        bounds = [(0.01, 0.99) for _ in range(num_bounds)]
+        
+        # Create constraints for minimum spacing between boundaries
+        constraints = []
+        min_gap = 0.01  # Minimum gap between consecutive boundaries
+        
+        for i in range(num_bounds - 1):
+            constraints.append({
+                'type': 'ineq',
+                'fun': lambda x, i=i: sorted(x)[i+1] - sorted(x)[i] - min_gap
+            })
+
+        # Try multiple initial points with different optimization strategies
+        best_result = None
+        best_value = float('inf')
+        
+        initial_guesses = [
+            [0.2, 0.24, 0.29, 0.33, 0.6],  # Original guess
+            np.linspace(0.1, 0.9, num_bounds),  # Linear spread
+            np.array([0.1, 0.2, 0.5, 0.7, 0.9]),  # Asymmetric spread
+            np.array([0.2, 0.3, 0.4, 0.5, 0.6])   # Center-focused
+        ]
+
+        for x0 in initial_guesses:
+            try:
+                # Try SLSQP with tighter tolerances
+                result = minimize(
+                    objective,
+                    x0,
+                    method='SLSQP',
+                    bounds=bounds,
+                    constraints=constraints,
+                    options={
+                        'maxiter': 1000,
+                        'ftol': 1e-12,
+                        'eps': 1e-8,
+                        'disp': True
+                    }
+                )
+                
+                if result.success and result.fun < best_value:
+                    best_result = result
+                    best_value = result.fun
+
+                # Try trust-constr as an alternative
+                result_trust = minimize(
+                    objective,
+                    x0,
+                    method='trust-constr',
+                    bounds=bounds,
+                    constraints=constraints,
+                    options={
+                        'maxiter': 1000,
+                        'xtol': 1e-8,
+                        'gtol': 1e-8
+                    }
+                )
+                
+                if result_trust.fun < best_value:
+                    best_result = result_trust
+                    best_value = result_trust.fun
+
+            except Exception as e:
+                print(f"Optimization failed for x0={x0}: {str(e)}")
+                continue
+
+        if best_result is None:
+            raise ValueError("All optimization attempts failed")
+
+        final_sorted_bounds = sorted(best_result.x)
+        return final_sorted_bounds, best_result.fun
+
+# Example usage:
+best_bounds_free, min_obj_free = optimize_category_bounds_improved(fix_ends=True)
+print("Optimized boundaries:", best_bounds_free)
+print("Objective value:", min_obj_free)
 
 
 

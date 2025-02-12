@@ -390,8 +390,8 @@ plt.grid(True)
 plt.show()
 
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
-cg_range = np.linspace(-2, 2, 20)
-ctg_range = np.linspace(-2, 2, 20)
+cg_range = np.linspace(-5, 2, 50)
+ctg_range = np.linspace(-2, 4, 50)
 auc_grid = np.zeros((len(cg_range), len(ctg_range)))
 
 for i, cg_val in enumerate(cg_range):
@@ -400,7 +400,7 @@ for i, cg_val in enumerate(cg_range):
         df_smeft_test["label"] = 1
         df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=ctg_val, name="true_weight", quadratic=Quadratic)
         auc_grid[i, j] = compute_auc_for_dataset(
-            df_test_sm,
+            df_sm_test,
             df_smeft_test,
             model,
             feature_cols=features
