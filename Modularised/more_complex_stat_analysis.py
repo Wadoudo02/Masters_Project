@@ -51,6 +51,14 @@ for i, proc in enumerate(procs.keys()):
         continue
     '''
 
+    yield_weight = dfs[proc]["plot_weight"].sum()
+
+    # Remove rows with negative plot_weight from DataFrame
+    dfs[proc] = dfs[proc][dfs[proc]['plot_weight'] >= 0]
+    
+    dfs[proc]["plot_weight"] /= dfs[proc]["plot_weight"].sum()
+    dfs[proc]["plot_weight"] *= yield_weight
+
     # Reweight to target lumi
     dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']*(target_lumi/total_lumi)
 
@@ -59,12 +67,6 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
     else:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
-        
-    # Re-normalise the weights
-    dfs[proc]["true_weight"] /= dfs[proc]["true_weight"].sum()
-        
-    dfs[proc]["true_weight"] *= 1000
-        
 
     # Add variables
     # Example: (second-)max-b-tag score
@@ -318,7 +320,7 @@ quadratic_order = True
 
 Chi_Squared_Results = chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-1, 1, 1000), quadratic_order)
 #%%
-Save_Results_to_JSON(Chi_Squared_Results, 'chi_squared_results.json')
+Save_Results_to_JSON(Chi_Squared_Results, 'data/chi_squared_results.json')
 
 
 #%%

@@ -38,7 +38,7 @@ from sklearn.metrics import (
 
 
 # Load the model checkpoint
-checkpoint = torch.load("neural_network_parameterised_2.pth")
+checkpoint = torch.load("data/neural_network_parameterised.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -132,7 +132,7 @@ def compute_auc_for_dataset(df_class0, df_class1, model, feature_cols):
     """
     #breakpoint()
     df_combined = pd.concat([df_class0, df_class1], ignore_index=True)
-    
+    #breakpoint()
     X_data = torch.tensor(df_combined[feature_cols].values, dtype=torch.float32)
     y_true = df_combined["label"].values
     w_data = df_combined["true_weight"].values
@@ -147,59 +147,143 @@ def compute_auc_for_dataset(df_class0, df_class1, model, feature_cols):
     auc_val = auc(fpr, tpr)
     return auc_val
 
+features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
+features = [f"{feature}_sel" for feature in features]
+features.append("cg")
+features.append("ctg")
+
+import json
+
+# Specify the filename to read the JSON data from
+filename = 'data/NN_AUC_Scores.json'
+
+# Read the JSON data back into a Python dictionary
+with open(filename, 'r') as file:
+    NN_AUC_Scores = json.load(file)
+
 #%% 5) SCAN OVER c_g (KEEP c_{tg}=0), PLOT AUC
+
+# Define a range of cg values to test
 cg_values = np.linspace(-2, 2, 20)
-auc_vs_cg = []
 
+# Create a new figure for the plot
+plt.figure(figsize=(10, 6))
 
-for cg_val in cg_values:
-    df_smeft_test = df_sm_test.copy()
-    df_smeft_test["cg"]  = cg_val
-    df_smeft_test["ctg"] = 0.0
+# Iterate over the different (cg, ctg) pairs
+for cg, ctg in [(0, 0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
+    
+    # Split the dataset into two halves (for SM and SMEFT testing)
+    df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+    
+    # Set the initial cg and ctg values in the SMEFT test set
+    df_smeft_test["cg"]  = cg
+    df_smeft_test["ctg"] = ctg
+    
+    df_sm_test["cg"]  = cg
+    df_sm_test["ctg"] = ctg
+    
+    # Label the datasets (0 for SM, 1 for SMEFT)
+    df_sm_test["label"] = 0
     df_smeft_test["label"] = 1
+    
+    # Apply the SMEFT weights based on the initial cg and ctg values
     df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
-    auc_score = compute_auc_for_dataset(
-        df_sm_test,
-        df_smeft_test,
-        model,
-        feature_cols=features
-    )
-    auc_vs_cg.append(auc_score)
+    
+    auc_scores = []
+    
+    # Now vary the cg value (keeping ctg = 0) to compute the AUC for each setting
+    for cg_val in cg_values:
+        df_smeft_test["cg"]  = cg_val
+        df_smeft_test["ctg"] = ctg
+        
+        # Compute the AUC score using your model and the specified features
+        auc_score = compute_auc_for_dataset(
+            df_sm_test,
+            df_smeft_test,
+            loaded_model,
+            feature_cols=features
+        )
+        auc_scores.append(auc_score)
+    
+    # Plot the AUC scores versus the cg values for the current (cg, ctg) pair.
+    # The label indicates the initial values used for weighting.
+    plt.plot(cg_values, auc_scores, label=f'Initial cg={cg}, ctg={ctg}', marker = "o")
 
-# Plot
-plt.figure(figsize=(8,6))
-plt.plot(cg_values, auc_vs_cg, marker='o')
-plt.xlabel(r"$c_g$")
-plt.ylabel("AUC")
-plt.title(r"AUC vs $c_g$ (with $c_{tg}=0$)")
-plt.grid(True)
+# Label the axes and add a title
+plt.xlabel('cg value')
+plt.ylabel('AUC score')
+plt.title('AUC vs cg for different (cg, ctg) pairs')
+
+
+plt.plot(NN_AUC_Scores["Cg Values"], NN_AUC_Scores["NN: AUC vs Cg"], label="NN AUC Score", marker = "o")
+
+# Add a legend to distinguish between the different pairs
+plt.legend()
+plt.grid()
+
+# Display the plot
 plt.show()
 
 #%% 6) SCAN OVER c_{tg} (KEEP c_g=0), PLOT AUC
+
+# Define a range of ctg values to test
 ctg_values = np.linspace(-2, 2, 20)
-auc_vs_ctg = []
 
-for ctg_val in ctg_values:
-    df_smeft_test = df_sm_test.copy()
-    df_smeft_test["cg"]  = 0.0
-    df_smeft_test["ctg"] = ctg_val
+# Create a new figure for the plot
+plt.figure(figsize=(10, 6))
+
+# Iterate over the different (cg, ctg) pairs
+for cg, ctg in [(0, 0), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
+    
+    # Split the dataset into two halves (for SM and SMEFT testing)
+    df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+    
+    # Set the initial cg and ctg values in the SMEFT test set
+    df_smeft_test["cg"]  = cg
+    df_smeft_test["ctg"] = ctg
+    
+    df_sm_test["cg"]  = cg
+    df_sm_test["ctg"] = ctg
+    
+    # Label the datasets (0 for SM, 1 for SMEFT)
+    df_sm_test["label"] = 0
     df_smeft_test["label"] = 1
+    
+    # Apply the SMEFT weights based on the initial cg and ctg values
     df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
-    auc_score = compute_auc_for_dataset(
-        df_sm_test,
-        df_smeft_test,
-        model,
-        feature_cols=features
-    )
-    auc_vs_ctg.append(auc_score)
+    
+    auc_scores = []
+    
+    # Now vary the cg value (keeping ctg = 0) to compute the AUC for each setting
+    for ctg_val in ctg_values:
+        df_smeft_test["cg"]  = 0
+        df_smeft_test["ctg"] = ctg_val
+        
+        # Compute the AUC score using your model and the specified features
+        auc_score = compute_auc_for_dataset(
+            df_sm_test,
+            df_smeft_test,
+            loaded_model,
+            feature_cols=features
+        )
+        auc_scores.append(auc_score)
+    
+    # Plot the AUC scores versus the cg values for the current (cg, ctg) pair.
+    # The label indicates the initial values used for weighting.
+    plt.plot(ctg_values, auc_scores, label=f'Initial cg={cg}, ctg={ctg}', marker = "o")
 
+# Label the axes and add a title
+plt.xlabel('ctg value')
+plt.ylabel('AUC score')
+plt.title('AUC vs ctg for different (cg, ctg) pairs')
 
-plt.figure(figsize=(8,6))
-plt.plot(ctg_values, auc_vs_ctg, marker='s', color='red')
-plt.xlabel(r"$c_{tg}$")
-plt.ylabel("AUC")
-plt.title(r"AUC vs $c_{tg}$ (with $c_g=0$)")
-plt.grid(True)
+plt.plot(NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"], label="NN AUC Score", marker = "o")
+
+# Add a legend to distinguish between the different pairs
+plt.legend()
+plt.grid()
+
+# Display the plot
 plt.show()
 
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})

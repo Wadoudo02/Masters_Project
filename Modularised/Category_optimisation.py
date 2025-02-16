@@ -28,7 +28,7 @@ from scipy.optimize import minimize
 
 
 # Load the model checkpoint
-checkpoint = torch.load("neural_network.pth")
+checkpoint = torch.load("data/neural_network.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -289,124 +289,20 @@ def bounds_of_wilson_coefficients(category_bounds):
     flattened_list = []
     for key in keys_of_interest:
         if key in NLL_Results:
-            flattened_list.extend(NLL_Results[key])
-
-
+            #flattened_list.extend(NLL_Results[key])
+            flattened_list.append(NLL_Results[key][1])
+            flattened_list.append(NLL_Results[key][2])
+    
+    #breakpoint()
     
     return 10000 * np.sum([abs(num) for num in flattened_list])
 
-#%%
 
 
-print(bounds_of_wilson_coefficients([0, 0.24066145, 0.29167122, 0.33349041, 1]))
-print(bounds_of_wilson_coefficients([0, 0.3488496281206608, 0.5095711573958397, 0.6702926866710186, 1]))
-
-#%%
+#print(bounds_of_wilson_coefficients([0, 0.24066145, 0.29167122, 0.33349041, 1]))
+#print(bounds_of_wilson_coefficients([0, 0.3488496281206608, 0.5095711573958397, 0.6702926866710186, 1]))
 
 
-def optimize_category_bounds(fix_ends=False):
-    """
-    Minimises the scalar returned by `bounds_of_wilson_coefficients` 
-    with respect to the internal category boundaries.
-    
-    If fix_ends=True, the first boundary is 0.0 and the last boundary is 1.0,
-    and only the internal boundaries are optimised.
-    Otherwise, all boundaries in [0, 1] are free to vary subject to sorting constraints.
-    """
-    
-    # Number of categories and bin edges:
-    # We want 4 categories → 5 edges in total.
-    num_categories = 4
-    num_bounds = num_categories + 1  # e.g. 5
-
-    # ----------------------------------------------------------------------
-    # CASE 1: Fix the first boundary at 0 and the last boundary at 1
-    # ----------------------------------------------------------------------
-    if fix_ends:
-        # Then we only optimise the internal boundaries (3 of them for 4 categories)
-        def objective(internal_bounds):
-            # Reconstruct full boundaries: 0, x[0], x[1], x[2], 1
-            # Sort to ensure monotonicity before passing to your function
-            sorted_bounds = [0.0] + sorted(internal_bounds) + [1.0]
-            return bounds_of_wilson_coefficients(sorted_bounds)
-
-        # Constraints (SLSQP 'ineq' => must be ≥ 0) to ensure x[0] < x[1] < x[2] strictly
-        # as well as 0 ≤ x[0] and x[2] ≤ 1. Here we just ensure they stay in (0, 1) 
-        # and remain strictly increasing. 
-        constraints = [
-            {'type': 'ineq', 'fun': lambda x: x[1] - x[0]},  # x[1] > x[0]
-            {'type': 'ineq', 'fun': lambda x: x[2] - x[1]},  # x[2] > x[1]
-            {'type': 'ineq', 'fun': lambda x: x[0]},         # x[0] ≥ 0
-            {'type': 'ineq', 'fun': lambda x: 1 - x[2]}       # x[2] ≤ 1
-        ]
-
-        # A sensible initial guess for three internal boundaries in [0,1]:
-        x0 = [0.24066145, 0.29167122, 0.33349041]
-
-
-        result = minimize(
-                    objective, 
-                    x0, 
-                    method='SLSQP', 
-                    constraints=constraints,
-                    options={'maxiter': 500, 'ftol': 1e-10, 'disp': True}
-                )
-        if not result.success:
-            print("Minimisation failed:", result.message)
-
-        final_sorted_bounds = [0.0] + sorted(result.x) + [1.0]
-        print("Optimised category boundaries (fixed ends):", final_sorted_bounds)
-        print("Minimum objective value:", result.fun)
-        return final_sorted_bounds, result.fun
-
-    # ----------------------------------------------------------------------
-    # CASE 2: Allow all boundaries (including the first & last) to float in [0,1]
-    # ----------------------------------------------------------------------
-    else:
-        # We have 5 boundaries in total to find, x = [x0, x1, x2, x3, x4] 
-        # which must satisfy 0 ≤ x0 < x1 < x2 < x3 < x4 ≤ 1
-        def objective(free_bounds):
-            sorted_bounds = sorted(free_bounds)
-            return bounds_of_wilson_coefficients(sorted_bounds)
-
-        constraints = []
-        # We want x0 < x1, x1 < x2, etc. so:
-        for i in range(num_bounds - 1):
-            constraints.append(
-                {'type': 'ineq', 'fun': lambda x, i=i: x[i+1] - x[i]}  # x[i+1] > x[i]
-            )
-        # Also enforce x0 ≥ 0, x4 ≤ 1:
-        constraints.append(
-            {'type': 'ineq', 'fun': lambda x: x[0]}      # x[0] ≥ 0
-        )
-        constraints.append(
-            {'type': 'ineq', 'fun': lambda x: 1 - x[-1]} # x[-1] ≤ 1
-        )
-
-        # An initial guess spaced evenly:
-        x0 = [0.2, 0.24066145, 0.29167122, 0.33349041, 0.6]
-
-        result = minimize(
-            objective, x0, 
-            method='SLSQP', 
-            constraints=constraints,
-            options={'ftol': 1e-12, 'maxiter': 300, 'disp': True}
-        )
-        if not result.success:
-            print("Minimisation failed:", result.message)
-
-        final_sorted_bounds = sorted(result.x)
-        print("Optimised category boundaries (all free):", final_sorted_bounds)
-        print("Minimum objective value:", result.fun)
-        return final_sorted_bounds, result.fun
-#%%
-# Example usage
-
-#best_bounds_fixed, min_obj_fixed = optimize_category_bounds(fix_ends=True)
-#print("Fixed boundary result:", best_bounds_fixed, "Objective:", min_obj_fixed)
-
-best_bounds_free, min_obj_free = optimize_category_bounds(fix_ends=False)
-print("Free boundary result:", best_bounds_free, "Objective:", min_obj_free)
 
 #%%
 
@@ -510,10 +406,10 @@ def optimize_category_bounds_improved(fix_ends=False):
         best_value = float('inf')
         
         initial_guesses = [
-            [0.2, 0.24, 0.29, 0.33, 0.6],  # Original guess
-            np.linspace(0.1, 0.9, num_bounds),  # Linear spread
-            np.array([0.1, 0.2, 0.5, 0.7, 0.9]),  # Asymmetric spread
-            np.array([0.2, 0.3, 0.4, 0.5, 0.6])   # Center-focused
+            [0.0986808922572032, 0.31811643626238006, 0.5, 0.6818835637376199, 0.9013191077427969],  # Original guess
+            #np.linspace(0.1, 0.9, num_bounds),  # Linear spread
+            #np.array([0.1, 0.2, 0.5, 0.7, 0.9]),  # Asymmetric spread
+            #np.array([0.2, 0.3, 0.4, 0.5, 0.6])   # Center-focused
         ]
 
         for x0 in initial_guesses:
@@ -566,7 +462,7 @@ def optimize_category_bounds_improved(fix_ends=False):
         return final_sorted_bounds, best_result.fun
 
 # Example usage:
-best_bounds_free, min_obj_free = optimize_category_bounds_improved(fix_ends=True)
+best_bounds_free, min_obj_free = optimize_category_bounds_improved(fix_ends=False)
 print("Optimized boundaries:", best_bounds_free)
 print("Objective value:", min_obj_free)
 

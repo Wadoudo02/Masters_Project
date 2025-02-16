@@ -18,7 +18,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("neural_network.pth")
+checkpoint = torch.load("data/neural_network.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -52,9 +52,9 @@ category_boundaries = [
 #category_boundaries[0] = 0
 #category_boundaries[4] = 1
 
-category_boundaries = [0, 0.3207786035656651, 0.5000000000000001, 0.679221396434335,0.75, 1]
+category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.710416158614033, 1.0]
 
-plot_entire_chain = True
+plot_entire_chain = False
 
 plot_fraction = False
 
@@ -85,7 +85,7 @@ Quadratic = True
 
 
 # Labels for the categories
-labels = ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D', 'NN Cat E'] # Labels for each category
+labels = ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D'] # Labels for each category
 
 
 dfs = {}
@@ -101,8 +101,13 @@ for i, proc in enumerate(procs.keys()):
     # Remove nans from dataframe
     dfs[proc] = dfs[proc][(dfs[proc]['mass_sel'] == dfs[proc]['mass_sel'])]
 
+    yield_weight = dfs[proc]["plot_weight"].sum()
+
     # Remove rows with negative plot_weight from DataFrame
     dfs[proc] = dfs[proc][dfs[proc]['plot_weight'] >= 0]
+    
+    dfs[proc]["plot_weight"] /= dfs[proc]["plot_weight"].sum()
+    dfs[proc]["plot_weight"] *= yield_weight
 
     # Reweight to target lumi
     dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']*(target_lumi/total_lumi)
@@ -112,11 +117,6 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
     else:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
-        
-    # Re-normalise the weights
-    #dfs[proc]["true_weight"] /= dfs[proc]["true_weight"].sum()
-    
-    #dfs[proc]["true_weight"] *= 1000
     
 
     # Add variables
@@ -487,14 +487,14 @@ quadratic_order = True
 
 NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order)
 
-Save_Results_to_JSON(NLL_Results, 'standard_NN_results.json')
+Save_Results_to_JSON(NLL_Results, 'data/standard_NN_results.json')
 
 #%%
 
 import json
 
 # Specify the filename to read the JSON data from
-filename = 'chi_squared_results.json'
+filename = 'data/chi_squared_results.json'
 
 # Read the JSON data back into a Python dictionary
 with open(filename, 'r') as file:

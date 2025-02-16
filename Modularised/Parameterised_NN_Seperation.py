@@ -26,7 +26,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("neural_network_parameterised_2.pth")
+checkpoint = torch.load("data/neural_network_parameterised.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -41,7 +41,7 @@ loaded_model.eval()
 import json
 
 # Load the probability values
-with open("proba_values_PNN_2.json", "r") as json_file:
+with open("data/proba_values_PNN.json", "r") as json_file:
     proba_data = json.load(json_file)
 
 max_proba = proba_data["max_proba"]
@@ -102,8 +102,13 @@ for i, proc in enumerate(procs.keys()):
     # Remove nans from dataframe
     dfs[proc] = dfs[proc][(dfs[proc]['mass_sel'] == dfs[proc]['mass_sel'])]
 
+    yield_weight = dfs[proc]["plot_weight"].sum()
+
     # Remove rows with negative plot_weight from DataFrame
     dfs[proc] = dfs[proc][dfs[proc]['plot_weight'] >= 0]
+    
+    dfs[proc]["plot_weight"] /= dfs[proc]["plot_weight"].sum()
+    dfs[proc]["plot_weight"] *= yield_weight
 
     # Reweight to target lumi
     dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']*(target_lumi/total_lumi)
@@ -113,11 +118,6 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
     else:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
-        
-    # Re-normalise the weights
-    dfs[proc]["true_weight"] /= dfs[proc]["true_weight"].sum()
-        
-    dfs[proc]["true_weight"] *= 1000
 
     # Add variables
     # Example: (second-)max-b-tag score
@@ -501,7 +501,7 @@ PNN_NLL_Results["Name"] = "P"
 import json
 
 # Specify the filename to read the JSON data from
-filename = 'chi_squared_results.json'
+filename = 'data/chi_squared_results.json'
 
 # Read the JSON data back into a Python dictionary
 with open(filename, 'r') as file:
@@ -509,7 +509,7 @@ with open(filename, 'r') as file:
     
     
 # Specify the filename to read the JSON data from
-filename = 'standard_NN_results.json'
+filename = 'data/standard_NN_results.json'
 
 # Read the JSON data back into a Python dictionary
 with open(filename, 'r') as file:

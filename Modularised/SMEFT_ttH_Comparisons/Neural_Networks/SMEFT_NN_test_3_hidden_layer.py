@@ -389,6 +389,17 @@ plt.title(r"AUC vs $c_{tg}$ (with $c_g=0$)")
 plt.grid(True)
 plt.show()
 
+#%%
+
+NN_AUC_Scores = {
+    "Cg Values": cg_values,
+    "NN: AUC vs Cg": auc_vs_cg,
+    "Ctg Values": ctg_values,
+    "NN: AUC vs Ctg": auc_vs_ctg,
+    }
+
+Save_Results_to_JSON(NN_AUC_Scores, 'data/NN_AUC_Scores.json')
+
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
 cg_range = np.linspace(-5, 2, 50)
 ctg_range = np.linspace(-2, 4, 50)
