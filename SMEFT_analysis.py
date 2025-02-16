@@ -14,11 +14,11 @@ from chi2 import get_chi_squared
 plt.style.use(hep.style.CMS)
 
 plotter = Plotter()
-
+mine = True
 #Extract relevant columns from overall df
-#cats=[0,0.32249033, 0.37249033, 0.55603562, 0.72428047,1]
-#cats = [0, 0.39059744, 0.44059744, 0.49059744, 0.66444074,1]
-cats = [0, 0.32, 0.5, 0.68, 0.75, 1]
+wad_cats = [0, 0.22491833, 0.27491833, 0.32491833, 0.69582565,1]
+my_cats = [0,0.32273505, 0.37273505, 0.42273505, 0.65670192,1]
+
 #cats = [0, 0.4, 0.5, 0.6, 0.7,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
 
@@ -44,14 +44,14 @@ for i, proc in enumerate(procs.keys()):
     new_yield = dfs[proc]["true_weight_sel"].sum()
 
     #Making sure final yield is the same as initial yield.
-    dfs[proc]["true_weight_sel"] = dfs[proc]["true_weight_sel"]*init_yield/new_yield
+    dfs[proc]["true_weight_sel"] = (dfs[proc]["true_weight_sel"]/new_yield)*init_yield
 
 dfs_copy = copy.deepcopy(dfs)
 dfs["ttH"] = ttH_df
 dfs["ttH_EFT"] = dfs["ttH"].copy()
 #Rescaling eft weights so that sum of eft weights = sum of sm weights
-dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["EFT_weight"]*sum(dfs["ttH"]["true_weight_sel"])/sum(dfs["ttH_EFT"]["EFT_weight"])
-
+#dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["EFT_weight"]*sum(dfs["ttH"]["true_weight_sel"])/sum(dfs["ttH_EFT"]["EFT_weight"])
+dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["EFT_weight"]
 
 for proc, df in dfs.items():
     
@@ -73,10 +73,16 @@ dfs_cats = {}
 input_dim = len(special_features)
 hidden_dim = [256, 64, 32, 16, 16, 8]
 
-# model = WadNeuralNetwork(input_dim, input_dim*3)
-# model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
-model = ComplexNN(input_dim, hidden_dim, 1)
-model.load_state_dict(torch.load("saved_models/model.pth"))
+if mine:
+    model = ComplexNN(input_dim, hidden_dim, 1)
+    model.load_state_dict(torch.load("saved_models/model.pth"))
+    cats = my_cats
+else:
+    model = WadNeuralNetwork(input_dim, input_dim*3)
+    model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
+    cats = wad_cats
+#model = ComplexNN(input_dim, hidden_dim, 1)
+#model.load_state_dict(torch.load("saved_models/model.pth"))
 model.eval()
 
 #Plotting classifier output

@@ -65,7 +65,9 @@ dfs_cats = {}
 input_dim = len(special_features)
 hidden_dim = [256, 64, 32, 16, 16, 8]
 
-#model = WadNeuralNetwork(input_dim, input_dim*3)
+# model = WadNeuralNetwork(input_dim, input_dim*3)
+# model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
+
 model = ComplexNN(input_dim, hidden_dim, 1)
 model.load_state_dict(torch.load("saved_models/model.pth"))
 model.eval()

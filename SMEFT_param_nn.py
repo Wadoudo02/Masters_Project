@@ -278,7 +278,7 @@ for cg, ctg in [(0.5,0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
 #torch.save(model.state_dict(), 'saved_models/model.pth')
 
 # %%
-#Variation in AUC over range of cg and ctg values
+#Variation in AUC over range of cg values
 
 cg_vals_gen = [-0.75, 0.5, 1.5]
 cg_vals_test = np.arange(-1.5, 1.5, 0.1)
@@ -296,6 +296,7 @@ for cg in cg_vals_test:
     comb_df_init["cg"] = cg
     comb_df_init["ctg"] = 0
 
+    get_labeled_comb_df(comb_df_init, features=special_features, cg=cg, ctg=0)
     comb_df_set_eft, comb_df_set_sm = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
     comb_df_set_eft["labels"] = 1
     comb_df_set_sm["labels"] = 0
@@ -332,6 +333,9 @@ ax.plot(cg_vals_test, aucs, label=f"cg={cg}, ctg=0")
 ax.set_xlabel("cg")
 ax.set_ylabel("AUC")
 ax.legend()
+#%%
+#2D variation of AUC over cg and ctg
+
 #%%
 #Testing basic NN on data with weights calculated on new cg vals
 #This model is trained for cg=0.3, ctg=0
@@ -388,6 +392,6 @@ fig, ax = plt.subplots(figsize=(7, 5))
 plotter.overlay_line_plots(cg_vals_test, [auc_nn, aucs],xlabel="cg", ylabel="AUC", title="AUC variation over cg", labels=["Basic NN, cg=0.3", "Param NN"], colors=["blue", "orange"], axes=ax)
 ax.axvline(x=0.3, color="black", linestyle="--", label="Basic NN training cg = 0.3")
 ax.legend(fontsize=12)
-
+#%%
 
 
