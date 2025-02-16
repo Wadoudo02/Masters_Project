@@ -150,25 +150,25 @@ def get_labeled_comb_df(ttH_df, type, features, c_g, c_tg, norm_weights = True):
                 EFT_weights = (EFT_weights/np.sum(EFT_weights))*10000
             ttH_df["EFT_weight"] = EFT_weights
             if norm_weights:
-                ttH_df["plot_weight"] = (ttH_df["plot_weight"]/np.sum(ttH_df["plot_weight"]))*10000
+                ttH_df["true_weight_sel"] = (ttH_df["true_weight_sel"]/np.sum(ttH_df["true_weight_sel"]))*10000
 
-            comb_df = pd.concat([ttH_df[var] for var in features]+[ttH_df["plot_weight"], ttH_df["EFT_weight"]], axis=1)
+            comb_df = pd.concat([ttH_df[var] for var in features]+[ttH_df["true_weight_sel"], ttH_df["EFT_weight"]], axis=1)
             comb_df_SM, comb_df_EFT = train_test_split(comb_df, test_size=0.5)
             
             if type[4:]=="EFT":
-                comb_df_SM.drop(columns=["plot_weight"], inplace=True)
+                comb_df_SM.drop(columns=["true_weight_sel"], inplace=True)
                 comb_df_SM.rename(columns={'EFT_weight': 'weight'}, inplace=True)
-                comb_df_EFT.drop(columns=["plot_weight"], inplace=True)
+                comb_df_EFT.drop(columns=["true_weight_sel"], inplace=True)
                 comb_df_EFT.rename(columns={'EFT_weight': 'weight'}, inplace=True)
             elif type[4:]=="SM":
                 comb_df_EFT.drop(columns=["EFT_weight"], inplace=True)
-                comb_df_EFT.rename(columns={'plot_weight': 'weight'}, inplace=True)
+                comb_df_EFT.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
                 comb_df_SM.drop(columns=["EFT_weight"], inplace=True)
-                comb_df_SM.rename(columns={'plot_weight': 'weight'}, inplace=True)
+                comb_df_SM.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
             else:
                 comb_df_SM.drop(columns=["EFT_weight"], inplace=True)
-                comb_df_SM.rename(columns={'plot_weight': 'weight'}, inplace=True)
-                comb_df_EFT.drop(columns=["plot_weight"], inplace=True)
+                comb_df_SM.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
+                comb_df_EFT.drop(columns=["true_weight_sel"], inplace=True)
                 comb_df_EFT.rename(columns={'EFT_weight': 'weight'}, inplace=True)
 
             comb_df_SM["labels"] = np.zeros(len(comb_df_SM["weight"]))

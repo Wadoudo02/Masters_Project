@@ -15,6 +15,7 @@ plt.style.use(hep.style.CMS)
 
 plotter = Plotter()
 mine = True
+norm_eft = False
 #Extract relevant columns from overall df
 wad_cats = [0, 0.22491833, 0.27491833, 0.32491833, 0.69582565,1]
 my_cats = [0,0.32273505, 0.37273505, 0.42273505, 0.65670192,1]
@@ -50,8 +51,11 @@ dfs_copy = copy.deepcopy(dfs)
 dfs["ttH"] = ttH_df
 dfs["ttH_EFT"] = dfs["ttH"].copy()
 #Rescaling eft weights so that sum of eft weights = sum of sm weights
-#dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["EFT_weight"]*sum(dfs["ttH"]["true_weight_sel"])/sum(dfs["ttH_EFT"]["EFT_weight"])
-dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["EFT_weight"]
+dfs["ttH_EFT"]["norm_weight_sel"] = dfs["ttH_EFT"]["EFT_weight"]*sum(dfs["ttH"]["true_weight_sel"])/sum(dfs["ttH_EFT"]["EFT_weight"])
+if norm_eft:
+    dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["norm_weight_sel"]
+else:
+    dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["EFT_weight"]
 
 for proc, df in dfs.items():
     

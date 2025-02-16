@@ -70,6 +70,8 @@ hidden_dim = [256, 64, 32, 16, 16, 8]
 
 model = ComplexNN(input_dim, hidden_dim, 1)
 model.load_state_dict(torch.load("saved_models/model.pth"))
+
+
 model.eval()
 min_prob = float("inf")
 max_prob = float("-inf")
