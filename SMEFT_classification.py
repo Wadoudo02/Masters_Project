@@ -72,11 +72,12 @@ y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val
 
 #Input dim of 4 and buncha hidden layers.
 input_dim = X_train.shape[1]
-hidden_dim = [256, 64, 32, 16, 16, 8]
+hidden_dim = [256, 64, 32, 16, 8]
 
 #model = LogisticRegression(input_dim)
-model = ComplexNN(input_dim, hidden_dim, 1) 
+#model = ComplexNN(input_dim, hidden_dim, 1) 
 #model = WadNeuralNetwork(input_dim, input_dim*3)
+model = MergedNN(input_dim, hidden_dims=hidden_dim, output_dim=1)
 #criterion = nn.BCELoss(reduction='none')  # No reduction for custom weighting
 criterion = WeightedBCELoss()
 
@@ -151,5 +152,5 @@ plt.show()
 
 # Save the trained model
 #torch.save(model.state_dict(), 'saved_models/model2.pth')
-#torch.save(model.state_dict(), 'saved_models/wad_neural_network.pth')
+#torch.save(model.state_dict(), 'saved_models/mergedNN.pth')
 # %%

@@ -52,6 +52,33 @@ class ComplexNN(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+class MergedNN(nn.Module):
+    def __init__(self, input_dim, hidden_dims, output_dim=1, dropout_prob=0.3):
+        super(MergedNN, self).__init__()
+        layers = []
+        current_dim = input_dim
+
+        for dim in hidden_dims:
+            layers.append(nn.Linear(current_dim, dim))
+            layers.append(nn.BatchNorm1d(dim))  # Batch normalization
+            layers.append(nn.ReLU())  # ReLU activation
+            layers.append(nn.Dropout(p=dropout_prob))  # Dropout
+            current_dim = dim
+
+        layers.append(nn.Linear(current_dim, output_dim))
+        layers.append(nn.Sigmoid())
+
+        self.model = nn.Sequential(*layers)
+
+        # Xavier initialization
+        for layer in self.model:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                nn.init.zeros_(layer.bias)
+
+    def forward(self, x):
+        return self.model(x)
+
 class LogisticRegression(nn.Module):
     def __init__(self, input_dim):
         super(LogisticRegression, self).__init__()

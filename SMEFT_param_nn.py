@@ -128,10 +128,11 @@ y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val
 
 #Input dim of 10(features + coefs) + 2(cg, ctg) -5(coefs) for parameters and buncha hidden layers.
 input_dim = X_train.shape[1]
-hidden_dim = [256, 64, 32, 16, 16, 8]
+hidden_dim = [256, 64, 32, 16, 8]
 
-model = ComplexNN(input_dim, hidden_dim, 1) 
-#model = WadNeuralNetwork(input_dim, input_dim*4)
+#model = MergedNN(input_dim, hidden_dim, 1)
+#model = ComplexNN(input_dim, hidden_dim, 1) 
+model = WadNeuralNetwork(input_dim, input_dim*3)
 
 #criterion = nn.BCELoss(reduction='none')  # No reduction for custom weighting
 criterion = WeightedBCELoss()
@@ -283,7 +284,8 @@ cg_vals_gen = [-0.75, 0.5, 1.5]
 cg_vals_test = np.arange(-1.5, 1.5, 0.1)
 fig, ax = plt.subplots(figsize=(10, 5))
 param_aucs = {}
-for cg in cg_vals_gen:
+aucs = []
+for cg in cg_vals_test:
     #print("Original df belongs to, cg:", cg, "ctg:", 0)
     ttH_df_set = ttH_df.copy()
 
@@ -309,27 +311,23 @@ for cg in cg_vals_gen:
     w, l = comb_df_shuf["weight"], comb_df_shuf["labels"]
 
     comb_df_shuf = comb_df_shuf.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
+ 
+    X, y, w = comb_df_shuf.values, l, w
 
-    aucs = []
-    # Looping over other cg values to see how AUC changes
-    for cg_test in cg_vals_test:
-        comb_df_shuf["cg"] = cg_test
-        X, y, w = comb_df_shuf.values, l, w
+    X = preprocessor.fit_transform(X)
 
-        X = preprocessor.fit_transform(X)
+    X_tensor= torch.tensor(X, dtype=torch.float32)
+    with torch.no_grad():
+        probs = model(X_tensor)
+    probs_np=probs.squeeze().detach().numpy()
+    #plt.hist(probs_np, bins=50, histtype="step", label=f"cg={cg_test}, ctg=0", density=True)
+    fpr, tpr, _ = roc_curve(y, probs_np, sample_weight=w)
+    auc_s = auc(fpr, tpr)
+    aucs.append(auc_s)
+    #print("For cg:", cg_test, "ctg:", 0, "AUC:", auc_s)
 
-        X_tensor= torch.tensor(X, dtype=torch.float32)
-        with torch.no_grad():
-            probs = model(X_tensor)
-        probs_np=probs.squeeze().detach().numpy()
-        #plt.hist(probs_np, bins=50, histtype="step", label=f"cg={cg_test}, ctg=0", density=True)
-        fpr, tpr, _ = roc_curve(y, probs_np, sample_weight=w)
-        auc_s = auc(fpr, tpr)
-        aucs.append(auc_s)
-        #print("For cg:", cg_test, "ctg:", 0, "AUC:", auc_s)
-
-    param_aucs[cg] = aucs
-    ax.plot(cg_vals_test, aucs, label=f"cg={cg}, ctg=0")
+    #param_aucs[cg] = aucs
+ax.plot(cg_vals_test, aucs, label=f"cg={cg}, ctg=0")
 
 ax.set_xlabel("cg")
 ax.set_ylabel("AUC")
@@ -337,9 +335,18 @@ ax.legend()
 #%%
 #Testing basic NN on data with weights calculated on new cg vals
 #This model is trained for cg=0.3, ctg=0
+hidden_dim = [256, 64, 32, 16, 16,8]
 input_dim = len(special_features)
-model2 = ComplexNN(input_dim, hidden_dim, 1)
-model2.load_state_dict(torch.load("saved_models/model2.pth"))
+
+# model2 = ComplexNN(input_dim, hidden_dim, 1)
+# model2.load_state_dict(torch.load("saved_models/model2.pth"))
+
+#model2 = MergedNN(input_dim, hidden_dim, 1)
+#model2.load_state_dict(torch.load("saved_models/mergedNN.pth"))
+
+model2 = WadNeuralNetwork(input_dim, input_dim*3)
+model2.load_state_dict(torch.load("saved_models/wad_neural_network2.pth"))
+
 model2.eval()
 auc_nn= []
 for cg in cg_vals_test:
@@ -377,8 +384,10 @@ for cg in cg_vals_test:
     auc_nn.append(auc_s_nn)
 
 
-
-plotter.overlay_line_plots(cg_vals_test, [auc_nn]+[auc_p for auc_p in param_aucs.values()],xlabel="cg", ylabel="AUC", title="AUC variation over cg", labels=["Basic NN, cg=0.3"]+[f"Param NN, cg={cg}" for cg in cg_vals_gen])
+fig, ax = plt.subplots(figsize=(7, 5))
+plotter.overlay_line_plots(cg_vals_test, [auc_nn, aucs],xlabel="cg", ylabel="AUC", title="AUC variation over cg", labels=["Basic NN, cg=0.3", "Param NN"], colors=["blue", "orange"], axes=ax)
+ax.axvline(x=0.3, color="black", linestyle="--", label="Basic NN training cg = 0.3")
+ax.legend(fontsize=12)
 
 
 
