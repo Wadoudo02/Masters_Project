@@ -251,7 +251,7 @@ def eval_in_batches(model, X, batch_size=1000):
         y_prob = np.concatenate(y_prob, axis=0)
     return y_prob
 
-def get_tth_df():
+def get_tth_df(cg=0.3, ctg=0.69):
     ttH_df = pd.read_parquet(f"{new_sample_path}/ttH_processed_selected_with_smeft_cut_mupcleq90.parquet")
     #tth_df = get_selection(ttH_df, "ttH")
     ttH_df = ttH_df[(ttH_df["mass_sel"] == ttH_df["mass_sel"])]
@@ -271,5 +271,51 @@ def get_tth_df():
     ttH_df["true_weight_sel"] = (ttH_df["true_weight_sel"] / new_yield) * init_yield
 
     print(f"--> Remaining rows = {len(ttH_df)}")
-    ttH_df["EFT_weight"] = np.asarray(calc_weights(ttH_df, weight_col="true_weight_sel"))
+    ttH_df["EFT_weight"] = np.asarray(calc_weights(ttH_df, weight_col="true_weight_sel", cg=cg, ctg=ctg))
     return ttH_df
+
+def get_preds_cats(dfs, model, cats, order=["ttH_EFT","background","ggH","VBF", "VH","ttH"]):
+    dfs_preds = {}
+    dfs_cats = {}
+
+
+    #model = ComplexNN(input_dim, hidden_dim, 1)
+    #model.load_state_dict(torch.load("saved_models/model.pth"))
+    model.eval()
+
+    #Plotting classifier output
+    fig, ax = plt.subplots(ncols=len(dfs.keys()),figsize=(35, 8))
+    fig.suptitle("Classifier output for all processes")
+    plt.tight_layout()
+    i=0
+    for proc, df in dfs.items():
+        #print(proc, df)
+        mass,weight = df[:,-2],df[:,-1]
+        df = df[:,:-2]
+        
+        probs = eval_in_batches(model, df)
+        plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax[i])
+        ax[i].set_title(f"{proc}")
+        ax[i].legend().remove()
+
+        # fig, ax, = plt.subplots(figsize=(10, 6))
+        # plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax)
+        # probs = model(df)
+        #print(proc, list(probs))
+        dfs_preds[proc] = [probs, mass.flatten().numpy(),weight.flatten().numpy(), df.numpy()]
+        i+=1
+    with_back=True
+    
+    for proc in order:
+        preds,mass, weights, feats = dfs_preds[proc]
+        dfs_cats[proc]={"mass":[],"weights":[], "features":[]}
+        for i in range(1, len(cats)):
+            bools = ((cats[i-1]<preds) & (preds<cats[i])).squeeze()
+            #dfs_cats[proc]["events"].append(df[bools.numpy()])
+            # if proc != "ttH_EFT":
+            #     dfs_copy[proc]["categories"] = 1
+            #     dfs_copy[proc]["categories"] = np.where(bools, i, dfs_copy[proc]["categories"])
+            dfs_cats[proc]["weights"].append(weights[bools])
+            dfs_cats[proc]["mass"].append(mass[bools])
+            dfs_cats[proc]["features"].append(feats[bools])
+    return dfs_preds, dfs_cats

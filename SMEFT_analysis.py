@@ -14,15 +14,15 @@ from chi2 import get_chi_squared
 plt.style.use(hep.style.CMS)
 
 plotter = Plotter()
-mine = False
+mine = True
 norm_eft = False
-param = True
+param = False
 cg = 0.3
 ctg = 0.69
 
 #Extract relevant columns from overall df
-wad_cats = [0, 0.22491833, 0.27491833, 0.32491833, 0.69582565,1]
-my_cats = [0,0.32273505, 0.37273505, 0.42273505, 0.65670192,1]
+wad_cats = [0, 0.22491833, 0.27491833, 0.32491833, 0.69582565,1] if not param else [0, 0.17430348, 0.22430348, 0.27430348, 0.55810981,1]
+my_cats = [0,0.32273505, 0.37273505, 0.42273505, 0.65670192,1] if not param else [0, 0.26127338, 0.31127338, 0.36136802, 0.7,1]
 
 #cats = [0, 0.4, 0.5, 0.6, 0.7,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
@@ -31,7 +31,7 @@ special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "p
 #plot_SMEFT_features(special_features)
 #%%
 
-ttH_df = get_tth_df()
+ttH_df = get_tth_df(cg=cg, ctg=ctg)
 scaler = joblib.load('saved_models/scaler.pkl')
 
 dfs = get_dfs(new_sample_path)
@@ -78,12 +78,15 @@ for proc, df in dfs.items():
 
 #%%
 #Get predictions for all events
-dfs_preds = {}
-dfs_cats = {}
+order = ["ttH_EFT","background","ggH","VBF", "VH","ttH"]
+with_back = True
 
 #Loading model
 input_dim = len(new_df[0])-2 #-2 for mass and weight column
-hidden_dim = [256, 64, 32, 16, 16, 8]
+if not param:
+    hidden_dim = [256, 64, 32, 16,16, 8]
+else:
+    hidden_dim = [256, 64, 32, 16, 8]
 
 if mine:
     model = ComplexNN(input_dim, hidden_dim, 1)
@@ -99,46 +102,8 @@ else:
     else:
         model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
     cats = wad_cats
-#model = ComplexNN(input_dim, hidden_dim, 1)
-#model.load_state_dict(torch.load("saved_models/model.pth"))
-model.eval()
 
-#Plotting classifier output
-fig, ax = plt.subplots(ncols=len(dfs.keys()),figsize=(35, 8))
-fig.suptitle("Classifier output for all processes")
-plt.tight_layout()
-i=0
-for proc, df in dfs.items():
-    #print(proc, df)
-    mass,weight = df[:,-2],df[:,-1]
-    df = df[:,:-2]
-    
-    probs = eval_in_batches(model, df)
-    plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax[i])
-    ax[i].set_title(f"{proc}")
-    ax[i].legend().remove()
-
-    # fig, ax, = plt.subplots(figsize=(10, 6))
-    # plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax)
-    # probs = model(df)
-    #print(proc, list(probs))
-    dfs_preds[proc] = [probs, mass.flatten().numpy(),weight.flatten().numpy(), df.numpy()]
-    i+=1
-with_back=True
-order = ["ttH_EFT","background","ggH","VBF", "VH","ttH"]
-for proc in order:
-    preds,mass, weights, feats = dfs_preds[proc]
-    dfs_cats[proc]={"mass":[],"weights":[], "features":[]}
-    for i in range(1, len(cats)):
-        bools = ((cats[i-1]<preds) & (preds<cats[i])).squeeze()
-        #dfs_cats[proc]["events"].append(df[bools.numpy()])
-        # if proc != "ttH_EFT":
-        #     dfs_copy[proc]["categories"] = 1
-        #     dfs_copy[proc]["categories"] = np.where(bools, i, dfs_copy[proc]["categories"])
-        dfs_cats[proc]["weights"].append(weights[bools])
-        dfs_cats[proc]["mass"].append(mass[bools])
-        dfs_cats[proc]["features"].append(feats[bools])
-
+dfs_preds, dfs_cats = get_preds_cats(dfs,model=model, cats=cats, order=order)
 num_cats = len(dfs_cats["ggH"]["mass"])
 
 
@@ -294,7 +259,7 @@ ax[0].plot(c_vals, np.ones(len(c_vals)), linestyle="--")
 ax[1].plot(c_vals, np.ones(len(c_vals)),linestyle="--" )
 
 # %%
-#Profiled scan over c_g and c_tg
+#Profiled scan over c_g and c_tg for new categorisation
 
 nll_vals_cg = []
 nll_vals_ctg = []
@@ -311,6 +276,14 @@ for c in c_vals:
 #print(nll_vals)
 dnll_cg = TwoDeltaNLL(nll_vals_cg)
 dnll_ctg = TwoDeltaNLL(nll_vals_ctg)
+
+if param:
+    if mine:
+        # Save the values using joblib
+        joblib.dump({'dnll_cg': dnll_cg, 'dnll_ctg': dnll_ctg}, 'param_dnll_values.pkl')
+    else:
+        joblib.dump({'dnll_cg': dnll_cg, 'dnll_ctg': dnll_ctg}, 'wad_param_dnll_values.pkl')
+
 
 cg_fit, cg_cons_up, cg_cons_down = find_crossings([c_vals, dnll_cg], 1.)
 cg_cons = (cg_cons_up, cg_cons_down)
@@ -344,6 +317,18 @@ print(f"Crossing for cg with nn: {cg_cons} and ctg: {ctg_cons}")
 
 #Getting values from chi squared analysis
 chi_2_c_g, chi_2_c_tg, best_cg_chi, conf_cg_chi, best_ctg_chi, conf_ctg_chi=joblib.load("saved_models/chi2.pkl")
+if not param:
+    if mine:
+        param_dnll = joblib.load("param_dnll_values.pkl")
+        param_dnll_cg, param_dnll_ctg = param_dnll["dnll_cg"], param_dnll["dnll_ctg"]
+    else:
+        wad_param_dnll = joblib.load("wad_param_dnll_values.pkl")
+        param_dnll_cg, param_dnll_ctg = wad_param_dnll["dnll_cg"], wad_param_dnll["dnll_ctg"]
+    
+    param_cg_fit, param_cg_cons_up, param_cg_cons_down = find_crossings([c_vals, param_dnll_cg], 1.)
+    param_cg_cons = (pt_cg_cons_up, pt_cg_cons_down)
+    param_ctg_fit, param_ctg_cons_up, param_ctg_cons_down = find_crossings([c_vals, param_dnll_ctg], 1.)
+    param_ctg_cons = (pt_ctg_cons_up, pt_ctg_cons_down)
 
 fig, ax = plt.subplots(1,2, figsize=(12, 6))
 fig.suptitle("NLL Profiled minimisation over c_g and c_tg")
@@ -351,29 +336,29 @@ ax[0].set_ylim(0, 1500)
 ax[1].set_ylim(0, 1500)
 plotter.overlay_line_plots(
     x=c_vals,
-    y_datasets=[dnll_cg, dnll_pt_cg, chi_2_c_g],
+    y_datasets=[dnll_cg, dnll_pt_cg]+([param_dnll_cg] if not param else []),# chi_2_c_g],
     title="Delta nll minimisation over c_g",
     xlabel="c_g",
     ylabel="2*Delta NLL",
     labels=[("Param " if param else "")+
         (fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$"),
-        fr"Pt cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$",
-        fr"$\chi^2$ cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
-    ],
-    colors=["red", "blue", "green"],
+        fr"STXS cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$",
+        #fr"$\chi^2$ cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
+    ]+([fr"Param NN ${param_cg_fit:.2f}^{{+{param_cg_cons[0]:.2f}}}_{{{param_cg_cons[1]:.2f}}}$"] if not param else []),
+    colors=["red", "blue"]+(["green"] if not param else []),# "green"],
     axes=ax[0],
     ylim=[0, 10])
 plotter.overlay_line_plots(
     x=c_vals,
-    y_datasets=[dnll_ctg, dnll_pt_ctg, chi_2_c_tg],
+    y_datasets=[dnll_ctg, dnll_pt_ctg]+([param_dnll_ctg] if not param else []),# chi_2_c_tg],
     title="Delta nll minimisation over c_tg",
     xlabel="c_tg", ylabel="2*Delta NLL",
     labels=[("Param " if param else "")+
         (fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$"),
-        fr"Pt cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$",
-        fr"$\chi^2$ cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
-    ],
-    colors=["red", "blue", "green"],
+        fr"STXS cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$",
+        #fr"$\chi^2$ cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
+    ]+([fr"Param NN ${param_ctg_fit:.2f}^{{+{param_ctg_cons[0]:.2f}}}_{{{param_ctg_cons[1]:.2f}}}$"] if not param else []),
+    colors=["red", "blue"] +(["green"] if not param else []),# "green"],
     axes=ax[1],
     ylim=[0, 10])
 ax[0].plot(c_vals, np.ones(len(c_vals)), linestyle="--")

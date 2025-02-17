@@ -14,12 +14,16 @@ plt.style.use(hep.style.CMS)
 
 plotter = Plotter()
 
+mine = False
+param = True
+cg = 0.3
+ctg = 0.69
 #Extract relevant columns from overall df
 categories = [0, 0.4, 0.5, 0.6, 0.7,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
 
 
-ttH_df = get_tth_df()
+ttH_df = get_tth_df(cg=cg, ctg=ctg)
 scaler = joblib.load('saved_models/scaler.pkl')
 
 dfs = get_dfs(new_sample_path)
@@ -54,6 +58,10 @@ for proc, df in dfs.items():
     mass = df["mass_sel"]
     weight = df[weight_col]
     new_df=scaler.transform(new_df)
+    if param:
+        cg_vals = np.array([cg]*len(new_df))
+        ctg_vals = np.array([ctg]*len(new_df))
+        new_df = np.concatenate([new_df, cg_vals.reshape(-1,1), ctg_vals.reshape(-1,1)], axis=1)
     new_df = np.concatenate([new_df, mass.to_numpy().reshape(-1,1), weight.to_numpy().reshape(-1,1)], axis=1)
     dfs[proc] = torch.tensor(new_df, dtype=torch.float32)
 
@@ -62,15 +70,24 @@ dfs_preds = {}
 dfs_cats = {}
 
 #Loading model
-input_dim = len(special_features)
-hidden_dim = [256, 64, 32, 16, 16, 8]
+input_dim = len(new_df[0])-2 #Removing mass and weight
+hidden_dim = [256, 64, 32, 16, 8]
 
 # model = WadNeuralNetwork(input_dim, input_dim*3)
 # model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
 
-model = ComplexNN(input_dim, hidden_dim, 1)
-model.load_state_dict(torch.load("saved_models/model.pth"))
-
+if mine:
+    model = ComplexNN(input_dim, hidden_dim, 1)
+    if param:
+        model.load_state_dict(torch.load("saved_models/param_model.pth"))
+    else:
+        model.load_state_dict(torch.load("saved_models/model.pth"))
+else:
+    model = WadNeuralNetwork(input_dim, input_dim*3)
+    if param:
+        model.load_state_dict(torch.load("saved_models/wad_param_model.pth"))
+    else:
+        model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
 
 model.eval()
 min_prob = float("inf")
