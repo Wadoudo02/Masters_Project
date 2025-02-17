@@ -44,106 +44,111 @@ loaded_model.eval()
 total_lumi = 7.9804
 target_lumi = 300
 
+
+#breakpoint()
+# Processes to plot
+procs = {
+    "background" : ["Background", "black"],
+    "ttH" : ["ttH x 10", "mediumorchid"],
+    #"ttH_SMEFT" : ["ttH_SMEFT x 10", "green"],
+    "ggH" : ["ggH x 10", "cornflowerblue"],
+    "VBF" : ["VBF x 10", "red"],
+    "VH" : ["VH x 10", "orange"],
+    #"Data" : ["Data", "green"]
+}
+
+plot_size = (12, 8)
+
+
+cg = 0.3
+ctg = 0.69
+
+
+# Load dataframes
+
+
+# Labels for the categories
+labels = ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D'] # Labels for each category
+
+
+dfs = {}
+for i, proc in enumerate(procs.keys()):
+    #print(f" --> Loading process: {proc}")
+    
+    if proc == "ttH_SMEFT":
+        dfs[proc] = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
+    else:
+        dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
+
+    # Remove nans from dataframe
+    dfs[proc] = dfs[proc][(dfs[proc]['mass_sel'] == dfs[proc]['mass_sel'])]
+   
+    yield_weight = dfs[proc]["plot_weight"].sum()
+   
+    # Remove rows with negative plot_weight from DataFrame
+    dfs[proc] = dfs[proc][dfs[proc]['plot_weight'] >= 0]
+    
+    dfs[proc]["plot_weight"] /= dfs[proc]["plot_weight"].sum()
+    dfs[proc]["plot_weight"] *= yield_weight
+   
+    # Reweight to target lumi
+    dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']*(target_lumi/total_lumi)
+   
+    # Calculate true weight: remove x10 multiplier for signal
+    if proc in ['ggH', 'VBF', 'VH', 'ttH']:
+        dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
+    else:
+        dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
+
+    # Add variables
+    # Example: (second-)max-b-tag score
+    b_tag_scores = np.array(dfs[proc][['j0_btagB_sel', 'j1_btagB_sel', 'j2_btagB_sel', 'j3_btagB_sel']])
+    b_tag_scores = np.nan_to_num(b_tag_scores, nan=-1)
+    max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,0]
+    second_max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,1]
+    
+    
+    # Add nans back in for plotting tools below
+    max_b_tag_score = np.where(max_b_tag_score==-1, np.nan, max_b_tag_score)
+    second_max_b_tag_score = np.where(second_max_b_tag_score==-1, np.nan, second_max_b_tag_score)
+    dfs[proc]['max_b_tag_score_sel'] = max_b_tag_score
+    dfs[proc]['second_max_b_tag_score_sel'] = second_max_b_tag_score
+    
+    # Apply selection: separate ttH from backgrounds + other H production modes
+    yield_before_sel = dfs[proc]['true_weight'].sum()
+    
+    
+    mask = dfs[proc]['n_jets_sel'] >= 0
+    mask = mask & (dfs[proc]['max_b_tag_score_sel'] > 0.4)
+    mask = mask & (dfs[proc]['second_max_b_tag_score_sel'] > 0.4)
+    #mask = mask & (dfs[proc]['HT_sel'] > 200)
+    
+    dfs[proc] = dfs[proc][mask]
+    yield_after_sel = dfs[proc]['true_weight'].sum()
+    eff = (yield_after_sel/yield_before_sel)*100
+    
+
+    dfs[proc]['pt_sel'] = dfs[proc]['pt-over-mass_sel'] * dfs[proc]['mass_sel']
+
+    if proc == "ttH_SMEFT":
+        dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
+
+#%%
+
+
 def bounds_of_wilson_coefficients(category_bounds):
     
     category_boundaries = sorted(category_bounds)
     
-    #breakpoint()
-    # Processes to plot
-    procs = {
-        "background" : ["Background", "black"],
-        "ttH" : ["ttH x 10", "mediumorchid"],
-        #"ttH_SMEFT" : ["ttH_SMEFT x 10", "green"],
-        "ggH" : ["ggH x 10", "cornflowerblue"],
-        "VBF" : ["VBF x 10", "red"],
-        "VH" : ["VH x 10", "orange"],
-        #"Data" : ["Data", "green"]
-    }
-    
-    plot_size = (12, 8)
-    
-    
-    cg = 0.3
-    ctg = 0.69
-    
-    
-    # Load dataframes
-    
-    
-    # Labels for the categories
-    labels = ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D'] # Labels for each category
-    
-    
-    dfs = {}
     for i, proc in enumerate(procs.keys()):
-        #print(f" --> Loading process: {proc}")
-        
-        if proc == "ttH_SMEFT":
-            dfs[proc] = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
-        else:
-            dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
-    
-        # Remove nans from dataframe
-        dfs[proc] = dfs[proc][(dfs[proc]['mass_sel'] == dfs[proc]['mass_sel'])]
-    
-        # Remove rows with negative plot_weight from DataFrame
-        dfs[proc] = dfs[proc][dfs[proc]['plot_weight'] >= 0]
-    
-        # Reweight to target lumi
-        dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']*(target_lumi/total_lumi)
-    
-        # Calculate true weight: remove x10 multiplier for signal
-        if proc in ['ggH', 'VBF', 'VH', 'ttH']:
-            dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
-        else:
-            dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
-            
-        # Re-normalise the weights
-        dfs[proc]["true_weight"] /= dfs[proc]["true_weight"].sum()
-        
-        dfs[proc]["true_weight"] *= 1000
-    
-        # Add variables
-        # Example: (second-)max-b-tag score
-        b_tag_scores = np.array(dfs[proc][['j0_btagB_sel', 'j1_btagB_sel', 'j2_btagB_sel', 'j3_btagB_sel']])
-        b_tag_scores = np.nan_to_num(b_tag_scores, nan=-1)
-        max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,0]
-        second_max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,1]
-        
-        
-        # Add nans back in for plotting tools below
-        max_b_tag_score = np.where(max_b_tag_score==-1, np.nan, max_b_tag_score)
-        second_max_b_tag_score = np.where(second_max_b_tag_score==-1, np.nan, second_max_b_tag_score)
-        dfs[proc]['max_b_tag_score_sel'] = max_b_tag_score
-        dfs[proc]['second_max_b_tag_score_sel'] = second_max_b_tag_score
-        
-        # Apply selection: separate ttH from backgrounds + other H production modes
-        yield_before_sel = dfs[proc]['true_weight'].sum()
-        
-        
-        mask = dfs[proc]['n_jets_sel'] >= 0
-        mask = mask & (dfs[proc]['max_b_tag_score_sel'] > 0.4)
-        mask = mask & (dfs[proc]['second_max_b_tag_score_sel'] > 0.4)
-        #mask = mask & (dfs[proc]['HT_sel'] > 200)
-        
-        dfs[proc] = dfs[proc][mask]
-        yield_after_sel = dfs[proc]['true_weight'].sum()
-        eff = (yield_after_sel/yield_before_sel)*100
-        
-    
-        dfs[proc]['pt_sel'] = dfs[proc]['pt-over-mass_sel'] * dfs[proc]['mass_sel']
-    
-        if proc == "ttH_SMEFT":
-            dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
-    
-    
-         # Extract the features for NN input
+        # Extract the features for NN input
         features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
         features = [f"{feature}_sel" for feature in features]
-        
+       
         if not all(feature in dfs[proc].columns for feature in features):
             raise ValueError(f"Missing one or more required features in process {proc}")
-    
+
+
         # Prepare the input tensor for the NN
         nn_input = torch.tensor(dfs[proc][features].values, dtype=torch.float32)
     
@@ -169,7 +174,6 @@ def bounds_of_wilson_coefficients(category_bounds):
     
     def exponential_decay(x, A, lambd):
         return A * np.exp(-lambd * (x - 120))
-    
     
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -279,9 +283,7 @@ def bounds_of_wilson_coefficients(category_bounds):
     
     # Specify only the keys of interest
     keys_of_interest = [
-        'frozen_cg_vals',
         'profile_cg_vals',
-        'frozen_ctg_vals',
         'profile_ctg_vals'
     ]
     
@@ -406,10 +408,10 @@ def optimize_category_bounds_improved(fix_ends=False):
         best_value = float('inf')
         
         initial_guesses = [
-            [0.0986808922572032, 0.31811643626238006, 0.5, 0.6818835637376199, 0.9013191077427969],  # Original guess
-            #np.linspace(0.1, 0.9, num_bounds),  # Linear spread
-            #np.array([0.1, 0.2, 0.5, 0.7, 0.9]),  # Asymmetric spread
-            #np.array([0.2, 0.3, 0.4, 0.5, 0.6])   # Center-focused
+            #[0.0986808922572032, 0.31811643626238006, 0.5, 0.6818835637376199, 0.9013191077427969],  # Original guess
+            np.linspace(0.1, 0.9, num_bounds),  # Linear spread
+            np.array([0.1, 0.2, 0.5, 0.7, 0.9]),  # Asymmetric spread
+            np.array([0.2, 0.3, 0.4, 0.5, 0.6])   # Center-focused
         ]
 
         for x0 in initial_guesses:
@@ -466,7 +468,95 @@ best_bounds_free, min_obj_free = optimize_category_bounds_improved(fix_ends=Fals
 print("Optimized boundaries:", best_bounds_free)
 print("Objective value:", min_obj_free)
 
+#%%
 
 
 
+boundary_values = np.linspace(0.21, 0.6, 20)  # 20 points from 0.6 to 0.9
+results = []
 
+for b2 in boundary_values:
+    # category_bounds = [0, 0.2, 0.5, b3, 1]
+    val = bounds_of_wilson_coefficients([0, 0.2, b2, 0.6, 1])
+    results.append(val)
+
+plt.figure(figsize=(7,5))
+plt.plot(boundary_values, results, marker='o')
+plt.xlabel("Fourth boundary")
+plt.ylabel("Objective value")
+plt.title("1D scan of objective vs. one NN boundary")
+plt.grid(True)
+plt.show()
+
+# For 4 categories, we have 5 boundaries: [0, b1, b2, 1].
+# (Here we assume we only want 3 categories for illustration.
+#  If you truly need 4 categories, you’ll want [0, b1, b2, b3, 1]
+#  in a triple-nested loop. The principle is the same.)
+
+#%%
+
+n_points = 20
+b1_range = np.linspace(0.0, 0.8, n_points)
+b2_range = np.linspace(0.2, 1.0, n_points)
+
+value_grid = np.zeros((n_points, n_points))
+
+for i, b1 in enumerate(b1_range):
+    for j, b2 in enumerate(b2_range):
+        # Make sure b2 > b1 so the bins make sense
+        if b2 > b1:
+            category_bounds = [0, b1, b2, 1]  
+            obj_val = bounds_of_wilson_coefficients(category_bounds)
+            value_grid[i, j] = obj_val
+        else:
+            # Invalid region or force it to be NaN
+            value_grid[i, j] = np.nan
+
+# Now produce a contour or heatmap plot
+B1, B2 = np.meshgrid(b2_range, b1_range)  # watch ordering
+
+plt.figure(figsize=(8,6))
+contour = plt.contourf(B1, B2, value_grid, levels=30, cmap='viridis')
+plt.colorbar(contour, label='Objective Value')
+plt.xlabel("Boundary b2")
+plt.ylabel("Boundary b1")
+plt.title("2D scan of objective vs. two NN boundaries")
+plt.show()
+
+#%%
+'''
+def objective(mid_bounds):
+    """
+    mid_bounds is [x1, x2, x3], with 0 < x1 < x2 < x3 < 1.
+    We build [0, x1, x2, x3, 1] and evaluate the function.
+    """
+    category_bounds = [0.0] + sorted(mid_bounds) + [1.0]
+    return bounds_of_wilson_coefficients(category_bounds)
+
+min_prob = float("-inf")
+max_prob = float("inf")
+
+lower = min_prob+0.1
+upper = max_prob-0.1
+init_guess = [0.2, 0.5, 0.7]
+#init_guess = [0.4905974388217408, 0.5436479211218064, 0.6436479210861633, 0.7436479061841965]
+
+bounds = [(lower, upper), (lower, upper), (lower, upper)]
+
+min_sep = 0.05
+options = {'eps': 1e-4, 'ftol': 1e-6}  # Reduce step size and tolerance
+# Define constraints to ensure increasing order
+constraints = [{'type': 'ineq', 'fun': lambda x, i=i: x[i+1] - x[i] - min_sep} for i in range(len(init_guess) - 1)]
+#constraints = [{'type': 'ineq', 'fun': lambda x: x[i+1] - x[i]} for i in range(len(init_guess) - 1)]
+
+
+res = minimize(objective, init_guess, method='SLSQP', bounds=bounds, constraints=constraints, options=options)
+
+# Print the result
+print("Optimization result:")
+print(res)
+
+# Extract the optimized values
+optimized_values = res.x
+print("Optimized values:", optimized_values)
+'''

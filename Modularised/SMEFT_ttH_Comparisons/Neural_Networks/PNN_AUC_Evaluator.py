@@ -164,38 +164,43 @@ with open(filename, 'r') as file:
 #%% 5) SCAN OVER c_g (KEEP c_{tg}=0), PLOT AUC
 
 # Define a range of cg values to test
-cg_values = np.linspace(-2, 2, 20)
+cg_values = np.linspace(-3, 3, 31)
+
 
 # Create a new figure for the plot
 plt.figure(figsize=(10, 6))
 
-# Iterate over the different (cg, ctg) pairs
-for cg, ctg in [(0, 0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
-    
-    # Split the dataset into two halves (for SM and SMEFT testing)
-    df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
-    
-    # Set the initial cg and ctg values in the SMEFT test set
-    df_smeft_test["cg"]  = cg
-    df_smeft_test["ctg"] = ctg
-    
-    df_sm_test["cg"]  = cg
-    df_sm_test["ctg"] = ctg
-    
-    # Label the datasets (0 for SM, 1 for SMEFT)
-    df_sm_test["label"] = 0
-    df_smeft_test["label"] = 1
-    
-    # Apply the SMEFT weights based on the initial cg and ctg values
-    df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
-    
+ctg_lines = [0] #, +0.69, -0.69, +1, -1]
+
+for ctg_val in ctg_lines:
     auc_scores = []
-    
-    # Now vary the cg value (keeping ctg = 0) to compute the AUC for each setting
     for cg_val in cg_values:
-        df_smeft_test["cg"]  = cg_val
-        df_smeft_test["ctg"] = ctg
         
+        # Split the dataset into two halves (for SM and SMEFT testing)
+        df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+        
+        # Set the initial cg and ctg values in the SMEFT test set
+        df_smeft_test["cg"]  = cg_val
+        df_smeft_test["ctg"] = ctg_val
+        
+        df_sm_test["cg"]  = cg_val
+        df_sm_test["ctg"] = ctg_val
+        
+        # Label the datasets (0 for SM, 1 for SMEFT)
+        df_sm_test["label"] = 0
+        df_smeft_test["label"] = 1
+        
+        # Apply the SMEFT weights based on the initial cg and ctg values
+        #df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+    
+        #Normalise Weights
+        df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
+        df_sm_test["true_weight"] *= 10**4
+        
+        df_smeft_test["true_weight"] /= df_smeft_test["true_weight"].sum()
+        df_smeft_test["true_weight"] *= 10**4
+    
         # Compute the AUC score using your model and the specified features
         auc_score = compute_auc_for_dataset(
             df_sm_test,
@@ -203,16 +208,19 @@ for cg, ctg in [(0, 0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
             loaded_model,
             feature_cols=features
         )
-        auc_scores.append(auc_score)
     
-    # Plot the AUC scores versus the cg values for the current (cg, ctg) pair.
-    # The label indicates the initial values used for weighting.
-    plt.plot(cg_values, auc_scores, label=f'Initial cg={cg}, ctg={ctg}', marker = "o")
+        auc_scores.append(auc_score)
+        
+        # Plot the AUC scores versus the cg values for the current (cg, ctg) pair.
+        # The label indicates the initial values used for weighting.
+    
+    
+    plt.plot(cg_values, auc_scores, label=f'PNN ctg={ctg_val}', marker = "o")
 
 # Label the axes and add a title
 plt.xlabel('cg value')
 plt.ylabel('AUC score')
-plt.title('AUC vs cg for different (cg, ctg) pairs')
+plt.title('AUC vs cg ')
 
 
 plt.plot(NN_AUC_Scores["Cg Values"], NN_AUC_Scores["NN: AUC vs Cg"], label="NN AUC Score", marker = "o")
@@ -227,37 +235,43 @@ plt.show()
 #%% 6) SCAN OVER c_{tg} (KEEP c_g=0), PLOT AUC
 
 # Define a range of ctg values to test
-ctg_values = np.linspace(-2, 2, 20)
+ctg_values = np.linspace(-3, 3, 31)
 
 # Create a new figure for the plot
 plt.figure(figsize=(10, 6))
 
-# Iterate over the different (cg, ctg) pairs
-for cg, ctg in [(0, 0), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
-    
-    # Split the dataset into two halves (for SM and SMEFT testing)
-    df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
-    
-    # Set the initial cg and ctg values in the SMEFT test set
-    df_smeft_test["cg"]  = cg
-    df_smeft_test["ctg"] = ctg
-    
-    df_sm_test["cg"]  = cg
-    df_sm_test["ctg"] = ctg
-    
-    # Label the datasets (0 for SM, 1 for SMEFT)
-    df_sm_test["label"] = 0
-    df_smeft_test["label"] = 1
-    
-    # Apply the SMEFT weights based on the initial cg and ctg values
-    df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
-    
+cg_lines = [0] #, +0.3, -0.3, +1, -1]
+
+for cg_val in cg_lines:
     auc_scores = []
-    
-    # Now vary the cg value (keeping ctg = 0) to compute the AUC for each setting
     for ctg_val in ctg_values:
-        df_smeft_test["cg"]  = 0
+        
+        # Split the dataset into two halves (for SM and SMEFT testing)
+        df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+        
+        # Set the initial cg and ctg values in the SMEFT test set
+        df_smeft_test["cg"]  = cg_val
         df_smeft_test["ctg"] = ctg_val
+        
+        df_sm_test["cg"]  = cg_val
+        df_sm_test["ctg"] = ctg_val
+        
+        # Label the datasets (0 for SM, 1 for SMEFT)
+        df_sm_test["label"] = 0
+        df_smeft_test["label"] = 1
+        
+        # Apply the SMEFT weights based on the initial cg and ctg values
+        #df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        
+        df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        
+        #Normalise Weights
+        df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
+        df_sm_test["true_weight"] *= 10**4
+        
+        df_smeft_test["true_weight"] /= df_smeft_test["true_weight"].sum()
+        df_smeft_test["true_weight"] *= 10**4
+        
         
         # Compute the AUC score using your model and the specified features
         auc_score = compute_auc_for_dataset(
@@ -266,16 +280,19 @@ for cg, ctg in [(0, 0), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
             loaded_model,
             feature_cols=features
         )
-        auc_scores.append(auc_score)
     
-    # Plot the AUC scores versus the cg values for the current (cg, ctg) pair.
-    # The label indicates the initial values used for weighting.
-    plt.plot(ctg_values, auc_scores, label=f'Initial cg={cg}, ctg={ctg}', marker = "o")
+        auc_scores.append(auc_score)
+        
+        # Plot the AUC scores versus the cg values for the current (cg, ctg) pair.
+        # The label indicates the initial values used for weighting.
+    
+    
+    plt.plot(ctg_values, auc_scores, label=f'PNN cg={cg_val}', marker = "o")
 
 # Label the axes and add a title
 plt.xlabel('ctg value')
 plt.ylabel('AUC score')
-plt.title('AUC vs ctg for different (cg, ctg) pairs')
+plt.title('AUC vs ctg')
 
 plt.plot(NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"], label="NN AUC Score", marker = "o")
 
@@ -287,21 +304,42 @@ plt.grid()
 plt.show()
 
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
-cg_range = np.linspace(-2, 5, 100)
-ctg_range = np.linspace(-10, 2, 100)
+cg_range = np.linspace(-2, 2, 30)
+ctg_range = np.linspace(-2, 2, 30)
 auc_grid = np.zeros((len(cg_range), len(ctg_range)))
 
 for i, cg_val in enumerate(cg_range):
     for j, ctg_val in enumerate(ctg_range):
-        df_smeft_test = df_sm_test.copy()
+        # Split the dataset into two halves (for SM and SMEFT testing)
+        df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+        
+        # Set the initial cg and ctg values in the SMEFT test set
         df_smeft_test["cg"]  = cg_val
         df_smeft_test["ctg"] = ctg_val
+        
+        df_sm_test["cg"]  = cg_val
+        df_sm_test["ctg"] = ctg_val
+        
+        # Label the datasets (0 for SM, 1 for SMEFT)
+        df_sm_test["label"] = 0
         df_smeft_test["label"] = 1
+        
+        # Apply the SMEFT weights based on the initial cg and ctg values
+        #df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        
         df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        
+        #Normalise Weights
+        df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
+        df_sm_test["true_weight"] *= 10**4
+        
+        df_smeft_test["true_weight"] /= df_smeft_test["true_weight"].sum()
+        df_smeft_test["true_weight"] *= 10**4
+        
         auc_grid[i, j] = compute_auc_for_dataset(
-            df_test_sm,
+            df_sm_test,
             df_smeft_test,
-            model,
+            loaded_model,
             feature_cols=features
         )
 
@@ -316,3 +354,7 @@ plt.xlabel(r"$c_{tg}$")
 plt.ylabel(r"$c_{g}$")
 plt.title(r"2D Contour of AUC vs $(c_g, c_{tg})$")
 plt.show()
+
+
+#%%
+

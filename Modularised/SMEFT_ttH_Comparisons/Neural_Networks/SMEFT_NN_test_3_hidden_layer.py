@@ -339,7 +339,7 @@ def compute_auc_for_dataset(df_class0, df_class1, model, feature_cols):
     return auc_val
 
 #%% 5) SCAN OVER c_g (KEEP c_{tg}=0), PLOT AUC
-cg_values = np.linspace(-2, 2, 20)
+cg_values = np.linspace(-3, 3, 31)
 auc_vs_cg = []
 
 
@@ -365,7 +365,7 @@ plt.grid(True)
 plt.show()
 
 #%% 6) SCAN OVER c_{tg} (KEEP c_g=0), PLOT AUC
-ctg_values = np.linspace(-2, 2, 20)
+ctg_values = np.linspace(-3, 3, 31)
 auc_vs_ctg = []
 
 for ctg_val in ctg_values:
