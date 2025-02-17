@@ -28,7 +28,7 @@ ttH_df = get_tth_df()
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
 
-comb_df=get_labeled_comb_df(ttH_df, "rand", special_features, c_g, c_tg)
+comb_df=get_labeled_comb_df(ttH_df, "rand", special_features, c_g, c_tg, norm_weights=True)
 
 #Dropping all rows with nans
 comb_df = comb_df.dropna()
@@ -75,9 +75,9 @@ input_dim = X_train.shape[1]
 hidden_dim = [256, 64, 32, 16, 8]
 
 #model = LogisticRegression(input_dim)
-#model = ComplexNN(input_dim, hidden_dim, 1) 
+model = ComplexNN(input_dim, hidden_dim, 1) 
 #model = WadNeuralNetwork(input_dim, input_dim*3)
-model = MergedNN(input_dim, hidden_dims=hidden_dim, output_dim=1)
+#model = MergedNN(input_dim, hidden_dims=hidden_dim, output_dim=1)
 #criterion = nn.BCELoss(reduction='none')  # No reduction for custom weighting
 criterion = WeightedBCELoss()
 

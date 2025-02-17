@@ -14,8 +14,12 @@ from chi2 import get_chi_squared
 plt.style.use(hep.style.CMS)
 
 plotter = Plotter()
-mine = True
+mine = False
 norm_eft = False
+param = True
+cg = 0.3
+ctg = 0.69
+
 #Extract relevant columns from overall df
 wad_cats = [0, 0.22491833, 0.27491833, 0.32491833, 0.69582565,1]
 my_cats = [0,0.32273505, 0.37273505, 0.42273505, 0.65670192,1]
@@ -60,11 +64,15 @@ else:
 for proc, df in dfs.items():
     
     weight_col = "true_weight_sel"
-    
+
     new_df = pd.concat([df[feature] for feature in special_features], axis=1)
     mass = df["mass_sel"]
     weight = df[weight_col]
     new_df=scaler.transform(new_df)
+    if param:
+        cg_vals = np.array([cg]*len(new_df))
+        ctg_vals = np.array([ctg]*len(new_df))
+        new_df = np.concatenate([new_df, cg_vals.reshape(-1,1), ctg_vals.reshape(-1,1)], axis=1)
     new_df = np.concatenate([new_df, mass.to_numpy().reshape(-1,1), weight.to_numpy().reshape(-1,1)], axis=1)
     dfs[proc] = torch.tensor(new_df, dtype=torch.float32)
 
@@ -74,16 +82,22 @@ dfs_preds = {}
 dfs_cats = {}
 
 #Loading model
-input_dim = len(special_features)
+input_dim = len(new_df[0])-2 #-2 for mass and weight column
 hidden_dim = [256, 64, 32, 16, 16, 8]
 
 if mine:
     model = ComplexNN(input_dim, hidden_dim, 1)
-    model.load_state_dict(torch.load("saved_models/model.pth"))
+    if param:
+        model.load_state_dict(torch.load("saved_models/param_model.pth"))
+    else:
+        model.load_state_dict(torch.load("saved_models/model.pth"))
     cats = my_cats
 else:
     model = WadNeuralNetwork(input_dim, input_dim*3)
-    model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
+    if param:
+        model.load_state_dict(torch.load("saved_models/wad_param_model.pth"))
+    else:
+        model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
     cats = wad_cats
 #model = ComplexNN(input_dim, hidden_dim, 1)
 #model.load_state_dict(torch.load("saved_models/model.pth"))
@@ -341,8 +355,8 @@ plotter.overlay_line_plots(
     title="Delta nll minimisation over c_g",
     xlabel="c_g",
     ylabel="2*Delta NLL",
-    labels=[
-        fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$",
+    labels=[("Param " if param else "")+
+        (fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$"),
         fr"Pt cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$",
         fr"$\chi^2$ cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
     ],
@@ -354,8 +368,8 @@ plotter.overlay_line_plots(
     y_datasets=[dnll_ctg, dnll_pt_ctg, chi_2_c_tg],
     title="Delta nll minimisation over c_tg",
     xlabel="c_tg", ylabel="2*Delta NLL",
-    labels=[
-        fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$",
+    labels=[("Param " if param else "")+
+        (fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$"),
         fr"Pt cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$",
         fr"$\chi^2$ cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
     ],

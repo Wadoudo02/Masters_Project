@@ -37,7 +37,7 @@ comb_df_init = pd.concat([ttH_df[var] for var in special_features+["true_weight_
 comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
 
 comb_df_init = comb_df_init.dropna()
-mine = False
+mine = True
 norm_eft = True
 
 #Duplicating dataset for eft and sm
@@ -282,7 +282,7 @@ for cg, ctg in [(0.5,0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
     plt.show()
 
 # Save the trained model
-torch.save(model.state_dict(), 'saved_models/wad_param_model.pth')
+#torch.save(model.state_dict(), 'saved_models/param_model.pth')
 
 # %%
 #Variation in AUC over range of cg values
@@ -344,15 +344,15 @@ ax.legend()
 #%%
 #2D variation of AUC over cg and ctg
 # Define the range of values for cg and ctg
-cg_vals_test = np.arange(-1.5, 1.5, 0.3)
-ctg_vals_test = np.arange(-1.5, 1.5, 0.3)
+cg_grid_test = np.arange(-1.5, 1.5, 0.3)
+ctg_grid_test = np.arange(-1.5, 1.5, 0.3)
 
 # Initialize a 2D array to store AUC values
-auc_matrix = np.zeros((len(cg_vals_test), len(ctg_vals_test)))
+auc_matrix = np.zeros((len(cg_grid_test), len(ctg_grid_test)))
 
 # Loop over cg and ctg values
-for i, cg in enumerate(cg_vals_test):
-    for j, ctg in enumerate(ctg_vals_test):
+for i, cg in enumerate(cg_grid_test):
+    for j, ctg in enumerate(ctg_grid_test):
         # Copy and prepare the dataset
         ttH_df_set = ttH_df.copy()
         comb_df_init = pd.concat([ttH_df_set[var] for var in special_features + ["true_weight_sel", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]], axis=1)
@@ -394,7 +394,7 @@ for i, cg in enumerate(cg_vals_test):
 
 # Plotting the 2D heatmap
 fig, ax = plt.subplots(figsize=(10, 8))
-sns.heatmap(auc_matrix, xticklabels=np.round(ctg_vals_test, 2), yticklabels=np.round(cg_vals_test, 2), cmap="viridis", ax=ax)
+sns.heatmap(auc_matrix, xticklabels=np.round(ctg_grid_test, 2), yticklabels=np.round(cg_grid_test, 2), cmap="viridis", ax=ax)
 ax.set_xlabel("ctg")
 ax.set_ylabel("cg")
 ax.set_title("AUC variation over cg and ctg")
