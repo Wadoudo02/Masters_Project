@@ -41,7 +41,7 @@ loaded_model.eval()
 import json
 
 # Load the probability values
-with open("data/proba_values_PNN.json", "r") as json_file:
+with open("data/proba_values_PNN_2.json", "r") as json_file:
     proba_data = json.load(json_file)
 
 max_proba = proba_data["max_proba"]
@@ -55,6 +55,9 @@ category_boundaries = [
 ]
 
 
+
+#category_boundaries = [0, 0.165, 0.204, 0.294, 1] # Background percentiles
+#category_boundaries = [0.,         0.25129123, 0.5375651,  0.66691406, 1.        ]
 # category_boundaries[0] = 0
 # category_boundaries[4] = 1
 

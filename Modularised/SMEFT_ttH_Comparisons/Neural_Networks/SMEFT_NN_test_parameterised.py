@@ -408,7 +408,7 @@ max_proba = float(y_proba_test.max())
 min_proba = float(y_proba_test.min())
 proba_data = {"max_proba": max_proba, "min_proba": min_proba}
 
-with open("proba_values_PNN_2.json", "w") as json_file:
+with open("data/proba_values_PNN.json", "w") as json_file:
     json.dump(proba_data, json_file)
 
 print(f" --> Saved model to 'neural_network_parameterised.pth'")
