@@ -24,7 +24,7 @@ procs = {
 
 
 # Variable to plot
-v = "deltaR"
+v = "mass"
 
 # Extract plotting details from vars_plotting_dict
 if v == "pt":

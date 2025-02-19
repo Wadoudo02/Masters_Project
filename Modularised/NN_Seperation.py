@@ -18,7 +18,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network.pth")
+checkpoint = torch.load("data/neural_network_yielded.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -29,11 +29,11 @@ loaded_model.load_state_dict(checkpoint["model_state"])
 # Set model to evaluation mode
 loaded_model.eval()
 
-'''
+
 import json
 
 # Load the probability values
-with open("proba_values.json", "r") as json_file:
+with open("data/proba_values_yielded.json", "r") as json_file:
     proba_data = json.load(json_file)
 
 max_proba = proba_data["max_proba"]
@@ -46,13 +46,13 @@ category_boundaries = [
     min_proba + i * (proba_range / 4) for i in range(5)  # 5 boundaries for 4 categories
 ]
 
-'''
+
 #category_boundaries = [0, 0.24066145, 0.29167122, 0.33349041, 1] # Background Percentiles
 
 #category_boundaries[0] = 0
 #category_boundaries[4] = 1
 
-category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.710416158614033, 1.0]
+#category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.710416158614033, 1.0]
 
 plot_entire_chain = False
 

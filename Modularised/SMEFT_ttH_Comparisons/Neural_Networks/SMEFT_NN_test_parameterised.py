@@ -87,11 +87,17 @@ df_tth['true_weight'] = df_tth['plot_weight']/10
 # Define a derived variable: 'pt_sel' = (pt-over-mass_sel) * mass_sel
 df_tth["pt_sel"] = df_tth["pt-over-mass_sel"] * df_tth["mass_sel"]
 
-# Drop rows with non-positive weights
-invalid_weights = (df_tth["plot_weight"] <= 0)
-if invalid_weights.any():
+yield_weight = dfs[proc]["plot_weight"].sum()
+
+invalid_weights = df_tth["plot_weight"] <= 0
+if invalid_weights.sum() > 0:
     print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
     df_tth = df_tth[~invalid_weights]
+    
+dfs[proc]["plot_weight"] /= dfs[proc]["plot_weight"].sum()
+dfs[proc]["plot_weight"] *= yield_weight
+
+    
 
 #df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
 
@@ -245,7 +251,7 @@ scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
 # -------------------------------------------------------------------------
 #                             TRAINING LOOP
 # -------------------------------------------------------------------------
-epochs = 100
+epochs = 1000
 train_losses = []
 test_losses = []
 
@@ -402,15 +408,15 @@ model_ckpt = {
     "input_dim": input_dim,
     "hidden_dim": hidden_dim
 }
-torch.save(model_ckpt, "data/neural_network_parameterised.pth")
+torch.save(model_ckpt, "data/neural_network_parameterised_yielded.pth")
 
 max_proba = float(y_proba_test.max())
 min_proba = float(y_proba_test.min())
 proba_data = {"max_proba": max_proba, "min_proba": min_proba}
 
-with open("data/proba_values_PNN.json", "w") as json_file:
+with open("data/proba_values_PNN_yielded.json", "w") as json_file:
     json.dump(proba_data, json_file)
 
-print(f" --> Saved model to 'neural_network_parameterised.pth'")
+print(f" --> Saved model to 'data/neural_network_parameterised_yielded.pth'")
 print(f" --> Probability range: min={min_proba}, max={max_proba}")
 

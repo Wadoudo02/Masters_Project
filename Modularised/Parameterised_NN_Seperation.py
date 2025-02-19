@@ -26,7 +26,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_parameterised.pth")
+checkpoint = torch.load("data/neural_network_parameterised_yielded.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -36,7 +36,7 @@ loaded_model.load_state_dict(checkpoint["model_state"])
 
 # Set model to evaluation mode
 loaded_model.eval()
-
+'''
 
 import json
 
@@ -53,11 +53,11 @@ proba_range = max_proba - min_proba
 category_boundaries = [
     min_proba + i * (proba_range / 4) for i in range(5)  # 5 boundaries for 4 categories
 ]
-
+'''
 
 
 #category_boundaries = [0, 0.165, 0.204, 0.294, 1] # Background percentiles
-#category_boundaries = [0.,         0.25129123, 0.5375651,  0.66691406, 1.        ]
+category_boundaries = [0.,         0.25129123, 0.5375651,  0.66691406, 1.        ]
 # category_boundaries[0] = 0
 # category_boundaries[4] = 1
 
@@ -157,8 +157,8 @@ for i, proc in enumerate(procs.keys()):
 
     N = len(dfs[proc])
 
-    dfs[proc]["cg"]  = np.random.uniform(low=cg_min,  high=cg_max,  size=N)
-    dfs[proc]["ctg"] = np.random.uniform(low=ctg_min, high=ctg_max, size=N)
+    dfs[proc]["cg"]  = 0.3 #np.random.uniform(low=cg_min,  high=cg_max,  size=N)
+    dfs[proc]["ctg"] = 0.69 #np.random.uniform(low=ctg_min, high=ctg_max, size=N)
     
      # Extract the features for NN input
     features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]

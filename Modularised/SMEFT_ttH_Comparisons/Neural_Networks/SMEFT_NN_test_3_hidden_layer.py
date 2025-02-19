@@ -66,11 +66,15 @@ df_tth['plot_weight'] *= target_lumi / total_lumi  # Reweight to target lumi
 df_tth['pt_sel'] = df_tth['pt-over-mass_sel'] * df_tth['mass_sel']
 df_tth['true_weight'] = df_tth['plot_weight']/10
 
+yield_weight = dfs[proc]["plot_weight"].sum()
 
 invalid_weights = df_tth["plot_weight"] <= 0
 if invalid_weights.sum() > 0:
     print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
     df_tth = df_tth[~invalid_weights]
+    
+dfs[proc]["plot_weight"] /= dfs[proc]["plot_weight"].sum()
+dfs[proc]["plot_weight"] *= yield_weight
 
 # Split the dataset into two random halves
 df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
@@ -285,7 +289,7 @@ plt.show()
 
 
 # Save the model
-torch.save({"model_state": model.state_dict(), "input_dim": input_dim, "hidden_dim": hidden_dim}, "neural_network.pth")
+torch.save({"model_state": model.state_dict(), "input_dim": input_dim, "hidden_dim": hidden_dim}, "data/neural_network_yielded.pth")
 
 # Compute max and min probabilities
 max_proba = y_proba_test.max()
@@ -295,7 +299,7 @@ min_proba = y_proba_test.min()
 import json
 
 proba_data = {"max_proba": float(max_proba), "min_proba": float(min_proba)}
-with open("proba_values.json", "w") as json_file:
+with open("data/proba_values_yielded.json", "w") as json_file:
     json.dump(proba_data, json_file)
 
 
