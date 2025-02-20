@@ -10,7 +10,13 @@ ttH_df = pd.read_parquet(f"{new_sample_path}/ttH_processed_selected_with_smeft_c
 ttH_df = prep_df(ttH_df, "ttH")
 
 ttH_df = get_selection(ttH_df, "ttH")
-
+feat_maps = {"deltaR_sel" : r"$\Delta R$",
+             "HT_sel" : r"H_T",
+             "n_jets_sel" : "Number of jets",
+             "delta_phi_gg_sel" : r"$\Delta \phi_{\gamma\gamma}$",
+             "pt-over-mass_sel" : r"$p_T/m_{\gamma\gamma}$",
+             "lead_pt-over-mass_sel" : r"$p_{T,1}/m_{\gamma\gamma}$",
+             "pt": r"$p_T$",}
 print(list(ttH_df.columns))
 #%%
 '''
@@ -41,41 +47,46 @@ def apply_weight_change(df, ax, cg=0, ctg=0, var="mass_sel"):
     if cg==0 and ctg==0:
         hist = ax.hist(df[var], bins=n_bins, label=f"cg={cg}, ctg={ctg}, SM", weights=cur_weights, alpha = 0.3, color="gray", density=True)
     else:
-        hist = ax.hist(df[var], bins=n_bins, label=f"cg={cg}, ctg={ctg}", weights=cur_weights, histtype="step",linewidth=1.5,density=True)
+        hist = ax.hist(df[var], bins=n_bins, label=f"cg={cg}, ctg={ctg}", weights=cur_weights, histtype="step",linewidth=1.5,density=True, color="black")
     return hist
     
 #All_combs =True will plot all 4 combinations, False will plot SM and just cg and just ctg combs aswell
-def plot_eft_hists(var="mass_sel", all_combs = True): 
-    fig, (ax, ax_ratio) = plt.subplots(2,1, figsize=(15,15),gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
+def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], ax=None, ax_ratio=None):
+    if not ax and not ax_ratio:
+        fig, (ax, ax_ratio) = plt.subplots(2,1, figsize=(15,15),gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
+    
     #ax.set_xlim(0,500)
     ax.legend()
-    ax.set_xlabel(f"{var}")
-    ax.set_ylabel("Events")
+    
+    #ax_ratio.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", )
+    #ax.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", fontsize = 30)
 
-    fig.suptitle("Event distribution for different wilson coefficients.")
+    ax.set_ylabel("Events", fontsize =30)
 
-    if all_combs:
-        combs = [(c_g_con, c_tg_con), (0, c_tg_con), (c_g_con, 0)]
-    else:
-        combs = [(c_g_con, c_tg_con)]
-    hist_sm = apply_weight_change(ttH_df, ax, cg=0, ctg=0, var=var)
+    #fig.suptitle("Event distribution for different wilson coefficients.")
+
+    # if all_combs:
+    #     combs = [(c_g_con, c_tg_con), (0, c_tg_con), (c_g_con, 0)]
+    # else:
+    #     combs = [(c_g_con, c_tg_con)]
+    hist_sm = apply_weight_change(df, ax, cg=0, ctg=0, var=var)
 
     for c_g, c_tg in combs:
-        hist = apply_weight_change(ttH_df, ax, cg=c_g, ctg=c_tg, var=var)
+        hist = apply_weight_change(df, ax, cg=c_g, ctg=c_tg, var=var)
 
         bin_centers = (hist[1][:-1] + hist[1][1:]) / 2
         ratio = hist[0] / hist_sm[0]
 
-        ax_ratio.plot(bin_centers, ratio, label=f"cg={c_g}, ctg={c_tg}", drawstyle='steps-mid')
+    #     ax_ratio.plot(bin_centers, ratio, label=f"cg={c_g}, ctg={c_tg}", drawstyle='steps-mid', color="black")
 
-    ax_ratio.set_ylim(0,7)
+    # ax_ratio.set_ylim(0,7)
 
-    ax_ratio.axhline(1, color='grey', linestyle='--')
-    ax_ratio.set_ylabel("Ratio to SM")
-    ax_ratio.legend()
+    # ax_ratio.axhline(1, color='grey', linestyle='--')
+    # ax_ratio.set_ylabel("Ratio to SM")
+    # ax_ratio.legend()
 
-    plt.tight_layout()
-    plt.show()
+    #plt.tight_layout()
+    #plt.show()
 
 def plot_SMEFT_features(features):
     for feat in features:

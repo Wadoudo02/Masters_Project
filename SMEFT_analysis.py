@@ -10,6 +10,7 @@ import joblib
 import copy
 from Plotter import Plotter
 from chi2 import get_chi_squared
+import matplotlib.gridspec as gridspec
 
 plt.style.use(hep.style.CMS)
 
@@ -20,11 +21,18 @@ param = False
 cg = 0.3
 ctg = 0.69
 
+feat_maps = {"deltaR_sel" : r"$\Delta R$",
+             "HT_sel" : r"H_T",
+             "n_jets_sel" : "Number of jets",
+             "delta_phi_gg_sel" : r"$\Delta \phi_{\gamma\gamma}$",
+             "pt-over-mass_sel" : r"$p_T/m_{\gamma\gamma}$",
+             "lead_pt-over-mass_sel" : r"$p_{T,1}/m_{\gamma\gamma}$"}
+
 #Extract relevant columns from overall df
 wad_cats = [0, 0.22491833, 0.27491833, 0.32491833, 0.69582565,1] if not param else [0, 0.17430348, 0.22430348, 0.27430348, 0.55810981,1]
 my_cats = [0,0.32273505, 0.37273505, 0.42273505, 0.65670192,1] if not param else [0, 0.26127338, 0.31127338, 0.36136802, 0.7,1]
 
-#cats = [0, 0.4, 0.5, 0.6, 0.7,1]
+#my_cats = [0, 0.4, 0.5, 0.6, 0.7,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
 
 #%%
@@ -50,8 +58,8 @@ for i, proc in enumerate(procs.keys()):
 
     #Making sure final yield is the same as initial yield.
     dfs[proc]["true_weight_sel"] = (dfs[proc]["true_weight_sel"]/new_yield)*init_yield
+    print(f"{proc} delta r: ", max(dfs[proc]["deltaR_sel"]), min(dfs[proc]["deltaR_sel"]))
 
-dfs_copy = copy.deepcopy(dfs)
 dfs["ttH"] = ttH_df
 dfs["ttH_EFT"] = dfs["ttH"].copy()
 #Rescaling eft weights so that sum of eft weights = sum of sm weights
@@ -60,6 +68,7 @@ if norm_eft:
     dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["norm_weight_sel"]
 else:
     dfs["ttH_EFT"]["true_weight_sel"] = dfs["ttH_EFT"]["EFT_weight"]
+dfs_copy = copy.deepcopy(dfs)
 
 for proc, df in dfs.items():
     
@@ -103,7 +112,7 @@ else:
         model.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
     cats = wad_cats
 
-dfs_preds, dfs_cats = get_preds_cats(dfs,model=model, cats=cats, order=order)
+dfs_preds, dfs_cats = get_preds_cats(dfs,unscaled_dfs=dfs_copy, model=model, cats=cats, order=order)
 num_cats = len(dfs_cats["ggH"]["mass"])
 
 
@@ -133,9 +142,9 @@ fig, ax = plt.subplots(ncols = len(special_features),figsize=(30, 5))
 for feat in range(len(special_features)):
     
     plotter.overlay_histograms(
-        [dfs_cats["ttH"]["features"][i][:,feat] for i in range(len(dfs_cats["ttH"]["features"]))],
+        [dfs_cats["ttH"]["features"][i][special_features[feat]] for i in range(len(dfs_cats["ttH"]["features"]))],
         bins=50,
-        title=f"{special_features[feat]} distribution", xlabel=special_features[feat],
+        title=f"{special_features[feat]} distribution", xlabel=feat_maps[special_features[feat]],
         ylabel="Events", labels=[f"Cat {i}" for i in range(num_cats)],
         colors=["red", "blue", "green", "black", "purple"],
         weights = [dfs_cats["ttH"]["weights"][i] for i in range(num_cats)],
@@ -144,6 +153,93 @@ for feat in range(len(special_features)):
         density=True
         )
 
+# fig, ax = plt.subplots(ncols=2, nrows=2, figsize = (20,14))
+# plotter.overlay_histograms(
+#         [dfs_cats["ttH"]["features"][i][:,0] for i in range(len(dfs_cats["ttH"]["features"]))],
+#         bins=50,
+#         title=f"{special_features[0][:-4]} distribution", xlabel=special_features[0][:-4],
+#         ylabel="Events", labels=[f"Cat {i}" for i in range(num_cats)],
+#         colors=["red", "blue", "green", "black", "purple"],
+#         weights = [dfs_cats["ttH"]["weights"][i] for i in range(num_cats)],
+#         axes=ax[0][0],
+#         type="step",
+#         density=True
+#         )
+
+# plotter.overlay_histograms(
+#         [dfs_cats["ttH"]["features"][i][:,3] for i in range(len(dfs_cats["ttH"]["features"]))],
+#         bins=50,
+#         title=f"{special_features[3][:-4]} distribution", xlabel=special_features[3][:-4],
+#         ylabel="Events", labels=[f"Cat {i}" for i in range(num_cats)],
+#         colors=["red", "blue", "green", "black", "purple"],
+#         weights = [dfs_cats["ttH"]["weights"][i] for i in range(num_cats)],
+#         axes=ax[0][1],
+#         type="step",
+#         density=True
+#         )
+# ax_bottom_left = fig.add_subplot(223)
+# ax_ratio_bottom_left = fig.add_subplot(233, sharex=ax_bottom_left)
+# plot_eft_hists(ax=ax_bottom_left, ax_ratio=ax_ratio_bottom_left, var="deltaR_sel", all_combs=False)
+
+
+# ax_bottom_right = fig.add_subplot(224)
+# ax_ratio_bottom_right = fig.add_subplot(234, sharex=ax_bottom_right)
+# plot_eft_hists(ax=ax_bottom_right, ax_ratio=ax_ratio_bottom_right, var="delta_phi_gg_sel", all_combs=False)
+
+#plot_SMEFT_features(special_features)
+#%%
+fig = plt.figure(figsize=(20, 14))
+outer_grid = gridspec.GridSpec(2, 2, wspace=0.2, hspace=0.2)
+
+# Top-left subplot
+ax_top_left = fig.add_subplot(outer_grid[0, 0])
+#ax_top_left.plot([1, 2, 3], [4, 5, 6])  # Replace with your own plotting function
+plotter.overlay_histograms(
+        [dfs_cats["ttH"]["features"][i]["deltaR_sel"] for i in range(len(dfs_cats["ttH"]["features"]))],
+        bins=50,
+        title=f"{feat_maps['deltaR_sel']} distribution", xlabel=feat_maps[special_features[0]],
+        ylabel="Events", labels=[f"Cat {i}" for i in range(num_cats)],
+        colors=["red", "blue", "green", "black", "purple"],
+        weights = [dfs_cats["ttH"]["weights"][i] for i in range(num_cats)],
+        axes=ax_top_left,
+        type="step",
+        density=True
+        )
+# Top-right subplot
+ax_top_right = fig.add_subplot(outer_grid[0, 1])
+# ax_top_right.plot([1, 2, 3], [6, 5, 4])  # Replace with your own plotting function
+plotter.overlay_histograms(
+        [dfs_cats["ttH"]["features"][i]["delta_phi_gg_sel"] for i in range(len(dfs_cats["ttH"]["features"]))],
+        bins=50,
+        title=f"{feat_maps['delta_phi_gg_sel']} distribution", xlabel=feat_maps[special_features[3]],
+        ylabel="Events", labels=[f"Cat {i}" for i in range(num_cats)],
+        colors=["red", "blue", "green", "black", "purple"],
+        weights = [dfs_cats["ttH"]["weights"][i] for i in range(num_cats)],
+        axes=ax_top_right,
+        type="step",
+        density=True
+        )
+# Bottom-left nested 1x2 subplot
+inner_grid_left = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid[1, 0], height_ratios=[1], hspace=0.2)
+ax_bottom_left = fig.add_subplot(inner_grid_left[0])
+
+#ax_ratio_bottom_left = fig.add_subplot(inner_grid_left[1], sharex=ax_bottom_left)
+plot_eft_hists(df=ttH_df,var="deltaR_sel", combs = [(cg, ctg)], ax=ax_bottom_left)#, ax_ratio=ax_ratio_bottom_left)
+
+
+
+
+#ax_bottom_left.set_xticklabels([]) 
+# Bottom-right nested 1x2 subplot
+inner_grid_right = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid[1, 1], height_ratios=[1], hspace=0.2)
+
+ax_bottom_right = fig.add_subplot(inner_grid_right[0])
+#ax_ratio_bottom_right = fig.add_subplot(inner_grid_right[1], sharex=ax_bottom_right)
+plot_eft_hists(df=ttH_df,var="delta_phi_gg_sel", combs=[(cg, ctg)], ax=ax_bottom_right)#, ax_ratio=ax_ratio_bottom_right)
+#ax_bottom_right.set_xticklabels([])
+
+#%%
+plot_eft_hists(df=ttH_df,var="pt", combs = [(cg, ctg)], ax=None, ax_ratio=None)
 #%%
 #Getting weighted average of coefficients
 
@@ -171,7 +267,7 @@ hists = {}
 mass_range = (120,130)
 mass_bins = 5
 v = 'mass'
-c_vals = np.linspace(-3, 3, 100)
+c_vals = np.linspace(-3, 3, 1000)
 
 
 for proc in procs.keys():
@@ -326,43 +422,51 @@ if not param:
         param_dnll_cg, param_dnll_ctg = wad_param_dnll["dnll_cg"], wad_param_dnll["dnll_ctg"]
     
     param_cg_fit, param_cg_cons_up, param_cg_cons_down = find_crossings([c_vals, param_dnll_cg], 1.)
-    param_cg_cons = (pt_cg_cons_up, pt_cg_cons_down)
+    param_cg_cons = (param_cg_cons_up, param_cg_cons_down)
     param_ctg_fit, param_ctg_cons_up, param_ctg_cons_down = find_crossings([c_vals, param_dnll_ctg], 1.)
-    param_ctg_cons = (pt_ctg_cons_up, pt_ctg_cons_down)
-
-fig, ax = plt.subplots(1,2, figsize=(12, 6))
-fig.suptitle("NLL Profiled minimisation over c_g and c_tg")
+    param_ctg_cons = (param_ctg_cons_up, param_ctg_cons_down)
+param
+fig, ax = plt.subplots(2,1, figsize=(7, 10),gridspec_kw={'hspace': 0.3})
+#fig.suptitle("NLL Profiled minimisation over c_g and c_tg")
 ax[0].set_ylim(0, 1500)
 ax[1].set_ylim(0, 1500)
 plotter.overlay_line_plots(
     x=c_vals,
     y_datasets=[dnll_cg, dnll_pt_cg]+([param_dnll_cg] if not param else []),# chi_2_c_g],
-    title="Delta nll minimisation over c_g",
-    xlabel="c_g",
-    ylabel="2*Delta NLL",
+    #title=r"$\Delta$NLL minimisation over $C_{g}$",
+    xlabel=r"$C_{g}$",
+    ylabel=r"2$\Delta$NLL",
     labels=[("Param " if param else "")+
         (fr"NN cat ${cg_fit:.2f}^{{+{cg_cons[0]:.2f}}}_{{{cg_cons[1]:.2f}}}$"),
         fr"STXS cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$",
         #fr"$\chi^2$ cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
     ]+([fr"Param NN ${param_cg_fit:.2f}^{{+{param_cg_cons[0]:.2f}}}_{{{param_cg_cons[1]:.2f}}}$"] if not param else []),
-    colors=["red", "blue"]+(["green"] if not param else []),# "green"],
+    colors=["red", "black"]+(["purple"] if not param else []),# "green"],
     axes=ax[0],
-    ylim=[0, 10])
+    ylim=[0, 4],
+    xlim=[-1,1],
+    base_fontsize=24)
 plotter.overlay_line_plots(
     x=c_vals,
     y_datasets=[dnll_ctg, dnll_pt_ctg]+([param_dnll_ctg] if not param else []),# chi_2_c_tg],
-    title="Delta nll minimisation over c_tg",
-    xlabel="c_tg", ylabel="2*Delta NLL",
+    #title=r"$\Delta$NLL minimisation over $C_{tg}$",
+    xlabel=r"$C_{tg}$", ylabel=r"2$\Delta$NLL",
     labels=[("Param " if param else "")+
         (fr"NN cat ${ctg_fit:.2f}^{{+{ctg_cons[0]:.2f}}}_{{{ctg_cons[1]:.2f}}}$"),
         fr"STXS cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$",
         #fr"$\chi^2$ cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
     ]+([fr"Param NN ${param_ctg_fit:.2f}^{{+{param_ctg_cons[0]:.2f}}}_{{{param_ctg_cons[1]:.2f}}}$"] if not param else []),
-    colors=["red", "blue"] +(["green"] if not param else []),# "green"],
+    colors=["red", "black"] +(["purple"] if not param else []),# "green"],
     axes=ax[1],
-    ylim=[0, 10])
-ax[0].plot(c_vals, np.ones(len(c_vals)), linestyle="--")
-ax[1].plot(c_vals, np.ones(len(c_vals)),linestyle="--" )
+    ylim=[0, 4],
+    xlim=[-1,1],
+    base_fontsize=24)
+ax[0].plot(c_vals, np.ones(len(c_vals)), linestyle="--", color = "grey")
+x_mid = -0.7
+ax[0].text(x_mid, 1.05, r"68% CL, $2\Delta$NLL = 1", ha='center', va='bottom', fontsize=10, color='black')
+ax[1].plot(c_vals, np.ones(len(c_vals)),linestyle="--", color = "grey" )
+ax[1].text(-0.75, 1.05, r"68% CL, $2\Delta$NLL = 1", ha='center', va='bottom', fontsize=9, color='black')
+
 
 
 #%%

@@ -7,6 +7,7 @@ from SMEFT_utils import *
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import joblib
 
 import xgboost as xgb
@@ -154,3 +155,23 @@ plt.show()
 #torch.save(model.state_dict(), 'saved_models/model2.pth')
 #torch.save(model.state_dict(), 'saved_models/mergedNN.pth')
 # %%
+fig = plt.figure(figsize=(10, 20))
+outer_grid = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.15)
+
+# Top nested 1x2 subplot
+inner_grid_top = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer_grid[1], height_ratios=[3, 1], hspace=0.2)
+ax_top = fig.add_subplot(inner_grid_top[0])
+ax_ratio_top = fig.add_subplot(inner_grid_top[1], sharex=ax_top)
+plot_classifier_output(train_proba_np.squeeze(), y_train.squeeze(), w_train.squeeze(), ax=ax_top, ax_ratio=ax_ratio_top)
+for x in [0.3, 0.4, 0.5, 0.6, 0.7]:
+    ax_top.axvline(x=x, color='gray', linestyle='--', alpha=0.5)
+    ax_ratio_top.axvline(x=x, color='gray', linestyle='--', alpha=0.5)
+
+# Bottom nested 1x2 subplot
+inner_grid_bottom = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer_grid[0], height_ratios=[3, 1], hspace=0.2)
+ax_bottom = fig.add_subplot(inner_grid_bottom[0])
+ax_ratio_bottom = fig.add_subplot(inner_grid_bottom[1], sharex=ax_bottom)
+plot_eft_hists(df=ttH_df, var="pt", combs=[(0.3, 0.69)], ax=ax_bottom, ax_ratio=ax_ratio_bottom)
+for pt in [0, 60, 120, 200, 300]:
+    ax_bottom.axvline(x=pt, color='gray', linestyle='--', alpha=0.5)
+    ax_ratio_bottom.axvline(x=pt, color='gray', linestyle='--', alpha=0.5)

@@ -9,6 +9,9 @@ import torch
 import torch.nn as nn
 
 from EFT import *
+from Plotter import Plotter
+
+plotter = Plotter()
 class WadNeuralNetwork(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super(WadNeuralNetwork, self).__init__()
@@ -109,15 +112,33 @@ def get_tensors(oned, twod):
         res.append(torch.tensor(arg, dtype=torch.float32))
     return res
 
-def plot_classifier_output(y_probs, y_true, ws, ax):
+def plot_classifier_output(y_probs, y_true, ws, ax=None, ax_ratio=None):
+    if ax is None or ax_ratio is None:
+        fig, (ax, ax_ratio) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}, sharex=True)
+
     sm_probs = y_probs[y_true == 0].squeeze()  # Probabilities for SM (true label 0)
     eft_probs = y_probs[y_true == 1].squeeze()  # Probabilities for EFT (true label 1)
-    ax.hist(sm_probs, weights=ws[y_true == 0], histtype="step",bins=30, alpha=0.7, color='blue', label="SM (cg=0, ctg=0)", linewidth=2)
-    ax.hist(eft_probs, weights=ws[y_true == 1], histtype="step", bins=30, alpha=0.7, color='orange', label="EFT (cg=0.3, ctg=0.69)", linewidth=2)
-    ax.set_xlim(0, 1)
-    ax.set_xlabel('Predicted Probabilities')
-    ax.set_ylabel('Weighted Frequency')
-    ax.legend(loc="best")
+    #plotter.histogram(sm_probs, bins=30, xlabel="Predicted Probabilities", ylabel="Weighted Frequency", legend_label="SM (cg=0, ctg=0)", color=plotter.colors["blue"], axes=ax, weights=ws[y_true == 0], alpha=0.7)
+    plotter.overlay_histograms([sm_probs,eft_probs], bins=50, ylabel="Weighted Frequency", labels=["SM (cg=0, ctg=0)","EFT (cg=0.3, ctg=0.69)"], colors=["blue", "black"], axes=ax, weights=[ws[y_true==0],ws[y_true == 1]], alpha=0.7, type="step")
+    # Calculate the ratio
+    hist_sm, bins_sm = np.histogram(sm_probs, bins=50, weights=ws[y_true == 0])
+    hist_eft, bins_eft = np.histogram(eft_probs, bins=50, weights=ws[y_true == 1])
+    ratio = hist_eft / hist_sm
+    bin_centers = (bins_sm[:-1] + bins_sm[1:]) / 2
+
+    # Plot the ratio
+    ax_ratio.plot(bin_centers, ratio, label='EFT/SM', color='#0200FB', drawstyle='steps-mid')
+    ax_ratio.set_xlabel('Predicted Probabilities')
+    ax_ratio.set_ylabel('Ratio to SM')
+    ax_ratio.set_ylim(0, 6)
+    ax_ratio.axhline(1, color='black', linestyle='--')
+    ax_ratio.legend()
+    # ax.hist(sm_probs, weights=ws[y_true == 0], histtype="step",bins=30, alpha=0.7, color='blue', label="SM (cg=0, ctg=0)", linewidth=2)
+    # ax.hist(eft_probs, weights=ws[y_true == 1], histtype="step", bins=30, alpha=0.7, color='orange', label="EFT (cg=0.3, ctg=0.69)", linewidth=2)
+    # ax.set_xlim(0, 1)
+    # ax.set_xlabel('Predicted Probabilities')
+    # ax.set_ylabel('Weighted Frequency')
+    #ax.legend(loc="best")
 
 '''
 Type can be: dup (duplicate), rand (random), rand_eft (random with eft weights), rand_SM (random with SM weights)
@@ -257,6 +278,7 @@ def get_tth_df(cg=0.3, ctg=0.69):
     ttH_df = ttH_df[(ttH_df["mass_sel"] == ttH_df["mass_sel"])]
     ttH_df['plot_weight'] *= target_lumi / total_lumi
     ttH_df['true_weight_sel'] = ttH_df['plot_weight']/10  # Remove x10 multiplier
+    ttH_df["pt"] = ttH_df["pt-over-mass_sel"]*ttH_df["mass_sel"]
     #ttH_df = ttH_df.dropna()
 
     invalid_weights = ttH_df["true_weight_sel"] <= 0
@@ -274,13 +296,10 @@ def get_tth_df(cg=0.3, ctg=0.69):
     ttH_df["EFT_weight"] = np.asarray(calc_weights(ttH_df, weight_col="true_weight_sel", cg=cg, ctg=ctg))
     return ttH_df
 
-def get_preds_cats(dfs, model, cats, order=["ttH_EFT","background","ggH","VBF", "VH","ttH"]):
+def get_preds_cats(dfs, unscaled_dfs ,model, cats, order=["ttH_EFT","background","ggH","VBF", "VH","ttH"]):
     dfs_preds = {}
     dfs_cats = {}
 
-
-    #model = ComplexNN(input_dim, hidden_dim, 1)
-    #model.load_state_dict(torch.load("saved_models/model.pth"))
     model.eval()
 
     #Plotting classifier output
@@ -302,7 +321,7 @@ def get_preds_cats(dfs, model, cats, order=["ttH_EFT","background","ggH","VBF", 
         # plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax)
         # probs = model(df)
         #print(proc, list(probs))
-        dfs_preds[proc] = [probs, mass.flatten().numpy(),weight.flatten().numpy(), df.numpy()]
+        dfs_preds[proc] = [probs, mass.flatten().numpy(),weight.flatten().numpy(), unscaled_dfs[proc]]
         i+=1
     with_back=True
     
