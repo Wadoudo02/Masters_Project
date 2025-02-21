@@ -36,7 +36,7 @@ from scipy.optimize import minimize
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network.pth")
+checkpoint = torch.load("data/neural_network_yielded.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -328,7 +328,7 @@ def bounds_of_wilson_coefficients(category_bounds):
     return 10000 * np.sum([abs(num) for num in flattened_list])
 
 #print(bounds_of_wilson_coefficients_fast([0, 0.24066145, 0.29167122, 0.33349041, 1]))
-#print(bounds_of_wilson_coefficients([0, 0.3488496281206608, 0.5095711573958397, 0.6702926866710186, 1]))
+print(bounds_of_wilson_coefficients([0,  0.35235968604683876,  0.5163169130682945,  0.6802741400897503, 1]))
 
 
 
@@ -413,7 +413,7 @@ def objective_function(x):
     full_boundaries = np.array([0.0] + list(x_sorted) + [1.0])
     
     # Check if boundaries are too close together
-    if np.min(np.diff(full_boundaries)) < 0.05:  # Minimum gap of 0.05
+    if np.min(np.diff(full_boundaries)) < 0.01:  # Minimum gap of 0.05
         return 1e10  # Return large value if boundaries are too close
     
     try:
@@ -423,7 +423,9 @@ def objective_function(x):
         return 1e10  # Return large value if evaluation fails
 
 # Initial guess for the intermediate boundaries
-initial_guess = np.array([0.25, 0.5, 0.70])
+initial_guess = np.array([ 0.35235968604683876,  0.5163169130682945,  0.6802741400897503])
+
+
 
 # Define bounds for the optimization
 bounds = [(0.05, 0.95) for _ in range(3)]  # Each boundary must be between 0.05 and 0.95

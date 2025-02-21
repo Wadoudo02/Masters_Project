@@ -28,7 +28,7 @@ from scipy.optimize import minimize
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network.pth")
+checkpoint = torch.load("data/neural_network_yielded.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])

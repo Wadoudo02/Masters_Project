@@ -168,7 +168,9 @@ cg_values = np.linspace(-3, 3, 31)
 
 
 # Create a new figure for the plot
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(12, 6))
+
+plt.style.use(hep.style.CMS)
 
 ctg_lines = [0] #, +0.69, -0.69, +1, -1]
 
@@ -215,13 +217,13 @@ for ctg_val in ctg_lines:
         # The label indicates the initial values used for weighting.
     
     
-    plt.plot(cg_values, auc_scores, label=f'PNN ctg={ctg_val}', marker = "o")
+    plt.plot(cg_values, auc_scores, label=f'PNN $c_{{tg}}$={ctg_val}', marker = "o")
 
 # Label the axes and add a title
-plt.xlabel('cg value')
+plt.xlabel('$c_g$ value')
 plt.ylabel('AUC score')
-plt.title('AUC vs cg ')
 
+hep.cms.label("AUC vs $c_g$", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}")
 
 plt.plot(NN_AUC_Scores["Cg Values"], NN_AUC_Scores["NN: AUC vs Cg"], label="NN AUC Score", marker = "o")
 

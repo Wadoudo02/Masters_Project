@@ -301,7 +301,46 @@ import json
 proba_data = {"max_proba": float(max_proba), "min_proba": float(min_proba)}
 with open("data/proba_values_yielded.json", "w") as json_file:
     json.dump(proba_data, json_file)
+#%%
 
+# Plot Histograms
+plt.figure(figsize=(12, 8), dpi=300)
+
+plt.hist(y_proba_test[y_test == 1], bins=50, range=(0, 1),  density=plot_fraction, weights = w_test[y_test == 1], histtype='step', linewidth=2, label=f"SMEFT $(c_g, c_{{tg}}) = ({cg}, {ctg})$")
+plt.hist(y_proba_test[y_test == 0], bins=50, range=(0, 1),  density=plot_fraction, histtype='step', weights = w_test[y_test == 0], linewidth=2, label="SM $(c_g, c_{{tg}}) = (0, 0)$")
+plt.xlabel("Neural Network Output")
+plt.ylabel("Fraction of Events" if plot_fraction else "Events")
+
+# Draw vertical lines at the boundaries
+for b in category_boundaries:
+    plt.axvline(b, color='grey', linestyle='--', linewidth=1)
+
+# Label the 4 categories (A, B, C, D) at their midpoints
+labels = ['Category A', 'Category B', 'Category C', 'Category D']
+for i in range(4):
+    midpoint = 0.5 * (category_boundaries[i] + category_boundaries[i+1])
+    plt.text(
+        midpoint, 0.78, labels[i],
+        transform=plt.gca().get_xaxis_transform(),  # x in data coords, y in axes coords
+        ha='center', va='center',
+        color='grey', fontsize=12
+    )
+
+plt.ylim(0,4)
+
+plt.legend(loc = "best")
+hep.cms.label("Classifier SMEFT vs SM", com="13.6", lumi=target_lumi, ax=plt.gca())
+
+
+
+plt.tight_layout()
+plt.show()
+
+max_proba = y_proba_test.max()
+min_proba = y_proba_test.min()
+
+proba_range = max_proba - min_proba
+category_boundaries = np.array([min_proba + i * (proba_range / 4) for i in range(5)])  # 5 boundaries for 4 categories
 
 
 

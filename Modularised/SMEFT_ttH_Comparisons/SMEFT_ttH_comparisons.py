@@ -32,11 +32,11 @@ def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
     return proc_data
 
 # Variable to plot
-v = "deltaR"
+v = "pt"
 
 # Extract plotting details from vars_plotting_dict
 if v == "pt":
-    num_bins, plot_range, logplot, x_label = [50, (0, 1000), False, "$p_T$"]
+    num_bins, plot_range, logplot, x_label = [50, (0, 1000), False, "$p_T$ [GeV]"]
 else:
     num_bins, plot_range, logplot, x_label = vars_plotting_dict[v]
 
@@ -71,28 +71,42 @@ for j, (cg, ctg) in enumerate(cg_ctg_pairs):
     # Histogram data
     x = np.array(df_tth_temp[v])
     w = np.array(df_tth_temp['plot_weight'])
-    '''
+
     if plot_fraction:
         w /= w.sum()
-    '''
+
     # Plot histogram with color
     ax.hist(
-            x, bins=num_bins, range=plot_range, density=plot_fraction, weights=w,
+            x, bins=num_bins, range=plot_range, density=False, weights=w,
             histtype='step', color=colors[j], linewidth=2, alpha=1, label=f"$(c_g, c_{{tg}}) = ({cg}, {ctg})$"
                     )
     
 # Label and formatting
-ax.set_ylabel("Events")
+ax.set_ylabel("Fraction of Events")
 if logplot:
     ax.set_yscale("log")
-hep.cms.label("All ttH Events", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
+hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 ax.legend(loc="best", ncol=1)
 
 # Shared x-axis label from vars_plotting_dict
 ax.set_xlabel(x_label)
+# Define the boundaries and labels
+boundaries = [60, 120, 200, 300]
+pt_labels = ['0-60', '60-120', '120-200', '200-300', '>300']
+
+# Draw vertical lines and add labels at the boundaries
+for i, b in enumerate(boundaries):
+    ax.axvline(b, color='grey', linestyle='--', linewidth=1)
+    # Place the label above the line using the x-axis transform for the y position
+    # Here we label the boundary to the right (e.g. 60 gets labelled as "60-120")
+    ax.text(b + 25, 0.95, pt_labels[i+1], rotation=270, transform=ax.get_xaxis_transform(),
+            ha='right', va='top', color='grey', fontsize=8)
+# Optionally, label the left-most category at the left edge of the plot
+ax.text(ax.get_xlim()[0] + 25, 0.95, pt_labels[0], rotation=270, transform=ax.get_xaxis_transform(),
+        ha='right', va='top', color='grey', fontsize=8)
 
 # Adjust layout
-plt.tight_layout()
+plt.tight_layout(rect=[0.05, 0.05, 0.95, 0.95])
 
 # Save figure
 #fig.savefig(f"{plot_path}/ttH_SMEFT_{v}.png", bbox_inches="tight")

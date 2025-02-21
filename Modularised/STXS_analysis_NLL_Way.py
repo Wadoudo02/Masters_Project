@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Feb 20 14:16:40 2025
+
+@author: wadoudcharbak
+"""
+
 import numpy as np
 import pandas as pd
 
@@ -17,44 +25,6 @@ import torch
 from NN_utils import *
 
 
-# Load the model checkpoint
-checkpoint = torch.load("data/neural_network_yielded.pth")
-
-# Instantiate the model
-loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
-
-# Load model weights
-loaded_model.load_state_dict(checkpoint["model_state"])
-
-# Set model to evaluation mode
-loaded_model.eval()
-
-'''
-import json
-
-# Load the probability values
-with open("data/proba_values_yielded.json", "r") as json_file:
-    proba_data = json.load(json_file)
-
-max_proba = proba_data["max_proba"]
-min_proba = proba_data["min_proba"]
-
-print(f"Max Probability: {max_proba}, Min Probability: {min_proba}")
-
-proba_range = max_proba - min_proba
-category_boundaries = [
-    min_proba + i * (proba_range / 4) for i in range(5)  # 5 boundaries for 4 categories
-]
-
-'''
-#category_boundaries = [0, 0.20592188, 0.23070513, 0.27339321, 1] # Background Percentiles
-
-category_boundaries = [0.,         0.35235969, 0.51631691, 0.71428785, 1.        ]
-
-category_boundaries[0] = 0
-category_boundaries[4] = 1
-
-#category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.710416158614033, 1.0]
 
 plot_entire_chain = False
 
@@ -85,9 +55,6 @@ Quadratic = True
 
 # Load dataframes
 
-
-# Labels for the categories
-labels = ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D'] # Labels for each category
 
 
 dfs = {}
@@ -155,30 +122,12 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
 
 
-     # Extract the features for NN input
-    features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
-    features = [f"{feature}_sel" for feature in features]
-    
-    if not all(feature in dfs[proc].columns for feature in features):
-        raise ValueError(f"Missing one or more required features in process {proc}")
+    # Categorise events: separate regions of high EFT enhancement vs low EFT enhancement
 
-    # Prepare the input tensor for the NN
-    nn_input = torch.tensor(dfs[proc][features].values, dtype=torch.float32)
-
-    # Get NN predictions
-    with torch.no_grad():
-        probabilities = loaded_model(nn_input).squeeze().numpy()
-        
-    # Add the probabilties as a category
-    dfs[proc]["NN_probabilities"] = probabilities
-
-    # Categorise based on probabilities
-    dfs[proc]["category"] = pd.cut(
-        probabilities,
-        bins=category_boundaries,
-        labels=labels,
-        include_lowest=True
-    )
+    # Categorise events: separate into 5 categories by pt
+    bins = [0, 60, 120, 200, 300, np.inf]  # Define the boundaries for pt
+    labels = ['0-60', '60-120', '120-200', '200-300', '>300']  # Labels for each category
+    dfs[proc]['category'] = pd.cut(dfs[proc]['pt_sel'], bins=bins, labels=labels, right=False)
 
     # Output a quick summary of category distribution
     print(dfs[proc]["category"].value_counts())
@@ -282,140 +231,7 @@ for cat in cats_unique:
         fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
         plt.show()
     
-#%%
 
-# Looking into the NN, how its categorising the different features
-
-import seaborn as sns
-
-
-# Suppose you have this flag somewhere in your code:
-plot_fraction = True  # or False, depending on your needs
-
-plt.style.use(hep.style.CMS)
-
-# Define your unique category labels
-cats_unique = ["NN Cat A", "NN Cat B", "NN Cat C", "NN Cat D"]
-
-# Create a colour palette from seaborn and map each category to a unique colour
-palette = sns.color_palette("hls", n_colors=len(cats_unique))
-cat_colours = dict(zip(cats_unique, palette))
-
-features_to_plot = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
-
-# Create a 2x2 figure
-fig, axs = plt.subplots(2, 2, figsize=(16, 12), dpi=500)
-axs = axs.flatten()
-
-# Loop over each feature and its corresponding subplot
-for i, feat in enumerate(features_to_plot):
-    ax = axs[i]
-    
-    # Unpack the list: number of bins, range, log flag, and label text
-    bins, rng, logscale, xlabel = vars_plotting_dict[feat]
-    
-    feat_to_plot = feat + "_sel"
-
-    # For each category, plot a separate histogram
-    for cat in cats_unique:
-        # Create a mask for the current category
-        cat_mask = (dfs["ttH"]["category"] == cat)
-        x = dfs["ttH"][feat_to_plot][cat_mask]
-        w = dfs["ttH"]["plot_weight"][cat_mask]
-
-        # If requested, normalise the weights so each category's histogram has area=1
-        if plot_fraction and len(w) > 0 and w.sum() != 0:
-            w = w / w.sum()
-
-        # Plot the histogram for the current category
-        ax.hist(
-            x,
-            bins=bins,
-            range=rng,
-            weights=w,
-            histtype="step",
-            lw=2,
-            label=cat,
-            color=cat_colours[cat]
-        )
-
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel("Events")
-    ax.legend(loc="best")
-
-    # If the logscale flag is True, set the y-axis to a logarithmic scale
-    if logscale:
-        ax.set_yscale("log")
-
-# Add a CMS label to one of the subplots (or you can add it to all if preferred)
-hep.cms.label("ttH Features", data=True, lumi=300, com=13.6, ax=axs[0], lumi_format="{0:.0f}")
-
-plt.tight_layout()
-plt.show()
-# If you want to save to file:
-# fig.savefig("NN_feature_distributions.png", dpi=150, bbox_inches="tight")
-
-
-#%%
-plot_fraction = True
-
-if plot_entire_chain:
-    # Create a 5x1 figure. Adjust figsize/dpi to your liking.
-    fig, axs = plt.subplots(1, 5, figsize=(50, 10), dpi=300, sharex=True)
-    axs = axs.flatten()  # In case of indexing convenience
-
-    # Ensure the subplots do not overlap
-    plt.tight_layout(pad=3.0)
-
-    # Plot each process in its own subplot
-    for i, proc in enumerate(procs.keys()):
-        ax = axs[i]
-
-        # Grab the data and weights
-        x = dfs[proc]["NN_probabilities"]
-        w = dfs[proc]["true_weight"]
-
-        # Normalise to area=1 for this process if requested and non-zero sum
-        if plot_fraction and w.sum() > 0:
-            w = w / w.sum()  # Now the area under the histogram will be 1.
-        
-        # Plot the histogram with your chosen binning
-        ax.hist(
-            x,
-            bins=50,
-            range=(0, 1),
-            weights=w,
-            histtype='step',
-            linewidth=2,
-            label=f"{proc}",
-            density=False  # We handle normalisation ourselves
-        )
-
-        # Set axis labels
-        ax.set_xlabel("Neural Network Output")
-        ax.set_ylabel("Fraction of Events" if plot_fraction else "Events")
-
-        # Add legend
-        ax.legend(loc="best")
-
-        # Optionally add the CMS label to each subplot
-        hep.cms.label(f"{proc}", com="13.6", lumi=target_lumi, ax=ax)
-
-    # Final layout adjustments
-    plt.tight_layout()
-    plt.show()
-#%%
-
-probabilities = dfs["background"]["NN_probabilities"]
-weights = dfs["background"]["true_weight"]
-
-# Calculate weighted percentiles
-percentiles = np.array([25, 50, 75, 100])
-weighted_percentiles = weighted_quantile(probabilities, percentiles/100, weights)
-
-
-for p, v in zip(percentiles, weighted_percentiles):
-    print(f"{p}th percentile: {v:.3f}")
 
 #%%
 
@@ -454,7 +270,7 @@ for cat in cats_unique:
 
 # Define signal window parameters
 hists = {}
-breakpoint()
+
 mass_bins = 5
 v = 'mass'
 v_dfs = v + "_sel"
@@ -488,17 +304,16 @@ quadratic_order = True
 
 
 NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order)
-NLL_Results["Name"] = "NN"
+NLL_Results["Name"] = "STXS"
 
-Save_Results_to_JSON(NLL_Results, 'data/standard_NN_results.json')
+Save_Results_to_JSON(NLL_Results, 'data/STXS_NLL_results.json')
 
 #%%
 
 import json
 
 # Specify the filename to read the JSON data from
-filename = 'data/STXS_NLL_results.json'
-
+filename = 'data/chi_squared_results.json'
 
 # Read the JSON data back into a Python dictionary
 with open(filename, 'r') as file:

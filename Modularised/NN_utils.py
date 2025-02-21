@@ -430,13 +430,13 @@ def compare_frozen_scans(*datasets):
     """
     # Prepare figure and subplots
     fig, axes = plt.subplots(1, 2, figsize=(18, 12))
-    fig.suptitle("Comparison of FROZEN Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
+    fig.suptitle("Comparison of Frozen Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
 
     # -- Left subplot: c_g scan (frozen c_tg) --
     ax_left = axes[0]
     left_keys = [
-        ("frozen_NN_NLL_vals_cg",    "NN NLL (frozen c_tg)",    "frozen_cg_label"),
-        ("frozen_chi_squared_cg",    r"STXS $\chi^2$ (frozen c_tg)", "frozen_cg_label"),
+        ("frozen_NN_NLL_vals_cg",    "NN NLL (frozen $c_{tg}$)",    "frozen_cg_label"),
+        ("frozen_chi_squared_cg",    r"STXS $\chi^2$ (frozen $c_{tg}$)", "frozen_cg_label"),
     ]
     
     for data in datasets:
@@ -460,20 +460,37 @@ def compare_frozen_scans(*datasets):
                 ax_left.plot(cg_values, data[data_key], label=legend_label, lw=2)
 
     # Horizontal lines for confidence regions
-    ax_left.axhline(1.0, color="red", linestyle="--", label="68% CL (2ΔNLL = 1)")
-    ax_left.axhline(4.0, color="blue", linestyle="--", label="95% CL (2ΔNLL = 4)")
+    # Draw the horizontal lines without legend labels
+    ax_left.axhline(1.0, color="red", linestyle="--")
+    ax_left.axhline(4.0, color="blue", linestyle="--")
+    
+    # Get current x-axis limits to compute a small x-offset
+    xlims = ax_left.get_xlim()
+    x_offset = xlims[0] + 0.02 * (xlims[1] - xlims[0])  # 2% from the left edge
+    
+    # Place the text labels directly on the lines
+    ax_left.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="red",
+                  ha="left", va="bottom", transform=ax_left.transData)
+    ax_left.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="blue",
+                  ha="left", va="bottom", transform=ax_left.transData)
     
     ax_left.set_ylim(0, 10)
     ax_left.set_xlabel(r"$c_g$")
     ax_left.set_ylabel("2ΔNLL or Δχ²")
-    ax_left.legend()
+    
+    # Legend Settings 
+    legend = ax_left.legend(loc="upper center", frameon=True, fancybox=True)
+    legend.get_frame().set_edgecolor('black')  # Sets the border colour
+    legend.get_frame().set_linewidth(1.5)        # Sets the border width
+    legend.get_frame().set_facecolor('white')    # Optional: sets the background colour
+    
     ax_left.grid(True)
 
     # -- Right subplot: c_tg scan (frozen c_g) --
     ax_right = axes[1]
     right_keys = [
-        ("frozen_NN_NLL_vals_ctg",    "NN NLL (frozen c_g)",    "frozen_ctg_label"),
-        ("frozen_chi_squared_ctg",    r"STXS $\chi^2$ (frozen c_g)", "frozen_ctg_label"),
+        ("frozen_NN_NLL_vals_ctg",    "NN NLL (frozen $c_{g}$)",    "frozen_ctg_label"),
+        ("frozen_chi_squared_ctg",    r"STXS $\chi^2$ (frozen $c_{g}$)", "frozen_ctg_label"),
     ]
 
     for data in datasets:
@@ -495,13 +512,30 @@ def compare_frozen_scans(*datasets):
                 ax_right.plot(ctg_values, data[data_key], label=legend_label, lw=2)
 
     # Horizontal lines for confidence regions
-    ax_right.axhline(1.0, color="red", linestyle="--", label="68% CL (2ΔNLL = 1)")
-    ax_right.axhline(4.0, color="blue", linestyle="--", label="95% CL (2ΔNLL = 4)")
+    # Draw the horizontal lines without legend labels
+    ax_right.axhline(1.0, color="red", linestyle="--")
+    ax_right.axhline(4.0, color="blue", linestyle="--")
+    
+    # Get current x-axis limits to compute a small x-offset
+    xlims = ax_right.get_xlim()
+    x_offset = xlims[0] + 0.02 * (xlims[1] - xlims[0])  # 2% from the left edge
+    
+    # Place the text labels directly on the lines
+    ax_right.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="red",
+                  ha="left", va="bottom", transform=ax_right.transData)
+    ax_right.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="blue",
+                  ha="left", va="bottom", transform=ax_right.transData)
 
     ax_right.set_ylim(0, 10)
     ax_right.set_xlabel(r"$c_{tg}$")
     ax_right.set_ylabel("2ΔNLL or Δχ²")
-    ax_right.legend()
+    
+    # Legend Settings 
+    legend = ax_right.legend(loc="upper center", frameon=True, fancybox=True)
+    legend.get_frame().set_edgecolor('black')  # Sets the border colour
+    legend.get_frame().set_linewidth(1.5)        # Sets the border width
+    legend.get_frame().set_facecolor('white')    # Optional: sets the background colour
+    
     ax_right.grid(True)
 
     plt.tight_layout()
@@ -524,13 +558,13 @@ def compare_profile_scans(*datasets):
     """
     # Prepare figure and subplots
     fig, axes = plt.subplots(1, 2, figsize=(18, 12))
-    fig.suptitle("Comparison of PROFILE Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
+    fig.suptitle("Comparison of Profile Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
 
     # -- Left subplot: c_g profile scan (profiling over c_tg) --
     ax_left = axes[0]
     left_keys = [
-        ("profile_NN_NLL_vals_cg",    "NN NLL (profiled over c_tg)",    "profile_cg_label"),
-        ("profile_chi_squared_cg",    r"STXS $\chi^2$ (profiled over c_tg)", "profile_cg_label"),
+        ("profile_NN_NLL_vals_cg",    "NLL (profiled over $c_{tg}$)",    "profile_cg_label"),
+        ("profile_chi_squared_cg",    r"STXS $\chi^2$ (profiled over $c_{tg}$)", "profile_cg_label"),
     ]
     
     for data in datasets:
@@ -552,20 +586,37 @@ def compare_profile_scans(*datasets):
                 ax_left.plot(cg_values, data[data_key], label=legend_label, lw=2)
 
     # Confidence lines
-    ax_left.axhline(1.0, color="red", linestyle="--", label="68% CL (2ΔNLL = 1)")
-    ax_left.axhline(4.0, color="blue", linestyle="--", label="95% CL (2ΔNLL = 4)")
+    # Draw the horizontal lines without legend labels
+    ax_left.axhline(1.0, color="red", linestyle="--")
+    ax_left.axhline(4.0, color="blue", linestyle="--")
+    
+    # Get current x-axis limits to compute a small x-offset
+    xlims = ax_left.get_xlim()
+    x_offset = xlims[0] + 0.02 * (xlims[1] - xlims[0])  # 2% from the left edge
+    
+    # Place the text labels directly on the lines
+    ax_left.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="red",
+                  ha="left", va="bottom", transform=ax_left.transData)
+    ax_left.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="blue",
+                  ha="left", va="bottom", transform=ax_left.transData)
 
     ax_left.set_xlabel(r"$c_g$")
     ax_left.set_ylabel("2ΔNLL or Δχ²")
-    ax_left.legend()
+    
+    # Legend Settings 
+    legend = ax_left.legend(loc="upper center", frameon=True, fancybox=True)
+    legend.get_frame().set_edgecolor('black')  # Sets the border colour
+    legend.get_frame().set_linewidth(1.5)        # Sets the border width
+    legend.get_frame().set_facecolor('white')    # Optional: sets the background colour
+    
     ax_left.set_ylim(0, 10)
     ax_left.grid(True)
 
     # -- Right subplot: c_tg profile scan (profiling over c_g) --
     ax_right = axes[1]
     right_keys = [
-        ("profile_NN_NLL_vals_ctg",    "NN NLL (profiled over c_g)",    "profile_ctg_label"),
-        ("profile_chi_squared_ctg",    r"STXS $\chi^2$ (profiled over c_g)", "profile_ctg_label"),
+        ("profile_NN_NLL_vals_ctg",    "NLL (profiled over $c_{g}$)",    "profile_ctg_label"),
+        ("profile_chi_squared_ctg",    r"STXS $\chi^2$ (profiled over $c_{g}$)", "profile_ctg_label"),
     ]
     
     for data in datasets:
@@ -587,12 +638,31 @@ def compare_profile_scans(*datasets):
                 ax_right.plot(ctg_values, data[data_key], label=legend_label, lw=2)
 
     # Confidence lines
-    ax_right.axhline(1.0, color="red", linestyle="--", label="68% CL (2ΔNLL = 1)")
-    ax_right.axhline(4.0, color="blue", linestyle="--", label="95% CL (2ΔNLL = 4)")
+    # Draw the horizontal lines without legend labels
+    ax_right.axhline(1.0, color="red", linestyle="--")
+    ax_right.axhline(4.0, color="blue", linestyle="--")
+    
+    # Get current x-axis limits to compute a small x-offset
+    xlims = ax_right.get_xlim()
+    x_offset = xlims[0] + 0.02 * (xlims[1] - xlims[0])  # 2% from the left edge
+    
+    # Place the text labels directly on the lines
+    ax_right.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="red",
+                  ha="left", va="bottom", transform=ax_right.transData)
+    ax_right.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="blue",
+                  ha="left", va="bottom", transform=ax_right.transData)
 
     ax_right.set_xlabel(r"$c_{tg}$")
     ax_right.set_ylabel("2ΔNLL or Δχ²")
-    ax_right.legend()
+    
+    
+    # Legend Settings 
+    legend = ax_right.legend(loc="upper center", frameon=True, fancybox=True)
+    legend.get_frame().set_edgecolor('black')  # Sets the border colour
+    legend.get_frame().set_linewidth(1.5)        # Sets the border width
+    legend.get_frame().set_facecolor('white')    # Optional: sets the background colour
+    
+    
     ax_right.set_ylim(0, 10)
     ax_right.grid(True)
 
