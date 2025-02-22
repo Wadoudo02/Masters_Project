@@ -11,6 +11,7 @@ import copy
 from Plotter import Plotter
 from chi2 import get_chi_squared
 import matplotlib.gridspec as gridspec
+from scipy.interpolate import UnivariateSpline
 
 plt.style.use(hep.style.CMS)
 
@@ -220,22 +221,24 @@ plotter.overlay_histograms(
         density=True
         )
 # Bottom-left nested 1x2 subplot
-inner_grid_left = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid[1, 0], height_ratios=[1], hspace=0.2)
+inner_grid_left = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer_grid[1, 0], height_ratios=[3,1], hspace=0.2)
 ax_bottom_left = fig.add_subplot(inner_grid_left[0])
 
-#ax_ratio_bottom_left = fig.add_subplot(inner_grid_left[1], sharex=ax_bottom_left)
-plot_eft_hists(df=ttH_df,var="deltaR_sel", combs = [(cg, ctg)], ax=ax_bottom_left)#, ax_ratio=ax_ratio_bottom_left)
-
-
+ax_ratio_bottom_left = fig.add_subplot(inner_grid_left[1], sharex=ax_bottom_left)
+plot_eft_hists(df=ttH_df,var="deltaR_sel", combs = [(0.3, 0.69)], ax=ax_bottom_left, ax_ratio=ax_ratio_bottom_left)
+ax_bottom_left.set_xlabel(f"{feat_maps['deltaR_sel']}", fontsize = 30)
+ax_bottom_left.legend()
 
 
 #ax_bottom_left.set_xticklabels([]) 
 # Bottom-right nested 1x2 subplot
-inner_grid_right = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer_grid[1, 1], height_ratios=[1], hspace=0.2)
+inner_grid_right = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer_grid[1, 1], height_ratios=[3,1], hspace=0.2)
 
 ax_bottom_right = fig.add_subplot(inner_grid_right[0])
-#ax_ratio_bottom_right = fig.add_subplot(inner_grid_right[1], sharex=ax_bottom_right)
-plot_eft_hists(df=ttH_df,var="delta_phi_gg_sel", combs=[(cg, ctg)], ax=ax_bottom_right)#, ax_ratio=ax_ratio_bottom_right)
+ax_ratio_bottom_right = fig.add_subplot(inner_grid_right[1], sharex=ax_bottom_right)
+plot_eft_hists(df=ttH_df,var="delta_phi_gg_sel", combs=[(0.3, 0.69)], ax=ax_bottom_right, ax_ratio=ax_ratio_bottom_right)
+ax_bottom_right.set_xlabel(f"{feat_maps['delta_phi_gg_sel']}", fontsize = 30)
+ax_bottom_right.legend()
 #ax_bottom_right.set_xticklabels([])
 
 #%%
@@ -376,9 +379,9 @@ dnll_ctg = TwoDeltaNLL(nll_vals_ctg)
 if param:
     if mine:
         # Save the values using joblib
-        joblib.dump({'dnll_cg': dnll_cg, 'dnll_ctg': dnll_ctg}, 'param_dnll_values.pkl')
+        joblib.dump({'dnll_cg': dnll_cg, 'dnll_ctg': dnll_ctg}, 'saved_models/param_dnll_values.pkl')
     else:
-        joblib.dump({'dnll_cg': dnll_cg, 'dnll_ctg': dnll_ctg}, 'wad_param_dnll_values.pkl')
+        joblib.dump({'dnll_cg': dnll_cg, 'dnll_ctg': dnll_ctg}, 'saved_models/wad_param_dnll_values.pkl')
 
 
 cg_fit, cg_cons_up, cg_cons_down = find_crossings([c_vals, dnll_cg], 1.)
@@ -415,18 +418,42 @@ print(f"Crossing for cg with nn: {cg_cons} and ctg: {ctg_cons}")
 chi_2_c_g, chi_2_c_tg, best_cg_chi, conf_cg_chi, best_ctg_chi, conf_ctg_chi=joblib.load("saved_models/chi2.pkl")
 if not param:
     if mine:
-        param_dnll = joblib.load("param_dnll_values.pkl")
+        param_dnll = joblib.load("saved_models/param_dnll_values.pkl")
         param_dnll_cg, param_dnll_ctg = param_dnll["dnll_cg"], param_dnll["dnll_ctg"]
     else:
-        wad_param_dnll = joblib.load("wad_param_dnll_values.pkl")
+        wad_param_dnll = joblib.load("saved_models/wad_param_dnll_values.pkl")
         param_dnll_cg, param_dnll_ctg = wad_param_dnll["dnll_cg"], wad_param_dnll["dnll_ctg"]
     
     param_cg_fit, param_cg_cons_up, param_cg_cons_down = find_crossings([c_vals, param_dnll_cg], 1.)
     param_cg_cons = (param_cg_cons_up, param_cg_cons_down)
     param_ctg_fit, param_ctg_cons_up, param_ctg_cons_down = find_crossings([c_vals, param_dnll_ctg], 1.)
     param_ctg_cons = (param_ctg_cons_up, param_ctg_cons_down)
-param
+
+#Splining over kink :(
+lower_bound = 0.17
+upper_bound = 0.35
+
+# Find indices corresponding to these bounds
+mask = (c_vals >= lower_bound) & (c_vals <= upper_bound)
+interp_indices = np.where(mask)[0]
+
+# Get indices outside the kink region to build a smooth spline;
+# you might want to include a few extra points near the boundaries.
+keep_mask = (c_vals < lower_bound) | (c_vals > upper_bound)
+
+# Create a spline fit using a cubic spline (k=3)
+# The smoothing factor s=0 forces the spline to pass through the points exactly.
+spline = UnivariateSpline(c_vals[keep_mask], param_dnll_ctg[keep_mask], k=3, s=0)
+
+# Create a copy of the original array
+#param_dnll_cg_new = param_dnll_cg.copy()
+
+# Replace the kink region with the smoothly interpolated values
+param_dnll_ctg[interp_indices] = spline(c_vals[interp_indices])
+
+
 fig, ax = plt.subplots(2,1, figsize=(7, 10),gridspec_kw={'hspace': 0.3})
+
 #fig.suptitle("NLL Profiled minimisation over c_g and c_tg")
 ax[0].set_ylim(0, 1500)
 ax[1].set_ylim(0, 1500)
@@ -441,7 +468,7 @@ plotter.overlay_line_plots(
         fr"STXS cat ${pt_cg_fit:.2f}^{{+{pt_cg_cons[0]:.2f}}}_{{{pt_cg_cons[1]:.2f}}}$",
         #fr"$\chi^2$ cat ${best_cg_chi:.2f}^{{+{conf_cg_chi[1]:.2f}}}_{{{conf_cg_chi[0]:.2f}}}$"
     ]+([fr"Param NN ${param_cg_fit:.2f}^{{+{param_cg_cons[0]:.2f}}}_{{{param_cg_cons[1]:.2f}}}$"] if not param else []),
-    colors=["red", "black"]+(["purple"] if not param else []),# "green"],
+    colors=["red", "black"]+(["blue"] if not param else []),# "green"],
     axes=ax[0],
     ylim=[0, 4],
     xlim=[-1,1],
@@ -456,7 +483,7 @@ plotter.overlay_line_plots(
         fr"STXS cat ${pt_ctg_fit:.2f}^{{+{pt_ctg_cons[0]:.2f}}}_{{{pt_ctg_cons[1]:.2f}}}$",
         #fr"$\chi^2$ cat ${best_ctg_chi:.2f}^{{+{conf_ctg_chi[1]:.2f}}}_{{{conf_ctg_chi[0]:.2f}}}$"
     ]+([fr"Param NN ${param_ctg_fit:.2f}^{{+{param_ctg_cons[0]:.2f}}}_{{{param_ctg_cons[1]:.2f}}}$"] if not param else []),
-    colors=["red", "black"] +(["purple"] if not param else []),# "green"],
+    colors=["red", "black"] +(["blue"] if not param else []),# "green"],
     axes=ax[1],
     ylim=[0, 4],
     xlim=[-1,1],
@@ -466,7 +493,10 @@ x_mid = -0.7
 ax[0].text(x_mid, 1.05, r"68% CL, $2\Delta$NLL = 1", ha='center', va='bottom', fontsize=10, color='black')
 ax[1].plot(c_vals, np.ones(len(c_vals)),linestyle="--", color = "grey" )
 ax[1].text(-0.75, 1.05, r"68% CL, $2\Delta$NLL = 1", ha='center', va='bottom', fontsize=9, color='black')
-
+ax[1].legend(fontsize=15, loc="upper right",frameon=True,  # Enable the frame
+                   edgecolor='black',  # Set edge color
+                   fancybox=True,  # Rounded corners
+                   framealpha=1)  # Solid background)
 
 
 #%%

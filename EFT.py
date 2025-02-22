@@ -45,9 +45,9 @@ def apply_weight_change(df, ax, cg=0, ctg=0, var="mass_sel"):
     
     cur_weights=calc_weights(df, cg=cg, ctg=ctg)
     if cg==0 and ctg==0:
-        hist = ax.hist(df[var], bins=n_bins, label=f"cg={cg}, ctg={ctg}, SM", weights=cur_weights, alpha = 0.3, color="gray", density=True)
+        hist = ax.hist(df[var], bins=n_bins, label=f"SM (cg={cg}, ctg={ctg})", weights=cur_weights, alpha = 0.3, color="gray", density=True)
     else:
-        hist = ax.hist(df[var], bins=n_bins, label=f"cg={cg}, ctg={ctg}", weights=cur_weights, histtype="step",linewidth=1.5,density=True, color="black")
+        hist = ax.hist(df[var], bins=n_bins, label=f"EFT (cg={cg}, ctg={ctg})", weights=cur_weights, histtype="step",linewidth=1.5,density=True, color="black")
     return hist
     
 #All_combs =True will plot all 4 combinations, False will plot SM and just cg and just ctg combs aswell
@@ -56,10 +56,10 @@ def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], a
         fig, (ax, ax_ratio) = plt.subplots(2,1, figsize=(15,15),gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
     
     #ax.set_xlim(0,500)
-    ax.legend()
     
-    #ax_ratio.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", )
-    #ax.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", fontsize = 30)
+    
+    ax_ratio.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", )
+    ax.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", fontsize = 30)
 
     ax.set_ylabel("Events", fontsize =30)
 
@@ -77,14 +77,14 @@ def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], a
         bin_centers = (hist[1][:-1] + hist[1][1:]) / 2
         ratio = hist[0] / hist_sm[0]
 
-    #     ax_ratio.plot(bin_centers, ratio, label=f"cg={c_g}, ctg={c_tg}", drawstyle='steps-mid', color="black")
+        ax_ratio.plot(bin_centers, ratio, label=f"EFT/SM", drawstyle='steps-mid', color="black")
 
-    # ax_ratio.set_ylim(0,7)
+    ax_ratio.set_ylim(0,7)
 
-    # ax_ratio.axhline(1, color='grey', linestyle='--')
-    # ax_ratio.set_ylabel("Ratio to SM")
-    # ax_ratio.legend()
-
+    ax_ratio.axhline(1, color='grey', linestyle='--')
+    ax_ratio.set_ylabel("Ratio to SM")
+    ax_ratio.legend()
+    ax.legend(loc="best")
     #plt.tight_layout()
     #plt.show()
 
