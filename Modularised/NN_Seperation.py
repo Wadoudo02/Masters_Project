@@ -56,7 +56,7 @@ category_boundaries[4] = 1
 
 #category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.710416158614033, 1.0]
 
-plot_entire_chain = False
+plot_entire_chain = True
 
 plot_fraction = False
 
@@ -75,7 +75,7 @@ procs = {
     #"Data" : ["Data", "green"]
 }
 
-plot_size = (12, 8)
+plot_size = (12, 6)
 
 
 cg = 0.3
@@ -454,7 +454,7 @@ for cat in cats_unique:
 
 # Define signal window parameters
 hists = {}
-breakpoint()
+
 mass_bins = 5
 v = 'mass'
 v_dfs = v + "_sel"

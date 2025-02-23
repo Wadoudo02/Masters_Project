@@ -26,7 +26,7 @@ from NN_utils import *
 
 
 
-plot_entire_chain = False
+plot_entire_chain = True
 
 plot_fraction = False
 
@@ -45,7 +45,7 @@ procs = {
     #"Data" : ["Data", "green"]
 }
 
-plot_size = (12, 8)
+plot_size = (12, 6)
 
 
 cg = 0.3
@@ -164,7 +164,7 @@ for cat in cats_unique:
         x = np.array(dfs[proc][v_dfs][cat_mask])
 
         # Event weight
-        w = np.array(dfs[proc]['true_weight'])[cat_mask]
+        w = np.array(dfs[proc]['plot_weight'])[cat_mask]
 
         counts, bin_edges = np.histogram(x, bins=nbins, range=xrange, weights=w)
 

@@ -233,7 +233,7 @@ def mu_c_NN(cg, ctg, cat_averages, quadratic=True):
     return np.array(mus)
 
 
-def calc_NLL_Simple(hists, mu_array, signal="ttH"):
+def calc_NLL_Simple(hists, mu_array, signal="ttH", mass_bins = 5):
     """
     Calculates the Poisson negative log-likelihood for multiple categories,
     with each category having 5 bins, ignoring additive n! constants.
@@ -259,7 +259,7 @@ def calc_NLL_Simple(hists, mu_array, signal="ttH"):
     for i_cat, cat in enumerate(categories):
         # 5 bins in each category
         # hists[cat][proc] => array of length 5
-        for b in range(5):
+        for b in range(mass_bins):
             # Observed yield
             n_b = 0.0
             # Expected yield
