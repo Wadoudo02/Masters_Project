@@ -106,9 +106,9 @@ for i, proc in enumerate(procs.keys()):
     yield_before_sel = dfs[proc]['true_weight'].sum()
     
     
-    mask = dfs[proc]['n_jets_sel'] >= 0
-    mask = mask & (dfs[proc]['max_b_tag_score_sel'] > 0.4)
-    #mask = mask & (dfs[proc]['second_max_b_tag_score_sel'] > 0.4)
+    mask = dfs[proc]['n_jets_sel'] >= 3
+    mask = mask & (dfs[proc]['max_b_tag_score_sel'] > 0.7)
+    mask = mask & (dfs[proc]['second_max_b_tag_score_sel'] > 0.4)
     #mask = mask & (dfs[proc]['HT_sel'] > 200)
     
     dfs[proc] = dfs[proc][mask]
