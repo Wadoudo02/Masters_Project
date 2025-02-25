@@ -404,7 +404,8 @@ cg_grid_test = np.arange(-1.5, 1.5, 0.3)
 ctg_grid_test = np.arange(-1.5, 1.5, 0.3)
 
 # Initialize a 2D array to store AUC values
-auc_matrix = np.zeros((len(cg_grid_test), len(ctg_grid_test)))
+auc_matrix_param = np.zeros((len(cg_grid_test), len(ctg_grid_test)))
+auc_matrix_basic = np.zeros((len(cg_grid_test), len(ctg_grid_test)))
 
 # Loop over cg and ctg values
 for i, cg in enumerate(cg_grid_test):
@@ -421,6 +422,11 @@ for i, cg in enumerate(cg_grid_test):
         comb_df_set_eft, comb_df_set_sm = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
         comb_df_set_eft["labels"] = 1
         comb_df_set_sm["labels"] = 0
+        comb_df_set_eft["og_weight"] = comb_df_set_eft["weight"]
+        
+        comb_df_set_eft["og_weight"] /= comb_df_set_eft["og_weight"].sum()
+        comb_df_set_eft["og_weight"] *= 10**4
+
         comb_df_set_eft["weight"] = calc_weights(comb_df_set_eft, cg=cg, ctg=ctg, weight_col="weight")
 
         if norm_eft:
@@ -429,30 +435,60 @@ for i, cg in enumerate(cg_grid_test):
             comb_df_set_eft["weight"] /= comb_df_set_eft["weight"].sum()
             comb_df_set_eft["weight"] *= 10**4
 
+        comb_df_set_eft["og_weight"]= comb_df_set_eft["weight"]
+        
         # Combine and shuffle the dataset
         comb_df_set = pd.concat([comb_df_set_eft, comb_df_set_sm], axis=0, ignore_index=True)
         comb_df_shuf = comb_df_set.sample(frac=1).reset_index(drop=True)
 
         # Prepare the data for the model
         w, l = comb_df_shuf["weight"], comb_df_shuf["labels"]
-        comb_df_shuf = comb_df_shuf.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
+        og_w = comb_df_shuf["og_weight"]
+        comb_df_shuf = comb_df_shuf.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre", "og_weight"])
         X, y, w = comb_df_shuf.values, l, w
         X = preprocessor.fit_transform(X)
         X_tensor = torch.tensor(X, dtype=torch.float32)
 
         # Get model predictions and calculate AUC
         with torch.no_grad():
-            probs = model(X_tensor)
-        probs_np = probs.squeeze().detach().numpy()
-        fpr, tpr, _ = roc_curve(y, probs_np, sample_weight=w)
-        auc_s = auc(fpr, tpr)
-        auc_matrix[i, j] = auc_s
+            probs_basic = model(X_tensor)
+
+        probs_np_basic = probs_basic.squeeze().detach().numpy()
+        fpr, tpr, _ = roc_curve(y, probs_np_basic, sample_weight=w)
+        auc_s_basic = auc(fpr, tpr)
+        auc_matrix_basic[i, j] = auc_s_basic
+
+
+        with torch.no_grad():
+            probs_param = model2(X_tensor[:-2])
+        
+        probs_np_param = probs_param.squeeze().detach().numpy()
+        fpr, tpr, _ = roc_curve(y, probs_np_param, sample_weight=og_w)
+        auc_s_param = auc(fpr, tpr)
+        auc_matrix_param[i, j] = auc_s_param
+
 
 # Plotting the 2D heatmap
 fig, ax = plt.subplots(figsize=(10, 8))
-sns.heatmap(auc_matrix, xticklabels=np.round(ctg_grid_test, 2), yticklabels=np.round(cg_grid_test, 2), cmap="viridis", ax=ax)
+sns.heatmap(auc_matrix_basic, xticklabels=np.round(ctg_grid_test, 2), yticklabels=np.round(cg_grid_test, 2), cmap="viridis", ax=ax)
 ax.set_xlabel("ctg")
 ax.set_ylabel("cg")
 ax.set_title("AUC variation over cg and ctg")
 plt.show()
 
+# Calculate the AUC difference matrix (Param - Basic)
+diff_matrix = auc_matrix_param - auc_matrix_basic
+
+# Create the heatmap using seaborn
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(diff_matrix,
+            xticklabels=np.round(ctg_grid_test, 2),
+            yticklabels=np.round(cg_grid_test, 2),
+            cmap="coolwarm",  # Use a diverging colormap for differences
+            ax=ax)
+
+ax.set_xlabel("ctg", fontsize=14)
+ax.set_ylabel("cg", fontsize=14)
+ax.set_title("AUC difference (Param - Basic)", fontsize=16)
+plt.tight_layout()
+plt.show()
