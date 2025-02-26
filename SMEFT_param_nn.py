@@ -400,8 +400,9 @@ ax.legend(fontsize=12)
 #%%
 #2D variation of AUC over cg and ctg
 # Define the range of values for cg and ctg
-cg_grid_test = np.arange(-1.5, 1.5, 0.3)
-ctg_grid_test = np.arange(-1.5, 1.5, 0.3)
+num_points = 10
+cg_grid_test = np.linspace(-1.5, 1.5, num_points)
+ctg_grid_test = np.linspace(-1.5, 1.5, num_points)
 
 # Initialize a 2D array to store AUC values
 auc_matrix_param = np.zeros((len(cg_grid_test), len(ctg_grid_test)))
@@ -422,10 +423,6 @@ for i, cg in enumerate(cg_grid_test):
         comb_df_set_eft, comb_df_set_sm = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
         comb_df_set_eft["labels"] = 1
         comb_df_set_sm["labels"] = 0
-        comb_df_set_eft["og_weight"] = comb_df_set_eft["weight"]
-        
-        comb_df_set_eft["og_weight"] /= comb_df_set_eft["og_weight"].sum()
-        comb_df_set_eft["og_weight"] *= 10**4
 
         comb_df_set_eft["weight"] = calc_weights(comb_df_set_eft, cg=cg, ctg=ctg, weight_col="weight")
 
@@ -435,7 +432,6 @@ for i, cg in enumerate(cg_grid_test):
             comb_df_set_eft["weight"] /= comb_df_set_eft["weight"].sum()
             comb_df_set_eft["weight"] *= 10**4
 
-        comb_df_set_eft["og_weight"]= comb_df_set_eft["weight"]
         
         # Combine and shuffle the dataset
         comb_df_set = pd.concat([comb_df_set_eft, comb_df_set_sm], axis=0, ignore_index=True)
@@ -443,52 +439,67 @@ for i, cg in enumerate(cg_grid_test):
 
         # Prepare the data for the model
         w, l = comb_df_shuf["weight"], comb_df_shuf["labels"]
-        og_w = comb_df_shuf["og_weight"]
-        comb_df_shuf = comb_df_shuf.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre", "og_weight"])
+        
+        comb_df_shuf = comb_df_shuf.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
         X, y, w = comb_df_shuf.values, l, w
         X = preprocessor.fit_transform(X)
         X_tensor = torch.tensor(X, dtype=torch.float32)
+        #print(X_tensor[:,-2], comb_df_shuf["cg"], X_tensor[:,-1],comb_df_shuf["ctg"])
 
         # Get model predictions and calculate AUC
+        # Model2 is basic NN
         with torch.no_grad():
-            probs_basic = model(X_tensor)
+            probs_basic = model2(X_tensor[:,:-2])
 
         probs_np_basic = probs_basic.squeeze().detach().numpy()
         fpr, tpr, _ = roc_curve(y, probs_np_basic, sample_weight=w)
         auc_s_basic = auc(fpr, tpr)
         auc_matrix_basic[i, j] = auc_s_basic
 
-
+        #Model is param NN
         with torch.no_grad():
-            probs_param = model2(X_tensor[:-2])
+            probs_param = model(X_tensor)
         
         probs_np_param = probs_param.squeeze().detach().numpy()
-        fpr, tpr, _ = roc_curve(y, probs_np_param, sample_weight=og_w)
+        fpr, tpr, _ = roc_curve(y, probs_np_param, sample_weight=w)
         auc_s_param = auc(fpr, tpr)
         auc_matrix_param[i, j] = auc_s_param
 
+#%%
+# Plotting the 2D heatmap basic
+# Create tick values every 0.25 in the continuous range
+tick_values = np.arange(-1.5, 1.5+0.25, 0.25)
+# Find the corresponding indices in the heatmap:
+tick_locs = np.linspace(0, len(ctg_grid_test)-1, len(tick_values))
+CTG, CG = np.meshgrid(ctg_grid_test,cg_grid_test)  
 
-# Plotting the 2D heatmap
-fig, ax = plt.subplots(figsize=(10, 8))
-sns.heatmap(auc_matrix_basic, xticklabels=np.round(ctg_grid_test, 2), yticklabels=np.round(cg_grid_test, 2), cmap="viridis", ax=ax)
-ax.set_xlabel("ctg")
-ax.set_ylabel("cg")
-ax.set_title("AUC variation over cg and ctg")
+plt.figure(figsize=(8,6))
+cs = plt.contourf(CTG, CG, auc_matrix_basic, levels=20, cmap="viridis")
+plt.colorbar(cs, label="NN AUC Score")
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel(r"$c_{g}$")
+#plt.title(r"2D Contour of AUC vs $(c_g, c_{tg}), Basic NN$")
+plt.show()
+
+# Plotting the 2D heatmap param
+# We'll put c_{tg} on the x-axis and c_g on the y-axis.
+
+plt.figure(figsize=(8,6))
+cs = plt.contourf(CTG, CG, auc_matrix_param, levels=20, cmap="viridis")
+plt.colorbar(cs, label="PNN AUC Score")
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel(r"$c_{g}$")
+#plt.title(r"2D Contour of AUC vs $(c_g, c_{tg}), Param NN$", fontsize=24)
 plt.show()
 
 # Calculate the AUC difference matrix (Param - Basic)
 diff_matrix = auc_matrix_param - auc_matrix_basic
 
-# Create the heatmap using seaborn
-fig, ax = plt.subplots(figsize=(10, 8))
-sns.heatmap(diff_matrix,
-            xticklabels=np.round(ctg_grid_test, 2),
-            yticklabels=np.round(cg_grid_test, 2),
-            cmap="coolwarm",  # Use a diverging colormap for differences
-            ax=ax)
-
-ax.set_xlabel("ctg", fontsize=14)
-ax.set_ylabel("cg", fontsize=14)
-ax.set_title("AUC difference (Param - Basic)", fontsize=16)
-plt.tight_layout()
+# Create the heatmap
+plt.figure(figsize=(8,6))
+cs = plt.contourf(CTG, CG, diff_matrix, levels=20, cmap="coolwarm")
+plt.colorbar(cs, label=r"$\Delta$AUC Score (PNN - NN)")
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel(r"$c_{g}$")
+#plt.title(r"2D Contour of difference in AUC (Param NN - Basic NN) vs $(c_g, c_{tg})$")
 plt.show()
