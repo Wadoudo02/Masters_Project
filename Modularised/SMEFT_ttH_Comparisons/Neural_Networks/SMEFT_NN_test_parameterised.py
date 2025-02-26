@@ -87,17 +87,16 @@ df_tth['true_weight'] = df_tth['plot_weight']/10
 # Define a derived variable: 'pt_sel' = (pt-over-mass_sel) * mass_sel
 df_tth["pt_sel"] = df_tth["pt-over-mass_sel"] * df_tth["mass_sel"]
 
-yield_weight = dfs[proc]["plot_weight"].sum()
+yield_weight = df_tth["true_weight"].sum()
 
-invalid_weights = df_tth["plot_weight"] <= 0
+invalid_weights = df_tth["true_weight"] <= 0
 if invalid_weights.sum() > 0:
     print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
     df_tth = df_tth[~invalid_weights]
     
-dfs[proc]["plot_weight"] /= dfs[proc]["plot_weight"].sum()
-dfs[proc]["plot_weight"] *= yield_weight
+df_tth["true_weight"] /= df_tth["true_weight"].sum()
+df_tth["true_weight"] *= yield_weight
 
-    
 
 #df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
 
@@ -120,7 +119,7 @@ df_smeft["label"] = 1  # "SMEFT"
 
 # 4) Reweight to these random parameter values
 #    We'll define a function as in your code:
-def add_SMEFT_weights_random(proc_data):
+def add_SMEFT_weights_PNN(proc_data):
     cg_vals  = proc_data["cg"]
     ctg_vals = proc_data["ctg"]
     # baseline:
@@ -129,7 +128,7 @@ def add_SMEFT_weights_random(proc_data):
     new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
     return new_w
 
-df_smeft["true_weight"] = add_SMEFT_weights_random(df_smeft)
+df_smeft["true_weight"] = add_SMEFT_weights_PNN(df_smeft)
 
 # 5) Optionally normalise your SMEFT weights
 df_smeft["true_weight"] /= df_smeft["true_weight"].sum()
@@ -251,7 +250,7 @@ scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
 # -------------------------------------------------------------------------
 #                             TRAINING LOOP
 # -------------------------------------------------------------------------
-epochs = 1000
+epochs = 100
 train_losses = []
 test_losses = []
 

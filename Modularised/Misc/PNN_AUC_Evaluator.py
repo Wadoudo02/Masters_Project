@@ -38,7 +38,7 @@ from sklearn.metrics import (
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_parameterised.pth")
+checkpoint = torch.load("data/neural_network_parameterised_yielded.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -108,11 +108,16 @@ df_tth['true_weight'] = df_tth['plot_weight']/10
 # Define a derived variable: 'pt_sel' = (pt-over-mass_sel) * mass_sel
 df_tth["pt_sel"] = df_tth["pt-over-mass_sel"] * df_tth["mass_sel"]
 
-# Drop rows with non-positive weights
-invalid_weights = (df_tth["plot_weight"] <= 0)
-if invalid_weights.any():
+yield_weight = df_tth["true_weight"].sum()
+
+invalid_weights = df_tth["true_weight"] <= 0
+if invalid_weights.sum() > 0:
     print(f" --> Removing {invalid_weights.sum()} rows with invalid weights.")
     df_tth = df_tth[~invalid_weights]
+    
+df_tth["true_weight"] /= df_tth["true_weight"].sum()
+df_tth["true_weight"] *= yield_weight
+
 
 def add_SMEFT_weights_random(proc_data):
     cg_vals  = proc_data["cg"]
@@ -242,7 +247,7 @@ ctg_values = np.linspace(-3, 3, 31)
 # Create a new figure for the plot
 plt.figure(figsize=(10, 6))
 
-cg_lines = [0] #, +0.3, -0.3, +1, -1]
+cg_lines = [0]#, +0.3, -0.3, +1, -1]
 
 for cg_val in cg_lines:
     auc_scores = []
