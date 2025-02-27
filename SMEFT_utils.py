@@ -51,7 +51,12 @@ class ComplexNN(nn.Module):
         layers.append(nn.Sigmoid())
 
         self.model = nn.Sequential(*layers)
-    
+                # Xavier initialization on all Linear layers
+        for layer in self.model:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
     def forward(self, x):
         return self.model(x)
 

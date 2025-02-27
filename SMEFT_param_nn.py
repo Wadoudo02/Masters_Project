@@ -30,8 +30,8 @@ ttH_df = get_tth_df()
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel","lead_pt-over-mass_sel"]
 
-c_g_range = (-1, 1)
-c_tg_range = (-1,1)
+c_g_range = (-1.5, 1.5)
+c_tg_range = (-1.5,1.5)
 
 comb_df_init = pd.concat([ttH_df[var] for var in special_features+["true_weight_sel","a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]], axis=1)
 comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
@@ -290,6 +290,7 @@ for cg, ctg in [(0.5,0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
 cg_vals_gen = [-0.75, 0.5, 1.5]
 cg_vals_test = np.arange(-1.5, 1.5, 0.025)
 fig, ax = plt.subplots(figsize=(10, 5))
+auc_ctg = 0.69
 param_aucs = {}
 aucs = []
 for cg in cg_vals_test:
@@ -307,7 +308,7 @@ for cg in cg_vals_test:
     comb_df_set_eft, comb_df_set_sm = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
     comb_df_set_eft["labels"] = 1
     comb_df_set_sm["labels"] = 0
-    comb_df_set_eft["weight"] = calc_weights(comb_df_set_eft, cg=cg, ctg=0, weight_col="weight")
+    comb_df_set_eft["weight"] = calc_weights(comb_df_set_eft, cg=cg, ctg=cg, weight_col="weight")
     if norm_eft:
         comb_df_set_sm["weight"]/=comb_df_set_sm["weight"].sum()
         comb_df_set_sm["weight"]*=10**4
@@ -336,7 +337,7 @@ for cg in cg_vals_test:
     #print("For cg:", cg_test, "ctg:", 0, "AUC:", auc_s)
 
     #param_aucs[cg] = aucs
-ax.plot(cg_vals_test, aucs, label=f"cg={cg}, ctg=0")
+ax.plot(cg_vals_test, aucs, label=f"ctg={auc_ctg}")
 
 ax.set_xlabel("cg")
 ax.set_ylabel("AUC")
@@ -346,6 +347,7 @@ ax.legend()
 #This model is trained for cg=0.3, ctg=0
 hidden_dim = [256, 64, 32, 16, 8]
 input_dim = len(special_features)
+auc_ctg = 0.69
 
 if mine:
     model2 = ComplexNN(input_dim, hidden_dim, 1)
@@ -365,7 +367,7 @@ for cg in cg_vals_test:
     comb_df_set_eft, comb_df_set_sm = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
     comb_df_set_eft["labels"] = 1
     comb_df_set_sm["labels"] = 0
-    comb_df_set_eft["weight"] = calc_weights(comb_df_set_eft, cg=cg, ctg=0, weight_col="weight")
+    comb_df_set_eft["weight"] = calc_weights(comb_df_set_eft, cg=cg, ctg=cg, weight_col="weight")
 
     if norm_eft:
         comb_df_set_sm["weight"]/=comb_df_set_sm["weight"].sum()
@@ -398,11 +400,73 @@ plotter.overlay_line_plots(cg_vals_test, [auc_nn, aucs],xlabel="cg", ylabel="AUC
 ax.axvline(x=0.3, color="black", linestyle="--", label="Basic NN training cg = 0.3")
 ax.legend(fontsize=12)
 #%%
+# #Scan over cg while profiling over ctg for auc
+
+# def get_auc(comb_df_eft, comb_df_sm, auc_cg, auc_ctg, model):
+#     comb_df_eft["weight"] = calc_weights(comb_df_eft, cg=auc_cg, ctg=auc_ctg, weight_col="weight")
+
+#     if norm_eft:
+#         comb_df_sm["weight"]/=comb_df_sm["weight"].sum()
+#         comb_df_sm["weight"]*=10**4
+#         comb_df_eft["weight"]/=comb_df_eft["weight"].sum()
+#         comb_df_eft["weight"]*=10**4
+
+#     comb_df_set = pd.concat([comb_df_eft, comb_df_sm], axis=0, ignore_index=True)
+#     comb_df_shuf = comb_df_set.sample(frac=1).reset_index(drop=True)
+
+#     w, l = comb_df_shuf["weight"], comb_df_shuf["labels"]
+
+#     comb_df_shuf = comb_df_shuf.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
+
+#     X, y, w = comb_df_shuf.values, l, w
+#     X = preprocessor.fit_transform(X)
+
+#     X_tensor= torch.tensor(X, dtype=torch.float32)
+#     with torch.no_grad():
+#         probs = model(X_tensor)
+#     probs_np=probs.squeeze().detach().numpy()
+#     #plt.hist(probs_np, bins=50, histtype="step", label=f"cg={cg_test}, ctg=0", density=True)
+#     fpr, tpr, _ = roc_curve(y, probs_np, sample_weight=w)
+#     auc_s_nn = auc(fpr, tpr)
+#     return auc_s_nn
+# hidden_dim = [256, 64, 32, 16, 8]
+# input_dim = len(special_features)
+# auc_ctg = 0.69
+
+# if mine:
+#     model2 = ComplexNN(input_dim, hidden_dim, 1)
+#     model2.load_state_dict(torch.load("saved_models/model.pth"))
+# else:
+#     model2 = WadNeuralNetwork(input_dim, input_dim*3)
+#     model2.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
+
+# model2.eval()
+# auc_nn= []
+# for cg in cg_vals_test:
+#     comb_df_init = pd.concat([ttH_df_set[var] for var in special_features+["true_weight_sel","a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]], axis=1)
+#     comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
+
+#     comb_df_init = comb_df_init.dropna()
+
+#     comb_df_set_eft, comb_df_set_sm = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
+#     comb_df_set_eft["labels"] = 1
+#     comb_df_set_sm["labels"] = 0
+
+#     get_auc(comb_df_set_eft, comb_df_set_sm, cg, auc_ctg, model2)
+
+
+# fig, ax = plt.subplots(figsize=(7, 5))
+# plotter.overlay_line_plots(cg_vals_test, [auc_nn, aucs],xlabel="cg", ylabel="AUC", title="AUC variation over cg", labels=["Basic NN, cg=0.3", "Param NN"], colors=["blue", "orange"], axes=ax)
+# ax.axvline(x=0.3, color="black", linestyle="--", label="Basic NN training cg = 0.3")
+# ax.legend(fontsize=12)
+
+#%%
 #2D variation of AUC over cg and ctg
 # Define the range of values for cg and ctg
-num_points = 10
-cg_grid_test = np.linspace(-1.5, 1.5, num_points)
-ctg_grid_test = np.linspace(-1.5, 1.5, num_points)
+num_points = 30
+wilson_range = (-1.5, 1.5)
+cg_grid_test = np.linspace(*wilson_range, num_points)
+ctg_grid_test = np.linspace(*wilson_range, num_points)
 
 # Initialize a 2D array to store AUC values
 auc_matrix_param = np.zeros((len(cg_grid_test), len(ctg_grid_test)))
