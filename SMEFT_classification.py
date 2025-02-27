@@ -73,7 +73,8 @@ y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val
 
 #Input dim of 4 and buncha hidden layers.
 input_dim = X_train.shape[1]
-hidden_dim = [256, 64, 32, 16, 8]
+#hidden_dim = [256, 64, 32, 16, 8]
+hidden_dim = [64, 32, 16, 8]
 
 #model = LogisticRegression(input_dim)
 model = ComplexNN(input_dim, hidden_dim, 1) 

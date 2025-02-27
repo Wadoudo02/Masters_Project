@@ -258,13 +258,13 @@ def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, w_train,y_p
     print(f"Sum of weights for events predicted as EFT: {weights_predicted_as_EFT}")
 
     # Plot histograms for SM and EFT
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.set_title('Classifier Output over test')
-    plot_classifier_output(y_proba.squeeze(), y_test.squeeze(), w_test, ax)
+    #fig, ax = plt.subplots(figsize=(10, 6))
+    #ax.set_title('Classifier Output over test')
+    plot_classifier_output(y_proba.squeeze(), y_test.squeeze(), w_test)
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.set_title('Classifier Output over train')
-    plot_classifier_output(y_proba_train.squeeze(), y_train.squeeze(), w_train.squeeze(), ax)
+    #fig, ax = plt.subplots(figsize=(10, 6))
+    #ax.set_title('Classifier Output over train')
+    plot_classifier_output(y_proba_train.squeeze(), y_train.squeeze(), w_train.squeeze())
 
 
 def eval_in_batches(model, X, batch_size=1000):
