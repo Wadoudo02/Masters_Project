@@ -22,7 +22,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
 plt.style.use(hep.style.CMS)
 from Plotter import Plotter
-#%%
+
 plotter = Plotter()
 
 ttH_df = get_tth_df()
@@ -39,7 +39,7 @@ comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
 comb_df_init = comb_df_init.dropna()
 mine = True
 norm_eft = True
-duplicate = False
+duplicate = True
 
 #Duplicating dataset for eft and sm
 # comb_df_eft = copy.deepcopy(comb_df_init)
@@ -79,6 +79,8 @@ def get_eft_comb_df(comb_df_sm, comb_df_eft, cgs, ctgs, norm_eft=True):
 #%%
 #Creating 5 copies of dataset all with cg = 0
 datasets = []
+#ctg_sets = [2,1.75,1,0.5,0,-0.5,-1,-1.75,-2]
+
 ctg_sets = [2,1,0,-1,-2]
 if duplicate:
 
@@ -150,15 +152,6 @@ preprocessor = ColumnTransformer(
 X_train = preprocessor.fit_transform(X_train)
 X_test = preprocessor.transform(X_test)
 
-
-#To allow recalculation of weights when it 
-# coefs_test = pd.DataFrame(X_test[:,-7:-2], columns=["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
-
-# X_test = np.hstack((X_test[:,:-7], X_test[:,-2:]))
-# X_train = np.hstack((X_train[:,:-7], X_train[:,-2:]))
-# _____________________________________________________
-
-
 (X_train, X_val, y_train,
  y_val, w_train, w_val)= train_test_split(X_train, y_train, w_train, test_size=0.2, random_state=42, shuffle=True)
 
@@ -184,8 +177,8 @@ criterion = WeightedBCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 #Scheduler to adjust learning rate
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7)
-
+#scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
 loss_values = []
 val_loss_values = []
@@ -243,7 +236,7 @@ for epoch in range(num_epochs):
     val_loss_values.append(val_loss)
 
     # Adjust learning rate
-    scheduler.step()
+    scheduler.step(val_loss)
     if (epoch + 1) % 10 == 0:
         print(f"Epoch [{epoch+1}/{num_epochs}], Weighted train Loss: {epoch_loss:.4f}, Weighted val Loss: {val_loss:.4f}")
 
@@ -272,24 +265,12 @@ for cg, ctg in test_pairs:
     if norm_eft:
         w_test[y_test==1] *= eft_sum/sum(w_test[y_test==1])
 
-    #w_test_new = X_test_df["plot_weight"]
-
-    #print(len(w_test_new))
-   # w_test_new = calc_weights(pd.concat(pd.DataFrame(np.hstack((X_test,
-                                                # w_test)),
-                                                # columns=special_features+["plot_weight"]),coefs_test),
-                                                # cg=cg, ctg=ctg)
-    #X_test_new = X_test[:,:-5]
-    #X_train_new = X_train[:,:-5]
-
     #Removing random cg and ctg assigned at the start
     X_test_new = X_test[:,:-2]
 
     X_test_aug = np.hstack([X_test_new, np.full((X_test_new.shape[0], 1), cg), np.full((X_test_new.shape[0], 1), ctg)])  # Add parameters as input features
     X_test_tensor = torch.tensor(X_test_aug, dtype=torch.float32)
-    
-    #X_train_aug = np.hstack([X_train_new, np.full((X_train_new.shape[0], 1), cg), np.full((X_train_new.shape[0], 1), ctg)])  # Add parameters as input features
-    #X_train_tensor = torch.tensor(X_train_aug, dtype=torch.float32)
+
     # Evaluate the model on the test and train set
     with torch.no_grad():
         probabilities = model(X_test_tensor)
@@ -304,7 +285,6 @@ for cg, ctg in test_pairs:
     y_test_np = y_test_tensor.cpu().numpy()
     predictions_np = predictions.cpu().numpy().flatten()
     train_proba_np = train_proba.cpu().numpy()
-
 
     #print(len(y_test_np), len(probabilities), len(w_test_new))
     classification_analysis(y_test_np, w_test.flatten(), probabilities.squeeze().cpu().numpy(), predictions_np, y_train, w_train, train_proba_np, ["SM", "EFT"], cg = cg, ctg = ctg)
@@ -518,3 +498,48 @@ plt.ylabel(r"$c_{g}$")
 #plt.title(r"2D Contour of difference in AUC (Param NN - Basic NN) vs $(c_g, c_{tg})$")
 plt.show()
 # %%
+#Likelihood ratio analysis
+ttH_df = get_tth_df()
+
+#special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
+special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel","lead_pt-over-mass_sel"]
+
+comb_df_init = pd.concat([ttH_df[var] for var in special_features+["true_weight_sel","a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]], axis=1)
+comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
+
+comb_df_init = comb_df_init.dropna()
+#Randomly splitting same dataset into eft and sm
+comb_df_sm, comb_df_eft = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
+
+true_ctg = 3
+ctg_range = np.linspace(-10, 10, 1000)
+likelihood_ratios = []
+sm_copy = copy.deepcopy(comb_df_sm)
+eft_copy = copy.deepcopy(comb_df_eft)
+print(sum(eft_copy["weight"]), sum(sm_copy["weight"]))
+comb_df_anal = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=true_ctg, norm_eft=False)
+print(sum(comb_df_anal["weight"]))
+print(list(comb_df_anal["weight"]))
+w, l = comb_df_anal["weight"], comb_df_anal["labels"]
+comb_df_anal = comb_df_anal.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
+for ctg in ctg_range:
+    comb_df_anal["ctg"] = ctg
+    X, y, w = comb_df_anal.values, l, w
+    X = preprocessor.fit_transform(X)
+    X_tensor = torch.tensor(X, dtype=torch.float32)
+    with torch.no_grad():
+        probs = model(X_tensor)
+    # if ctg%0.25==0:
+    #     plt.hist(probs, bins = 50)
+    #     plt.show()
+    #     print(probs, y)
+    probs_np = probs.squeeze().detach().numpy()
+    log_ratios = np.log(probs_np) - np.log(1 - probs_np)
+    log_l_ratios = -1*np.sum(log_ratios)  # Use sum instead of np.prod
+    likelihood_ratios.append(log_l_ratios)
+
+plt.plot(ctg_range, likelihood_ratios)
+plt.xlabel("ctg")
+plt.ylabel("Log Likelihood Ratios")
+plt.title("Log Likelihood Ratios vs ctg")
+plt.show()

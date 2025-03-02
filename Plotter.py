@@ -16,7 +16,7 @@ class Plotter:
                        "purple":"mediumorchid",
                        "orange":"darkorange"}
         # Set the global DPI for all plots
-        plt.rcParams['figure.dpi'] = 300
+        plt.rcParams['figure.dpi'] = 100
         #sns.set_theme(style=style, font_scale=font_scale)
 
     def histogram(self, data, bins=30, weights = None,title='', xlabel='', ylabel='', legend_label='', color='blue', alpha=0.7, density=False, axes = None):
