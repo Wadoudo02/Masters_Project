@@ -22,7 +22,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
 plt.style.use(hep.style.CMS)
 from Plotter import Plotter
-
+#%%
 plotter = Plotter()
 
 ttH_df = get_tth_df()
@@ -39,6 +39,7 @@ comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
 comb_df_init = comb_df_init.dropna()
 mine = True
 norm_eft = True
+duplicate = False
 
 #Duplicating dataset for eft and sm
 # comb_df_eft = copy.deepcopy(comb_df_init)
@@ -51,36 +52,72 @@ comb_df_sm, comb_df_eft = train_test_split(comb_df_init, test_size=0.5, random_s
 rand_cg_sm = np.random.uniform(*c_g_range, size=len(comb_df_sm))
 rand_ctg_sm = np.random.uniform(*c_tg_range, size=len(comb_df_sm))
 
-comb_df_sm["cg"] = rand_cg_sm
-comb_df_sm["ctg"] = rand_ctg_sm
-comb_df_sm["labels"] = 0    
+def get_eft_comb_df(comb_df_sm, comb_df_eft, cgs, ctgs, norm_eft=True):
+    comb_df_sm["cg"] = cgs
+    comb_df_sm["ctg"] = ctgs
+    comb_df_sm["labels"] = 0    
 
-comb_df_sm.reset_index(drop=True, inplace=True)
+    comb_df_sm.reset_index(drop=True, inplace=True)
 
-rand_cg_eft = np.random.uniform(*c_g_range, size=len(comb_df_eft))
-rand_ctg_eft = np.random.uniform(*c_tg_range, size=len(comb_df_eft))
+    # rand_cg_eft = np.random.uniform(*c_g_range, size=len(comb_df_eft))
+    # rand_ctg_eft = np.random.uniform(*c_tg_range, size=len(comb_df_eft))
 
-comb_df_eft["cg"] = rand_cg_eft
-comb_df_eft["ctg"] = rand_ctg_eft
-comb_df_eft["labels"] = 1
-comb_df_eft["weight"] = calc_weights(comb_df_eft, cg=rand_cg_eft, ctg=rand_ctg_eft, weight_col="weight")
+    comb_df_eft["cg"] = cgs
+    comb_df_eft["ctg"] = ctgs
+    comb_df_eft["labels"] = 1
+    comb_df_eft["weight"] = calc_weights(comb_df_eft, cg=cgs, ctg=ctgs, weight_col="weight")
 
-if norm_eft:
-    comb_df_sm["weight"]/=comb_df_sm["weight"].sum()
-    comb_df_sm["weight"]*=10**4
+    if norm_eft:
+        comb_df_sm["weight"]/=comb_df_sm["weight"].sum()
+        comb_df_sm["weight"]*=10**4
 
-    comb_df_eft["weight"] /= comb_df_eft["weight"].sum()
-    comb_df_eft["weight"] *= 10**4
+        comb_df_eft["weight"] /= comb_df_eft["weight"].sum()
+        comb_df_eft["weight"] *= 10**4
 
-comb_df = pd.concat([comb_df_sm, comb_df_eft], axis=0, ignore_index=True)
+    comb_df = pd.concat([comb_df_sm, comb_df_eft], axis=0, ignore_index=True)
+    return comb_df
+#%%
+#Creating 5 copies of dataset all with cg = 0
+datasets = []
+ctg_sets = [2,1,0,-1,-2]
+if duplicate:
 
+    for ctg in ctg_sets:
+        eft_copy = copy.deepcopy(comb_df_eft)
+        sm_copy = copy.deepcopy(comb_df_sm)
+        comb_df_ctg = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=ctg)
+        datasets.append(comb_df_ctg)
+        fig, ax = plt.subplots(nrows=1, ncols = len(special_features
+        ),figsize=(30, 5))
+        for i in range(len(special_features)):
+            var = special_features[i]
+            plot_eft_hists(df=comb_df_ctg,var= var, combs=[(0,ctg)], weight_col="weight", ax = ax[i])
+else:
+    sm_dfs = np.array_split(comb_df_eft, 5)
+    eft_dfs = np.array_split(comb_df_sm, 5)
+
+    for ctg in ctg_sets:
+        for i in range(5):
+            sm_copy = copy.deepcopy(sm_dfs[i])
+            eft_copy = copy.deepcopy(eft_dfs[i])
+            comb_df_ctg = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=ctg)
+            datasets.append(comb_df_ctg)
+            fig, ax = plt.subplots(nrows=1, ncols = len(special_features
+            ),figsize=(30, 5))
+            for i in range(len(special_features)):
+                var = special_features[i]
+                plot_eft_hists(df=comb_df_ctg,var= var, combs=[(0,ctg)], weight_col="weight", ax = ax[i])
+
+comb_df = pd.concat(datasets, axis=0, ignore_index=True)
+
+#%%
 weights, labels = comb_df["weight"], comb_df["labels"]
 
 #Saving coefs for testing
 a_cg, a_ctgre, b_cg_cg, b_cg_ctgre, b_ctgre_ctgre = comb_df["a_cg"], comb_df["a_ctgre"], comb_df["b_cg_cg"], comb_df["b_cg_ctgre"], comb_df["b_ctgre_ctgre"]
 
 comb_df = comb_df.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
-# print("Final training data columns: ", comb_df.columns)
+print("Final training data columns: ", comb_df.columns)
 
 
 X, y, w = comb_df.values, labels.values, weights.values
@@ -144,10 +181,10 @@ else:
 criterion = WeightedBCELoss()
 
 # Define optimizer
-optimizer = optim.Adam(model.parameters(), lr=0.01)
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 #Scheduler to adjust learning rate
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7)
 
 
 loss_values = []
@@ -213,6 +250,9 @@ for epoch in range(num_epochs):
 #%%
 #Testing
 model.eval()
+#test_pairs = [(0.5,0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]
+test_pairs = [(0, -2),(0,-1.5), (0, -1),(0,-0.5), (0, 0),(0,0.5), (0, 1),(0,1.5), (0, 2)]
+#test_pairs = [(0, -2), (0, -1), (0, 0), (0, 1), (0, 2)]
 #for cg, ctg in [(i,j) for i in np.arange(0, 2, 0.5) for j in np.arange(0, 2, 0.5)]:
 X_test_df = pd.concat([pd.DataFrame(np.hstack((
                         np.array(X_test),
@@ -225,7 +265,7 @@ X_test_df = pd.concat([pd.DataFrame(np.hstack((
                     )),
                                     columns=special_features+["cg","ctg","plot_weight", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])], axis=1)
 X_test_df.reset_index(drop=True, inplace=True)
-for cg, ctg in [(0.5,0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
+for cg, ctg in test_pairs:
     print("--------cg:", cg, "ctg:", ctg, "-----------")
     eft_sum = sum(w_test[y_test==1])
     w_test[y_test==1]= calc_weights(X_test_df[y_test==1], cg=cg, ctg=ctg)
@@ -267,7 +307,7 @@ for cg, ctg in [(0.5,0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]:
 
 
     #print(len(y_test_np), len(probabilities), len(w_test_new))
-    classification_analysis(y_test_np, w_test.flatten(), probabilities.squeeze().cpu().numpy(), predictions_np, y_train, w_train, train_proba_np, ["SM", "EFT"])
+    classification_analysis(y_test_np, w_test.flatten(), probabilities.squeeze().cpu().numpy(), predictions_np, y_train, w_train, train_proba_np, ["SM", "EFT"], cg = cg, ctg = ctg)
     #classification_analysis(y_test, w_test, probabilities.squeeze(), predictions.squeeze(), y_train, w_train, train_proba.squeeze(), ["SM", "EFT"])
 
     # Plotting the training loss values
@@ -306,7 +346,7 @@ fig, ax = plt.subplots(figsize=(10, 5))
 auc_ctg = 0.69
 param_aucs = {}
 aucs = []
-for cg in cg_vals_test:
+for ctg in cg_vals_test:
     #print("Original df belongs to, cg:", cg, "ctg:", 0)
     ttH_df_set = ttH_df.copy()
 
@@ -314,14 +354,16 @@ for cg in cg_vals_test:
     comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
 
     comb_df_init = comb_df_init.dropna()
-    comb_df_init["cg"] = cg
-    comb_df_init["ctg"] = 0
+    #Change to ctg when model trained over ctg
+    comb_df_init["cg"] = 0
+    comb_df_init["ctg"] = ctg
 
     #get_labeled_comb_df(comb_df_init, features=special_features, c_g=cg, c_tg=0, norm_weights=False)
     comb_df_set_eft, comb_df_set_sm = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
     comb_df_set_eft["labels"] = 1
     comb_df_set_sm["labels"] = 0
-    comb_df_set_eft["weight"] = calc_weights(comb_df_set_eft, cg=cg, ctg=cg, weight_col="weight")
+    #Change back to ctg when model trained over ctg
+    comb_df_set_eft["weight"] = calc_weights(comb_df_set_eft, cg=0, ctg=ctg, weight_col="weight")
     if norm_eft:
         comb_df_set_sm["weight"]/=comb_df_set_sm["weight"].sum()
         comb_df_set_sm["weight"]*=10**4
@@ -367,66 +409,6 @@ fig, ax = plt.subplots(figsize=(7, 5))
 plotter.overlay_line_plots(cg_vals_test, [auc_nn, aucs],xlabel="cg", ylabel="AUC", title="AUC variation over cg", labels=["Basic NN, cg=0.3", "Param NN"], colors=["blue", "orange"], axes=ax)
 ax.axvline(x=0.3, color="black", linestyle="--", label="Basic NN training cg = 0.3")
 ax.legend(fontsize=12)
-#%%
-# #Scan over cg while profiling over ctg for auc
-
-# def get_auc(comb_df_eft, comb_df_sm, auc_cg, auc_ctg, model):
-#     comb_df_eft["weight"] = calc_weights(comb_df_eft, cg=auc_cg, ctg=auc_ctg, weight_col="weight")
-
-#     if norm_eft:
-#         comb_df_sm["weight"]/=comb_df_sm["weight"].sum()
-#         comb_df_sm["weight"]*=10**4
-#         comb_df_eft["weight"]/=comb_df_eft["weight"].sum()
-#         comb_df_eft["weight"]*=10**4
-
-#     comb_df_set = pd.concat([comb_df_eft, comb_df_sm], axis=0, ignore_index=True)
-#     comb_df_shuf = comb_df_set.sample(frac=1).reset_index(drop=True)
-
-#     w, l = comb_df_shuf["weight"], comb_df_shuf["labels"]
-
-#     comb_df_shuf = comb_df_shuf.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
-
-#     X, y, w = comb_df_shuf.values, l, w
-#     X = preprocessor.fit_transform(X)
-
-#     X_tensor= torch.tensor(X, dtype=torch.float32)
-#     with torch.no_grad():
-#         probs = model(X_tensor)
-#     probs_np=probs.squeeze().detach().numpy()
-#     #plt.hist(probs_np, bins=50, histtype="step", label=f"cg={cg_test}, ctg=0", density=True)
-#     fpr, tpr, _ = roc_curve(y, probs_np, sample_weight=w)
-#     auc_s_nn = auc(fpr, tpr)
-#     return auc_s_nn
-# hidden_dim = [256, 64, 32, 16, 8]
-# input_dim = len(special_features)
-# auc_ctg = 0.69
-
-# if mine:
-#     model2 = ComplexNN(input_dim, hidden_dim, 1)
-#     model2.load_state_dict(torch.load("saved_models/model.pth"))
-# else:
-#     model2 = WadNeuralNetwork(input_dim, input_dim*3)
-#     model2.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
-
-# model2.eval()
-# auc_nn= []
-# for cg in cg_vals_test:
-#     comb_df_init = pd.concat([ttH_df_set[var] for var in special_features+["true_weight_sel","a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]], axis=1)
-#     comb_df_init.rename(columns={'true_weight_sel': 'weight'}, inplace=True)
-
-#     comb_df_init = comb_df_init.dropna()
-
-#     comb_df_set_eft, comb_df_set_sm = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
-#     comb_df_set_eft["labels"] = 1
-#     comb_df_set_sm["labels"] = 0
-
-#     get_auc(comb_df_set_eft, comb_df_set_sm, cg, auc_ctg, model2)
-
-
-# fig, ax = plt.subplots(figsize=(7, 5))
-# plotter.overlay_line_plots(cg_vals_test, [auc_nn, aucs],xlabel="cg", ylabel="AUC", title="AUC variation over cg", labels=["Basic NN, cg=0.3", "Param NN"], colors=["blue", "orange"], axes=ax)
-# ax.axvline(x=0.3, color="black", linestyle="--", label="Basic NN training cg = 0.3")
-# ax.legend(fontsize=12)
 
 #%%
 #2D variation of AUC over cg and ctg
@@ -535,3 +517,4 @@ plt.xlabel(r"$c_{tg}$")
 plt.ylabel(r"$c_{g}$")
 #plt.title(r"2D Contour of difference in AUC (Param NN - Basic NN) vs $(c_g, c_{tg})$")
 plt.show()
+# %%

@@ -117,14 +117,14 @@ def get_tensors(oned, twod):
         res.append(torch.tensor(arg, dtype=torch.float32))
     return res
 
-def plot_classifier_output(y_probs, y_true, ws, ax=None, ax_ratio=None):
+def plot_classifier_output(y_probs, y_true, ws, ax=None, ax_ratio=None, cg=0.3, ctg=0.69):
     if ax is None or ax_ratio is None:
         fig, (ax, ax_ratio) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}, sharex=True)
 
     sm_probs = y_probs[y_true == 0].squeeze()  # Probabilities for SM (true label 0)
     eft_probs = y_probs[y_true == 1].squeeze()  # Probabilities for EFT (true label 1)
     #plotter.histogram(sm_probs, bins=30, xlabel="Predicted Probabilities", ylabel="Weighted Frequency", legend_label="SM (cg=0, ctg=0)", color=plotter.colors["blue"], axes=ax, weights=ws[y_true == 0], alpha=0.7)
-    plotter.overlay_histograms([sm_probs,eft_probs], bins=50, ylabel="Weighted Frequency", labels=["SM (cg=0, ctg=0)","EFT (cg=0.3, ctg=0.69)"], colors=["blue", "black"], axes=ax, weights=[ws[y_true==0],ws[y_true == 1]], alpha=0.7, type="step")
+    plotter.overlay_histograms([sm_probs,eft_probs], bins=50, ylabel="Weighted Frequency", labels=["SM (cg=0, ctg=0)",f"EFT (cg={cg}, ctg={ctg})"], colors=["blue", "black"], axes=ax, weights=[ws[y_true==0],ws[y_true == 1]], alpha=0.7, type="step")
     # Calculate the ratio
     hist_sm, bins_sm = np.histogram(sm_probs, bins=50, weights=ws[y_true == 0])
     hist_eft, bins_eft = np.histogram(eft_probs, bins=50, weights=ws[y_true == 1])
@@ -205,7 +205,7 @@ def get_labeled_comb_df(ttH_df, type, features, c_g, c_tg, norm_weights = True):
 
         return comb_df
 
-def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, w_train,y_proba_train, target_names):
+def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, w_train,y_proba_train, target_names, cg=0.3, ctg=0.69):
     classification_report(y_test, y_pred, target_names=target_names, sample_weight=w_test)
 
     accuracy = accuracy_score(y_test, y_pred, sample_weight=w_test)
@@ -260,11 +260,11 @@ def classification_analysis(y_test,w_test, y_proba, y_pred, y_train, w_train,y_p
     # Plot histograms for SM and EFT
     #fig, ax = plt.subplots(figsize=(10, 6))
     #ax.set_title('Classifier Output over test')
-    plot_classifier_output(y_proba.squeeze(), y_test.squeeze(), w_test)
+    plot_classifier_output(y_proba.squeeze(), y_test.squeeze(), w_test, cg=cg, ctg=ctg)
 
     #fig, ax = plt.subplots(figsize=(10, 6))
     #ax.set_title('Classifier Output over train')
-    plot_classifier_output(y_proba_train.squeeze(), y_train.squeeze(), w_train.squeeze())
+    plot_classifier_output(y_proba_train.squeeze(), y_train.squeeze(), w_train.squeeze(), cg=cg, ctg=ctg)
 
 
 def eval_in_batches(model, X, batch_size=1000):
@@ -293,7 +293,7 @@ def get_tth_df(cg=0.3, ctg=0.69):
         ttH_df = ttH_df[~invalid_weights]
     
     new_yield = ttH_df["true_weight_sel"].sum()
-
+    ttH_df = ttH_df[ttH_df["true_weight_sel"] < 10]
     #Making sure yield after removing neg weights is same as yield after
     ttH_df["true_weight_sel"] = (ttH_df["true_weight_sel"] / new_yield) * init_yield
 
