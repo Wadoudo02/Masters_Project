@@ -119,7 +119,7 @@ df_tth["true_weight"] /= df_tth["true_weight"].sum()
 df_tth["true_weight"] *= yield_weight
 
 
-def add_SMEFT_weights_random(proc_data):
+def add_SMEFT_weights_PNN(proc_data):
     cg_vals  = proc_data["cg"]
     ctg_vals = proc_data["ctg"]
     # baseline:
@@ -198,8 +198,8 @@ for ctg_val in ctg_lines:
         df_smeft_test["label"] = 1
         
         # Apply the SMEFT weights based on the initial cg and ctg values
-        #df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
-        df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        #df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
+        df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
     
         #Normalise Weights
         df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
@@ -231,6 +231,9 @@ plt.ylabel('AUC score')
 hep.cms.label("AUC vs $c_g$", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}")
 
 plt.plot(NN_AUC_Scores["Cg Values"], NN_AUC_Scores["NN: AUC vs Cg"], label="NN AUC Score", marker = "o")
+
+plt.axvline(x=-0.4, color='grey', linestyle='--', label=r'$\mathrm{AUC_{PNN}} > \mathrm{AUC_{NN}}$')
+plt.plot([], [], linestyle='None', label=r'$\mathrm{c_g}=-0.4,\ \mathrm{c_{tg}}=0$')
 
 # Add a legend to distinguish between the different pairs
 plt.legend()
@@ -268,9 +271,9 @@ for cg_val in cg_lines:
         df_smeft_test["label"] = 1
         
         # Apply the SMEFT weights based on the initial cg and ctg values
-        #df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        #df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
         
-        df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
         
         #Normalise Weights
         df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
@@ -303,6 +306,10 @@ plt.title('AUC vs ctg')
 
 plt.plot(NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"], label="NN AUC Score", marker = "o")
 
+plt.axvline(x=-0.4, color='grey', linestyle='--', label=r'$\mathrm{AUC_{PNN}} < \mathrm{AUC_{NN}}$')
+plt.plot([], [], linestyle='None', label=r'$\mathrm{c_g}=0,\ \mathrm{c_{tg}}=-0.4$')
+
+
 # Add a legend to distinguish between the different pairs
 plt.legend()
 plt.grid()
@@ -310,6 +317,33 @@ plt.grid()
 # Display the plot
 plt.show()
 
+#%%
+'''
+# Suppose you have:
+# ctg_values for the "PNN" line,
+# auc_scores for the "PNN" line, and
+# NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"] for the "NN" line.
+
+# We expect they are the same shape and in matching order
+pnn_x = ctg_values
+pnn_y = auc_scores
+
+# OR, if you prefer them as NumPy arrays:
+nn_x = np.array(NN_AUC_Scores["Ctg Values"])
+nn_y = np.array(NN_AUC_Scores["NN: AUC vs Ctg"])
+
+# Compute the pointwise difference in y-values
+diff = np.abs(pnn_y - nn_y)
+
+# Find index of the maximum delta
+max_idx = np.argmax(diff)
+
+# Retrieve x and the difference
+x_val_with_max_diff = pnn_x[max_idx]
+y_diff_max = diff[max_idx]
+
+print(f"The greatest Δy occurs at x={x_val_with_max_diff}, with a difference of {y_diff_max:.3f}.")
+'''
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
 cg_range = np.linspace(-2, 2, 30)
 ctg_range = np.linspace(-2, 2, 30)
@@ -332,9 +366,9 @@ for i, cg_val in enumerate(cg_range):
         df_smeft_test["label"] = 1
         
         # Apply the SMEFT weights based on the initial cg and ctg values
-        #df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        #df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
         
-        df_smeft_test["true_weight"] = add_SMEFT_weights_random(df_smeft_test)
+        df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
         
         #Normalise Weights
         df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
@@ -357,8 +391,8 @@ CG, CTG = np.meshgrid(ctg_range, cg_range)
 plt.figure(figsize=(8,6))
 cs = plt.contourf(CG, CTG, auc_grid, levels=20, cmap="viridis")
 plt.colorbar(cs, label="AUC Score")
-plt.xlabel(r"$c_{tg}$")
-plt.ylabel(r"$c_{g}$")
+plt.xlabel(r"$c_{g}$")
+plt.ylabel(r"$c_{tg}$")
 plt.title(r"2D Contour of AUC vs $(c_g, c_{tg})$")
 plt.show()
 

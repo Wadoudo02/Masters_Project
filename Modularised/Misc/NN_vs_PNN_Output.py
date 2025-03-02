@@ -70,9 +70,6 @@ procs = {
 plot_size = (12, 6)
 
 
-cg = 0.3
-ctg = 0.69
-
 Quadratic = True
 
 # Load dataframes
@@ -131,24 +128,25 @@ for i, proc in enumerate(procs.keys()):
     #mask = mask & (dfs[proc]['HT_sel'] > 200)
     
     dfs[proc] = dfs[proc][mask]
+    
     yield_after_sel = dfs[proc]['true_weight'].sum()
     eff = (yield_after_sel/yield_before_sel)*100
     print(f"{proc}: N = {yield_before_sel:.2f} --> {yield_after_sel:.2f}, eff = {eff:.1f}%")
 
     dfs[proc]['pt_sel'] = dfs[proc]['pt-over-mass_sel'] * dfs[proc]['mass_sel']
 
-    if proc == "ttH":
-        dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="SMEFT_weight", quadratic=Quadratic)
-
-
 
 
 
 #%%
 
-# General and stays at SM as SMEFT weights cannot be changed if not ttH
+# SM COMPARISON ONLY
+# stays at SM as SMEFT weights cannot be changed if not ttH
 
-proc = "VH"
+proc = "ttH"
+
+cg = 0
+ctg = -0.4
 
 plot_fraction = True
 
@@ -183,6 +181,21 @@ with torch.no_grad():
     PNN_probabilities = PNN_model(PNN_network_input).squeeze().numpy()
     
 # Add the probabilties as a category
+dfs[proc]["PNN_probabilities_0"] = PNN_probabilities
+
+# ---------- Comparison between different PNN modes
+
+dfs[proc]["cg"]  = cg
+dfs[proc]["ctg"]  = ctg
+
+# Prepare the input tensor for the NN
+PNN_network_input = torch.tensor(dfs[proc][features].values, dtype=torch.float32)
+
+# Get NN predictions
+with torch.no_grad():
+    PNN_probabilities = PNN_model(PNN_network_input).squeeze().numpy()
+    
+# Add the probabilties as a category
 dfs[proc]["PNN_probabilities"] = PNN_probabilities
 
 
@@ -190,6 +203,7 @@ fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
 
 # Grab the data and weights
 x_NN = dfs[proc]["NN_probabilities"]
+x_PNN_0 = dfs[proc]["PNN_probabilities_0"]
 x_PNN = dfs[proc]["PNN_probabilities"]
 
 w = dfs[proc]["true_weight"]
@@ -207,7 +221,7 @@ ax.hist(
     histtype='step',
     linewidth=2,
     label= proc + " - NN",
-    density=False  # We handle normalisation ourselves
+    density=False,  # We handle normalisation ourselves
 )
 
 ax.hist(
@@ -217,8 +231,21 @@ ax.hist(
     weights=w,
     histtype='step',
     linewidth=2,
-    label= proc + " - PNN",
-    density=False  # We handle normalisation ourselves
+    label= proc + f" - PNN({cg}, {ctg})",
+    density=False,  # We handle normalisation ourselves
+    color = "red"
+)
+
+ax.hist(
+    x_PNN_0,
+    bins=50,
+    range=(0, 1),
+    weights=w,
+    histtype='step',
+    linewidth=2,
+    label= proc + " - PNN(0, 0)",
+    density=False,  # We handle normalisation ourselves
+    color = "green"
 )
 
 # Set axis labels
@@ -247,7 +274,7 @@ def add_SMEFT_weights_PNN(proc_data):
     new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
     return new_w
 
-df_smeft["true_weight"] = add_SMEFT_weights_PNN(df_smeft)
+# df_smeft["true_weight"] = add_SMEFT_weights_PNN(df_smeft) just to see how the function works please ignore
 
 # This is for ttH only ad needs to compare SMEFT and SM as well 
 
@@ -255,28 +282,15 @@ proc = "ttH"
 
 plot_fraction = True
 
-dfs[proc]["cg"]  = 0
-dfs[proc]["ctg"]  = 0
+#cg = 0.3
+#ctg = 0.69
 
- # Extract the features for NN input
-features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
-features = [f"{feature}_sel" for feature in features]
+dfs[proc]["cg"]  = cg
+dfs[proc]["ctg"]  = ctg
 
-if not all(feature in dfs[proc].columns for feature in features):
-    raise ValueError(f"Missing one or more required features in process {proc}")
 
-# Prepare the input tensor for the NN
-NN_input = torch.tensor(dfs[proc][features].values, dtype=torch.float32)
+dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="SMEFT_NN_weight", quadratic=Quadratic)
 
-# Get NN predictions
-with torch.no_grad():
-    NN_probabilities = NN_model(NN_input).squeeze().numpy()
-    
-# Add the probabilties as a category
-dfs[proc]["NN_probabilities"] = NN_probabilities
-
-features.append("cg")
-features.append("ctg")
 
 # Prepare the input tensor for the NN
 PNN_network_input = torch.tensor(dfs[proc][features].values, dtype=torch.float32)
@@ -295,7 +309,10 @@ fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
 x_NN = dfs[proc]["NN_probabilities"]
 x_PNN = dfs[proc]["PNN_probabilities"]
 
-w_SM = dfs[proc]["true_weight"]
+w_SMEFT_NN = dfs[proc]["SMEFT_NN_weight"]
+
+dfs[proc]['SMEFT_PNN_weight'] = add_SMEFT_weights_PNN(dfs[proc])
+w_SMEFT_PNN = dfs[proc]['SMEFT_PNN_weight']
 
 # Normalise to area=1 if requested and non-zero sum
 if plot_fraction and w.sum() > 0:
@@ -306,7 +323,7 @@ ax.hist(
     x_NN,
     bins=50,
     range=(0, 1),
-    weights=w_SM,
+    weights=w_SMEFT_NN,
     histtype='step',
     linewidth=2,
     label= proc + " - NN",
@@ -317,11 +334,12 @@ ax.hist(
     x_PNN,
     bins=50,
     range=(0, 1),
-    weights=w,
+    weights=w_SMEFT_PNN,
     histtype='step',
     linewidth=2,
-    label= proc + " - PNN",
-    density=False  # We handle normalisation ourselves
+    label= proc + f" - PNN({cg}, {ctg})",
+    density=False,  # We handle normalisation ourselves
+    color = "red"
 )
 
 # Set axis labels
@@ -332,7 +350,7 @@ ax.set_ylabel("Fraction of Events" if plot_fraction else "Events")
 ax.legend(loc="best")
 
 # Add the CMS label
-hep.cms.label(proc, com="13.6", lumi=target_lumi, ax=ax)
+hep.cms.label(proc + " SMEFT", com="13.6", lumi=target_lumi, ax=ax)
 
 # Final layout adjustments
 plt.tight_layout()

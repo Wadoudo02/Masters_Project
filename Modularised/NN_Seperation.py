@@ -49,14 +49,15 @@ category_boundaries = [
 '''
 #category_boundaries = [0, 0.20592188, 0.23070513, 0.27339321, 1] # Background Percentiles
 
-category_boundaries = [0.,         0.35235969, 0.51631691, 0.71428785, 1.        ]
+#category_boundaries = [0.,         0.35235969, 0.51631691, 0.71428785, 1.        ] # Optimised values
+category_boundaries = [0.,         0.18956729, 0.22258152, 0.44875362 ,1.        ]
 
 category_boundaries[0] = 0
 category_boundaries[4] = 1
 
 #category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.710416158614033, 1.0]
 
-plot_entire_chain = True
+plot_entire_chain = False
 
 plot_fraction = False
 
@@ -490,7 +491,7 @@ quadratic_order = True
 NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order)
 NLL_Results["Name"] = "NN"
 
-Save_Results_to_JSON(NLL_Results, 'data/standard_NN_results.json')
+#Save_Results_to_JSON(NLL_Results, 'data/standard_NN_results.json')
 
 #%%
 

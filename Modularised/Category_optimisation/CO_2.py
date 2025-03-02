@@ -423,7 +423,9 @@ def objective_function(x):
         return 1e10  # Return large value if evaluation fails
 
 # Initial guess for the intermediate boundaries
-initial_guess = np.array([ 0.35235968604683876,  0.5163169130682945,  0.6802741400897503])
+#initial_guess = np.array([ 0.35235968604683876,  0.5163169130682945,  0.6802741400897503])
+
+initial_guess = np.array([0.20592188, 0.25070513, 0.3])
 
 
 
