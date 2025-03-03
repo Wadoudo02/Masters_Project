@@ -118,6 +118,31 @@ if invalid_weights.sum() > 0:
 df_tth["true_weight"] /= df_tth["true_weight"].sum()
 df_tth["true_weight"] *= yield_weight
 
+# Add variables
+# Example: (second-)max-b-tag score
+b_tag_scores = np.array(df_tth[['j0_btagB_sel', 'j1_btagB_sel', 'j2_btagB_sel', 'j3_btagB_sel']])
+b_tag_scores = np.nan_to_num(b_tag_scores, nan=-1)
+max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,0]
+second_max_b_tag_score = -1*np.sort(-1*b_tag_scores,axis=1)[:,1]
+
+
+# Add nans back in for plotting tools below
+max_b_tag_score = np.where(max_b_tag_score==-1, np.nan, max_b_tag_score)
+second_max_b_tag_score = np.where(second_max_b_tag_score==-1, np.nan, second_max_b_tag_score)
+df_tth['max_b_tag_score_sel'] = max_b_tag_score
+df_tth['second_max_b_tag_score_sel'] = second_max_b_tag_score
+
+# Apply selection: separate ttH from backgrounds + other H production modes
+yield_before_sel = df_tth['true_weight'].sum()
+
+
+mask = df_tth['n_jets_sel'] >= 0
+mask = mask & (df_tth['max_b_tag_score_sel'] > 0.4)
+#mask = mask & (df_tth['second_max_b_tag_score_sel'] > 0.4)
+#mask = mask & (df_tth['HT_sel'] > 200)
+
+df_tth = df_tth[mask]
+
 
 def add_SMEFT_weights_PNN(proc_data):
     cg_vals  = proc_data["cg"]

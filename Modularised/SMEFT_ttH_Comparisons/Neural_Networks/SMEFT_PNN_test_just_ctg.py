@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jan 31 11:11:41 2025
+Created on Sun Mar  2 14:52:20 2025
 
+@author: wadoudcharbak
 @author: wadoudcharbak
 This script demonstrates how to implement a parameterised neural network 
 to handle different SMEFT Wilson coefficient values (c_g, c_tg) all in 
 a single model.
 """
-
 
 # -------------------------------------------------------------------------
 #                         IMPORTS & SETTINGS
@@ -28,6 +28,7 @@ import torch.nn as nn
 import torch.optim as optim
 import json
 
+import copy
 # Local utilities
 from utils import *
 
@@ -46,7 +47,7 @@ target_lumi = 300
 Quadratic = True
 
 
-PlotInputFeatures = False
+
 LossPlotLog = True  # Toggle for log scale
 
 sample_path="/Users/wadoudcharbak/Downloads/Pass2"
@@ -112,7 +113,6 @@ df_tth['max_b_tag_score_sel'] = max_b_tag_score
 df_tth['second_max_b_tag_score_sel'] = second_max_b_tag_score
 
 # Apply selection: separate ttH from backgrounds + other H production modes
-yield_before_sel = df_tth['true_weight'].sum()
 
 
 mask = df_tth['n_jets_sel'] >= 0
@@ -122,63 +122,93 @@ mask = mask & (df_tth['max_b_tag_score_sel'] > 0.4)
 
 df_tth = df_tth[mask]
 
-#df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
-
-N = len(df_tth)  # number of events in baseline
-cg_min, cg_max = -0.5, 0.5
-ctg_min, ctg_max = -0.5, 1
-
-# Draw random c_g and c_tg for each event
-# For instance, uniform distribution:
-rnd_cg  = np.random.uniform(low=cg_min,  high=cg_max,  size=N)
-rnd_ctg = np.random.uniform(low=ctg_min, high=ctg_max, size=N)
-
-
-# 3) Add columns for c_g, c_tg
-df_smeft = df_tth.copy()
-
-df_smeft["cg"]  = rnd_cg
-df_smeft["ctg"] = rnd_ctg
-df_smeft["label"] = 1  # "SMEFT"
-
-# 4) Reweight to these random parameter values
-#    We'll define a function as in your code:
-def add_SMEFT_weights_PNN(proc_data):
-    cg_vals  = proc_data["cg"]
+# Example reweighting function for ctg
+def add_SMEFT_weights_PNN_ctg(proc_data):
+    """
+    Reweight events according to the chosen ctg value.
+    Assumes 'true_weight', 'a_ctgre', and 'b_ctgre_ctgre' are in proc_data.
+    """
     ctg_vals = proc_data["ctg"]
-    # baseline:
-    new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
-    # optional quadratic:
-    new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
+    
+    # Baseline + linear term
+    new_w = proc_data["true_weight"] * (1.0 + proc_data["a_ctgre"] * ctg_vals)
+    
+    # Optional quadratic term
+    new_w += (ctg_vals ** 2) * proc_data["b_ctgre_ctgre"]
+    
     return new_w
 
-df_smeft["true_weight"] = add_SMEFT_weights_PNN(df_smeft)
 
-# 5) Optionally normalise your SMEFT weights
-df_smeft["true_weight"] /= df_smeft["true_weight"].sum()
-df_smeft["true_weight"] *= 1e4
+#%%
 
-# 6) If you want some pure SM events labeled "0" (c_g=0, c_tg=0):
-rnd_cg_sm  = np.random.uniform(low=cg_min,  high=cg_max,  size=N)
-rnd_ctg_sm = np.random.uniform(low=ctg_min, high=ctg_max, size=N)
+# Define our ctg values
+ctg_values = [-2, -1, 0, 1, 2]
 
-df_sm = df_tth.copy()
-df_sm["label"] = 0
-df_sm["cg"] = rnd_cg_sm
-df_sm["ctg"] = rnd_ctg_sm
-df_sm["true_weight"] /= df_sm["true_weight"].sum()
-df_sm["true_weight"] *= 1e4
+# Optional: shuffle your dataset so each split is representative
+df_shuffled = df_tth.sample(frac=1, random_state=seed_number).reset_index(drop=True)
 
-# 7) Concatenate
-df_combined = pd.concat([df_smeft, df_sm], ignore_index=True)
+N_total = len(df_shuffled)
+subset_size = N_total // 5  # integer division
+
+df_sm_list = []
+df_smeft_list = []
+
+for i, ctg_val in enumerate(ctg_values):
+    # Slice out one-fifth of the data
+    start_idx = i * subset_size
+    # For the last slice, make sure we include all remaining events
+    end_idx = (i + 1) * subset_size if i < 4 else N_total
+    
+    df_part = copy.deepcopy(df_shuffled) #df_shuffled.iloc[start_idx:end_idx].copy() 
+    
+    # Assign this part its ctg value
+    df_part["ctg"] = ctg_val
+    
+    # -------------------
+    # SM copy (label = 0)
+    # -------------------
+    df_part_sm = copy.deepcopy(df_part)
+    df_part_sm["label"] = 0
+    
+    # Normalise to 1e4
+    df_part_sm["true_weight"] /= df_part_sm["true_weight"].sum()
+    df_part_sm["true_weight"] *= 1e4
+    
+    df_sm_list.append(df_part_sm)
+    
+    # -----------------------
+    # SMEFT copy (label = 1)
+    # -----------------------
+    df_part_smeft = copy.deepcopy(df_part)
+    df_part_smeft["label"] = 1
+    
+    # Apply reweighting
+    df_part_smeft["true_weight"] = add_SMEFT_weights_PNN_ctg(df_part_smeft)
+    
+    # Normalise to 1e4
+    df_part_smeft["true_weight"] /= df_part_smeft["true_weight"].sum()
+    df_part_smeft["true_weight"] *= 1e4
+    
+    df_smeft_list.append(df_part_smeft)
+
+# Concatenate SM and SMEFT partitions
+df_sm = pd.concat(df_sm_list, ignore_index=True)
+df_smeft = pd.concat(df_smeft_list, ignore_index=True)
+
+# Optionally combine them into a single DataFrame
+df_combined = pd.concat([df_sm, df_smeft], ignore_index=True)
 df_combined["original_index"] = np.arange(len(df_combined))
+
+
 
 # -------------------------------------------------------------------------
 #                 OPTIONAL: PLOT INPUT FEATURE DISTRIBUTIONS
 # -------------------------------------------------------------------------
 # Original features plus the new SMEFT parameters
 # (We add "cg" and "ctg" to the set of features.)
-features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "cg", "ctg"]
+PlotInputFeatures = False
+
+features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "ctg", "pt_sel"] 
 
 if PlotInputFeatures:
     print(" --> Plotting input feature distributions...")
@@ -201,7 +231,129 @@ if PlotInputFeatures:
         plt.legend(["SM", "SMEFT"])
         plt.show()
 
+#%%
 
+# Define the features we actually want to plot (excluding 'ctg' itself)
+plot_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel"]
+
+# Unique ctg values used above
+ctg_values = [-2, -1, 0, 1, 2]
+
+# Create a 5x5 grid (5 rows for ctg values, 5 columns for the chosen features)
+fig, axes = plt.subplots(nrows=5, ncols=len(plot_features), figsize=(25, 20))
+
+for i, ctg_val in enumerate(ctg_values):
+    # Filter the dataframe for the given ctg value
+    df_subset = df_combined[df_combined["ctg"] == ctg_val]
+    
+    for j, feat in enumerate(plot_features):
+        ax = axes[i, j]
+        
+        # Plot SM vs. SMEFT distributions
+        sns.histplot(
+            data=df_subset,
+            x=feat,
+            hue="label",
+            weights="true_weight",
+            bins=50,
+            element="step",
+            common_norm=False,
+            kde=False,
+            palette={0: "green", 1: "blue"},
+            ax=ax
+        )
+        
+        # Title for each subplot
+        ax.set_title(f"ctg = {ctg_val}, {feat}")
+        
+        # X and Y labels
+        ax.set_xlabel(feat)
+        ax.set_ylabel("Weighted Count")
+        
+        # Fix the legend to show "SM" and "SMEFT"
+        handles, labels = ax.get_legend_handles_labels()
+        # When hue="label", Seaborn auto-creates labels like "0", "1"
+        ax.legend(handles, ["SM", "SMEFT"], loc="best")
+
+plt.tight_layout()
+plt.show()
+
+#%%
+
+import seaborn as sns
+
+
+# The features (keys) we want to plot in 5x1 (one row per feature)
+plot_features = [
+    "deltaR",
+    "HT",
+    "n_jets",
+    "delta_phi_gg",
+]
+
+# Unique ctg values
+ctg_values = [-2, -1, 0, 1, 2]
+
+# Define colors from the husl palette
+colors = sns.color_palette("husl", len(ctg_values))
+
+# Create a 5x1 figure
+fig, axes = plt.subplots(
+    nrows=len(plot_features),
+    ncols=1,
+    figsize=(8, 25),
+    sharey=False
+)
+
+for i, feat in enumerate(plot_features):
+    ax = axes[i]
+    
+    # Extract histogram config from your existing vars_plotting_dict
+    num_bins, plot_range, logplot, x_label = vars_plotting_dict[feat]
+    
+    feat += "_sel"
+    
+    # Loop over each ctg and plot SMEFT distribution
+    for j, cval in enumerate(ctg_values):
+        # Filter DataFrame for SMEFT events (label=1) at the given ctg
+        df_smeft_ctg = df_combined[
+            (df_combined["label"] == 1) &
+            (df_combined["ctg"] == cval)
+        ]
+        
+        df_smeft_ctg["true_weight"] /= df_smeft_ctg["true_weight"].sum()
+        
+        # Use numpy to histogram the data
+        histvals, bin_edges = np.histogram(
+            df_smeft_ctg[feat],
+            bins=num_bins,
+            range=plot_range,
+            weights=df_smeft_ctg["true_weight"]
+        )
+        
+        # Step plot for each ctg
+        ax.step(
+            bin_edges[:-1],
+            histvals,
+            where="mid",
+            color=colors[j],
+            linewidth=2,
+            label=f"ctg = {cval}"
+        )
+    
+    # Log scale if specified
+    if logplot:
+        ax.set_yscale("log")
+    
+    # Axis labels and legend
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Weighted Count")
+    ax.legend(loc="best")
+
+plt.tight_layout()
+plt.show()
+
+#%%
 # -------------------------------------------------------------------------
 #               SPLIT DATA INTO TRAIN & TEST, PREPARE TENSORS
 # -------------------------------------------------------------------------
@@ -264,7 +416,7 @@ class NeuralNetwork(nn.Module):
 #            MODEL INITIALISATION, LOSS FUNCTION, OPTIMISER
 # -------------------------------------------------------------------------
 input_dim = X_train_t.shape[1]        # e.g. 6
-hidden_dim = input_dim * 4            # arbitrary choice
+hidden_dim = input_dim * 3         # arbitrary choice
 model = NeuralNetwork(input_dim, hidden_dim)
 
 criterion = nn.BCELoss(reduction="none")  # We'll apply event weights manually
@@ -389,13 +541,13 @@ plt.hist(y_proba_test[mask_smeft], bins=50, range=(0, 1),
          density=plot_fraction, 
          weights=w_test_t[mask_smeft].numpy(),
          histtype='step', linewidth=2,
-         label="SMEFT (any $c_g,c_{tg}\\neq 0$)")
+         label="SMEFT (any $c_{tg}\\neq 0$)")
 
 plt.hist(y_proba_test[mask_sm], bins=50, range=(0, 1),
          density=plot_fraction, 
          weights=w_test_t[mask_sm].numpy(),
          histtype='step', linewidth=2,
-         label="SM $(c_g, c_{tg}) = (0, 0)$")
+         label="SM $(c_{tg}) = (0, 0)$")
 
 plt.xlabel("Neural Network Output")
 plt.ylabel("Fraction of Events" if plot_fraction else "Events")
@@ -431,15 +583,9 @@ model_ckpt = {
     "input_dim": input_dim,
     "hidden_dim": hidden_dim
 }
-torch.save(model_ckpt, "data/neural_network_parameterised_yielded.pth")
+torch.save(model_ckpt, "data/neural_network_parameterised_just_ctg.pth")
 
-max_proba = float(y_proba_test.max())
-min_proba = float(y_proba_test.min())
-proba_data = {"max_proba": max_proba, "min_proba": min_proba}
 
-with open("data/proba_values_PNN_yielded.json", "w") as json_file:
-    json.dump(proba_data, json_file)
+print(f" --> Saved model to 'data/neural_network_parameterised_just_ctg.pth'")
 
-print(f" --> Saved model to 'data/neural_network_parameterised_yielded.pth'")
-print(f" --> Probability range: min={min_proba}, max={max_proba}")
 
