@@ -4,7 +4,6 @@
 Created on Sun Mar  2 14:52:20 2025
 
 @author: wadoudcharbak
-@author: wadoudcharbak
 This script demonstrates how to implement a parameterised neural network 
 to handle different SMEFT Wilson coefficient values (c_g, c_tg) all in 
 a single model.
@@ -138,8 +137,6 @@ def add_SMEFT_weights_PNN_ctg(proc_data):
     
     return new_w
 
-
-#%%
 
 # Define our ctg values
 ctg_values = [-2, -1, 0, 1, 2]
@@ -589,3 +586,131 @@ torch.save(model_ckpt, "data/neural_network_parameterised_just_ctg.pth")
 print(f" --> Saved model to 'data/neural_network_parameterised_just_ctg.pth'")
 
 
+#%%
+
+# -------------------------------------------------------------------------
+#                    LIKELIHOOD RATIO PLOT
+# -------------------------------------------------------------------------
+
+def compute_odds_ratio(model, X):
+    """
+    Computes the odds ratio f(x)/(1 - f(x)) for each sample x in X,
+    given a trained model whose final output is a sigmoid in [0,1].
+    
+    Parameters
+    ----------
+    model : nn.Module
+        Trained PyTorch model with a final sigmoid activation.
+    X : torch.Tensor
+        Input features (N x D) to evaluate.
+        
+    Returns
+    -------
+    odds_ratio : torch.Tensor
+        A tensor with shape (N,) giving the odds ratio for each sample.
+    """
+    model.eval()  # Set the model to evaluation mode
+    with torch.no_grad():
+        # Model's output f(x) in [0,1]
+        f_vals = model(X).squeeze()
+        
+        # Clip f(x) slightly away from 0 and 1 to avoid division by zero
+        eps = 1e-12
+        f_vals = torch.clamp(f_vals, min=eps, max=1 - eps)
+        
+        # Compute the odds ratio f/(1 - f)
+        odds_ratio = f_vals / (1 - f_vals)
+    
+    return odds_ratio
+
+# Suppose X_test_t is your test feature tensor
+odds_test = compute_odds_ratio(model, X_test_t)
+
+# Convert to numpy for further analysis or plotting
+odds_test_np = odds_test.cpu().numpy()
+
+# E.g., histogram of odds
+plt.hist(odds_test_np, bins=50, range=(0, 50), histtype="step")
+plt.xlabel("Odds: f/(1 - f)")
+plt.ylabel("Count")
+plt.show()
+
+
+def compute_log_likelihood(X_t, y_t, w_t, model):
+    """
+    Computes sum of weights * log-likelihood for a batch of events.
+    Negative log-likelihood = -sum_i w_i [y_i log(f_i) + (1-y_i) log(1 - f_i)].
+    This function returns the *positive* log-likelihood for convenience.
+    
+    Parameters
+    ----------
+    X_t : torch.Tensor  (N, D)
+        Feature matrix (including 'ctg' in one column).
+    y_t : torch.Tensor  (N,)
+        Labels {0,1}.
+    w_t : torch.Tensor  (N,)
+        Event weights.
+    model : nn.Module
+        Trained PNN model that outputs f(x) in [0,1].
+    
+    Returns
+    -------
+    logL : float
+        Weighted log-likelihood (sum over events).
+    """
+    model.eval()
+    with torch.no_grad():
+        f_vals = model(X_t).squeeze()  # shape (N,)
+
+    # Clip to avoid log(0)
+    eps = 1e-12
+    f_vals = torch.clamp(f_vals, min=eps, max=1.0 - eps)
+
+    # Weighted log-likelihood per event
+    # y_i * log(f_i) + (1-y_i) * log(1 - f_i)
+    logL_per_event = y_t * torch.log(f_vals) + (1 - y_t) * torch.log(1 - f_vals)
+
+    # Multiply by event weight
+    logL_weighted = w_t * logL_per_event
+
+    # Sum over events
+    return torch.sum(logL_weighted).item()
+
+# ------------------------------
+# Example: 1D ctg scan in [-3, 3]
+# ------------------------------
+ctg_values = np.linspace(-3, 3, 31)   # 31 points from -3 to 3
+log_likelihoods = []
+
+# We'll make a copy of the test features as a NumPy array to modify 'ctg' column
+X_test_np = X_test_t.clone().cpu().numpy()   # shape (N, D)
+y_test_np = y_test_t.clone().cpu().numpy()
+w_test_np = w_test_t.clone().cpu().numpy()
+
+for cval in ctg_values:
+    # Copy test features
+    X_scanned = np.copy(X_test_np)
+
+    # Here we assume that 'ctg' is the 5th column in your "features"
+    # i.e. features = [deltaR_sel, HT_sel, n_jets_sel, delta_phi_gg_sel, ctg, pt_sel]
+    # => column index = 4 for 'ctg'
+    # If you used a different index for 'ctg', adjust here
+    X_scanned[:, 4] = cval
+
+    # Convert to torch
+    X_scanned_t = torch.tensor(X_scanned, dtype=torch.float32)
+    y_scanned_t = torch.tensor(y_test_np, dtype=torch.float32)
+    w_scanned_t = torch.tensor(w_test_np, dtype=torch.float32)
+
+    # Compute log-likelihood for this ctg
+    logL_cval = compute_log_likelihood(X_scanned_t, y_scanned_t, w_scanned_t, model)
+    log_likelihoods.append(logL_cval)
+
+# Plot log-likelihood vs ctg
+plt.figure(figsize=(8, 6))
+plt.plot(ctg_values, log_likelihoods, marker='o')
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel("Log Likelihood (Weighted)")
+plt.title("1D Scan of Weighted Log Likelihood vs. $c_{tg}$")
+plt.grid(True)
+plt.show()
