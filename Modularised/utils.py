@@ -17,7 +17,7 @@ vars_plotting_dict = {
     "sublead_pixelSeed": [2, (0, 2), False, "Sublead pixel seed"],
     "deltaR": [50, (0, 4), False, "$\\Delta R$"],
     "delta_eta_gg": [50, (0, 5), False, "$\\Delta \\eta_{\\gamma\\gamma}$"],
-    "delta_phi_gg": [50, (-2, 5), False, "$\\Delta \\phi_{\\gamma\\gamma}$"],
+    "delta_phi_gg": [50, (0, 4), False, "$\\Delta \\phi_{\\gamma\\gamma}$"],
     "delta_eta_jj": [50, (0, 5), False, "$\\Delta \\eta_{jj}$"],
     "delta_phi_jj": [50, (0, 5), False, "$\\Delta \\phi_{jj}$"],
     "dijet_mass": [100, (0, 300), False, "Dijet mass [GeV]"],
