@@ -52,7 +52,7 @@ scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 X_val = scaler.transform(X_val)
-joblib.dump(scaler, "saved_models/scaler.pkl")
+# joblib.dump(scaler, "saved_models/scaler.pkl")
 
 #Making sure everything is np array, only necessayr becasue of some version mismatch.
 (X_train, X_test, X_val,
@@ -153,7 +153,7 @@ plt.grid()
 plt.show()
 
 # Save the trained model
-#torch.save(model.state_dict(), 'saved_models/model.pth')
+#torch.save(model.state_dict(), 'saved_models/model_no_trans.pth')
 #torch.save(model.state_dict(), 'saved_models/mergedNN.pth')
 # %%
 fig = plt.figure(figsize=(10, 20))
