@@ -41,17 +41,17 @@ def calc_weights(df, cg=c_g_con, ctg=c_tg_con, weight_col = "plot_weight"):
                                     
     cur_weights += df["b_cg_cg"]*(cg**2)+df["b_cg_ctgre"]*(ctg*cg) + df["b_ctgre_ctgre"]*(ctg**2)
     return cur_weights
-def apply_weight_change(df, ax, cg=0, ctg=0, var="mass_sel", weight_col = "plot_weight"):
+def apply_weight_change(df, ax, cg=0, ctg=0, var="mass_sel", weight_col = "plot_weight", density = True):
     
     cur_weights=calc_weights(df, cg=cg, ctg=ctg, weight_col=weight_col)
     if cg==0 and ctg==0:
-        hist = ax.hist(df[var], bins=n_bins, label=f"SM (cg={cg}, ctg={ctg})", weights=cur_weights, alpha = 0.3, color="gray", density=True)
+        hist = ax.hist(df[var], bins=n_bins, label=f"SM (cg={cg}, ctg={ctg})", weights=cur_weights, alpha = 0.3, color="gray", density=density)
     else:
-        hist = ax.hist(df[var], bins=n_bins, label=f"EFT (cg={cg}, ctg={ctg})", weights=cur_weights, histtype="step",linewidth=1.5,density=True, color="black")
+        hist = ax.hist(df[var], bins=n_bins, label=f"EFT (cg={cg}, ctg={ctg})", weights=cur_weights, histtype="step",linewidth=1.5,density=density, color="black")
     return hist
     
 #All_combs =True will plot all 4 combinations, False will plot SM and just cg and just ctg combs aswell
-def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], ax=None, ax_ratio=None, weight_col = "plot_weight", all_combs = True):
+def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], ax=None, ax_ratio=None, weight_col = "plot_weight", density = True):
     if not ax and not ax_ratio:
         fig, (ax, ax_ratio) = plt.subplots(2,1, figsize=(15,15),gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
     
@@ -69,10 +69,10 @@ def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], a
     #     combs = [(c_g_con, c_tg_con), (0, c_tg_con), (c_g_con, 0)]
     # else:
     #     combs = [(c_g_con, c_tg_con)]
-    hist_sm = apply_weight_change(df, ax, cg=0, ctg=0, var=var, weight_col=weight_col)
+    hist_sm = apply_weight_change(df, ax, cg=0, ctg=0, var=var, weight_col=weight_col, density=density)
 
     for c_g, c_tg in combs:
-        hist = apply_weight_change(df, ax, cg=c_g, ctg=c_tg, var=var, weight_col=weight_col)
+        hist = apply_weight_change(df, ax, cg=c_g, ctg=c_tg, var=var, weight_col=weight_col, density=density)
 
         bin_centers = (hist[1][:-1] + hist[1][1:]) / 2
         ratio = hist[0] / hist_sm[0]
