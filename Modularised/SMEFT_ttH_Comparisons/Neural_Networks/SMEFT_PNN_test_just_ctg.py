@@ -156,7 +156,7 @@ for i, ctg_val in enumerate(ctg_values):
     # For the last slice, make sure we include all remaining events
     end_idx = (i + 1) * subset_size if i < 4 else N_total
     
-    df_part = copy.deepcopy(df_shuffled) #df_shuffled.iloc[start_idx:end_idx].copy() 
+    df_part = df_shuffled.iloc[start_idx:end_idx].copy() # copy.deepcopy(df_shuffled) #
     
     # Assign this part its ctg value
     df_part["ctg"] = ctg_val
@@ -205,7 +205,7 @@ df_combined["original_index"] = np.arange(len(df_combined))
 # (We add "cg" and "ctg" to the set of features.)
 PlotInputFeatures = False
 
-features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "ctg", "pt_sel"] 
+features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel",  "pt_sel", "ctg"] 
 
 if PlotInputFeatures:
     print(" --> Plotting input feature distributions...")

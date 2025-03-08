@@ -7,6 +7,7 @@ import seaborn as sns
 
 sample_path = "/Users/wadoudcharbak/Downloads/Pass2"
 plot_path = "/Users/wadoudcharbak/Downloads/plots"
+thesis_plot_path = "/Users/wadoudcharbak/Desktop/Imperial Collage London Work/Year 4/Masters/Thesis Write Up Resources"
 
 vars_plotting_dict = {
     "plot_weight": [50, (0, 5), False, "Plot weight"],

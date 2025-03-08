@@ -45,7 +45,7 @@ procs = {
     #"Data" : ["Data", "green"]
 }
 
-plot_size = (12, 6)
+plot_size = (11, 6)
 
 Quadratic = True
 
@@ -171,7 +171,6 @@ for proc in procs.keys():
             integral, _ = quad(exponential_decay, BG_estimate_bin_edges[i], BG_estimate_bin_edges[i + 1], args=(A, lambd))
             bin_estimates.append(integral)
 
-        print(f"Background estimates for category {cat}: {bin_estimates}")
 
 
         background_estimates[proc] = bin_estimates
@@ -180,7 +179,6 @@ for proc in procs.keys():
 if plot_entire_chain:
     fig, ax = plt.subplots(1, 1, figsize=plot_size)
 
-    print(f" --> Plotting: {v} in category {cat}")
     for proc in procs.keys():
         label, color = procs[proc]
 
@@ -197,7 +195,7 @@ if plot_entire_chain:
             x_fit = np.linspace(xrange[0], xrange[1], 1000)
             y_fit = exponential_decay(x_fit, A, lambd)
             ax.plot(x_fit, y_fit, color="red", linestyle="--",
-                    label=f"Exponential Fit\n$A={A:.2f}$, $\\lambda={lambd:.4f}$")
+                    label=f"Exponential Fit") # \n$A={A:.2f}$, $\\lambda={lambd:.4f}$
 
     ax.set_xlabel(sanitized_var_name)
     ax.set_ylabel("Events")
@@ -210,4 +208,7 @@ if plot_entire_chain:
     hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 
     plt.tight_layout()
+    
+    plt.savefig(thesis_plot_path + "/all_procs.pdf")
+    
     plt.show()
