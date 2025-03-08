@@ -141,6 +141,9 @@ for i, proc in enumerate(procs.keys()):
     if proc == "ttH_SMEFT":
         dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
 
+cg_min, cg_max = -0.5, 0.5
+ctg_min, ctg_max = -0.5, 1
+
 #%%
 
 
@@ -322,7 +325,7 @@ def bounds_of_wilson_coefficients(category_bounds):
 
     # ~~~~~ 6) NLL scans
     quadratic_order = True
-    scan_points = np.linspace(-2, 2, 100)
+    scan_points = np.linspace(-1, 1, 50)
     NLL_Results = NN_NLL_scans(hists, scan_points, cat_averages,
                                quadratic_order, plot=False)
 
@@ -343,63 +346,7 @@ def bounds_of_wilson_coefficients(category_bounds):
 
 
 
-#%%
 
-
-'''
-boundary_values = np.linspace(0.21, 0.5, 20)  # 20 points from 0.6 to 0.9
-results = []
-
-for b2 in boundary_values:
-    # category_bounds = [0, 0.2, 0.5, b3, 1]
-    val = bounds_of_wilson_coefficients([0, 0.2, b2, 0.6, 1])
-    results.append(val)
-
-plt.figure(figsize=(7,5))
-plt.plot(boundary_values, results, marker='o')
-plt.xlabel("Fourth boundary")
-plt.ylabel("Objective value")
-plt.title("1D scan of objective vs. one NN boundary")
-plt.grid(True)
-plt.show()
-
-# For 4 categories, we have 5 boundaries: [0, b1, b2, 1].
-# (Here we assume we only want 3 categories for illustration.
-#  If you truly need 4 categories, you’ll want [0, b1, b2, b3, 1]
-#  in a triple-nested loop. The principle is the same.)
-
-#%%
-
-n_points = 20
-b1_range = np.linspace(0.2, 0.6, n_points)
-b2_range = np.linspace(0.2, 0.6, n_points)
-
-value_grid = np.zeros((n_points, n_points))
-
-for i, b1 in enumerate(b1_range):
-    for j, b2 in enumerate(b2_range):
-        # Make sure b2 > b1 so the bins make sense
-        if b2 > b1:
-            category_bounds = [0, b1, b2, 0.7, 1]  
-            obj_val = bounds_of_wilson_coefficients(category_bounds)
-            value_grid[i, j] = obj_val
-        else:
-            # Invalid region or force it to be NaN
-            value_grid[i, j] = np.nan
-
-# Now produce a contour or heatmap plot
-B1, B2 = np.meshgrid(b2_range, b1_range)  # watch ordering
-
-plt.figure(figsize=(8,6))
-contour = plt.contourf(B1, B2, value_grid, levels=30, cmap='viridis')
-plt.colorbar(contour, label='Objective Value')
-plt.xlabel("Boundary b2")
-plt.ylabel("Boundary b1")
-plt.title("2D scan of objective vs. two NN boundaries")
-plt.show()
-
-#%%
-'''
 
 #%%
 
@@ -424,7 +371,7 @@ def objective_function(x):
     full_boundaries = np.array([0.0] + list(x_sorted) + [1.0])
     
     # Check if boundaries are too close together
-    if np.min(np.diff(full_boundaries)) < 0.05:  # Minimum gap of 0.05
+    if np.min(np.diff(full_boundaries)) < 0.01:  # Minimum gap of 0.05
         return 1e10  # Return large value if boundaries are too close
     
     try:
@@ -434,7 +381,7 @@ def objective_function(x):
         return 1e10  # Return large value if evaluation fails
 
 # Initial guess for the intermediate boundaries
-initial_guess = np.array([0.25, 0.5, 0.70])
+initial_guess = np.array([ 0.165, 0.204, 0.294])
 
 # Define bounds for the optimization
 bounds = [(0.05, 0.95) for _ in range(3)]  # Each boundary must be between 0.05 and 0.95
