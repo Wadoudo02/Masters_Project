@@ -429,7 +429,7 @@ def compare_frozen_scans(*datasets):
           "frozen_cg_label", "frozen_ctg_label"
     """
     # Prepare figure and subplots
-    fig, axes = plt.subplots(1, 2, figsize=(18, 12))
+    fig, axes = plt.subplots(1, 2, figsize=(16, 9))
     fig.suptitle("Comparison of Frozen Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
 
     # -- Left subplot: c_g scan (frozen c_tg) --
@@ -476,7 +476,7 @@ def compare_frozen_scans(*datasets):
     
     ax_left.set_ylim(0, 10)
     ax_left.set_xlabel(r"$c_g$")
-    ax_left.set_ylabel("2ΔNLL or Δχ²")
+    ax_left.set_ylabel("2ΔNLL")
     
     # Legend Settings 
     legend = ax_left.legend(loc="upper center", frameon=True, fancybox=True)
@@ -528,7 +528,7 @@ def compare_frozen_scans(*datasets):
 
     ax_right.set_ylim(0, 10)
     ax_right.set_xlabel(r"$c_{tg}$")
-    ax_right.set_ylabel("2ΔNLL or Δχ²")
+    ax_right.set_ylabel("2ΔNLL")
     
     # Legend Settings 
     legend = ax_right.legend(loc="upper center", frameon=True, fancybox=True)
@@ -557,14 +557,14 @@ def compare_profile_scans(*datasets):
           "profile_cg_label", "profile_ctg_label"
     """
     # Prepare figure and subplots
-    fig, axes = plt.subplots(1, 2, figsize=(18, 12))
-    fig.suptitle("Comparison of Profile Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
+    fig, axes = plt.subplots(1, 2, figsize=(15, 7))
+    #fig.suptitle("Comparison of Profile Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
 
     # -- Left subplot: c_g profile scan (profiling over c_tg) --
     ax_left = axes[0]
     left_keys = [
-        ("profile_NN_NLL_vals_cg",    "NLL (profiled over $c_{tg}$)",    "profile_cg_label"),
-        ("profile_chi_squared_cg",    r"STXS $\chi^2$ (profiled over $c_{tg}$)", "profile_cg_label"),
+        ("profile_NN_NLL_vals_cg",    "NLL",    "profile_cg_label"),
+        ("profile_chi_squared_cg",    "STXS Categorisation", "profile_cg_label"),
     ]
     
     for data in datasets:
@@ -576,7 +576,7 @@ def compare_profile_scans(*datasets):
                 user_label = data.get(dict_label_key, "")
                 
                 if dataset_name:
-                    legend_label = f"{dataset_name} - {method_label}"
+                    legend_label = f"{dataset_name}"
                 else:
                     legend_label = method_label
                 
@@ -585,23 +585,25 @@ def compare_profile_scans(*datasets):
 
                 ax_left.plot(cg_values, data[data_key], label=legend_label, lw=2)
 
+    fontsize_for_horizontal_line_label = 15
+
     # Confidence lines
     # Draw the horizontal lines without legend labels
-    ax_left.axhline(1.0, color="red", linestyle="--")
-    ax_left.axhline(4.0, color="blue", linestyle="--")
+    ax_left.axhline(1.0, color="dimgray", linestyle="--")
+    ax_left.axhline(4.0, color="dimgray", linestyle="--")
     
     # Get current x-axis limits to compute a small x-offset
     xlims = ax_left.get_xlim()
     x_offset = xlims[0] + 0.02 * (xlims[1] - xlims[0])  # 2% from the left edge
     
     # Place the text labels directly on the lines
-    ax_left.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="red",
-                  ha="left", va="bottom", transform=ax_left.transData)
-    ax_left.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="blue",
-                  ha="left", va="bottom", transform=ax_left.transData)
+    ax_left.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="dimgray",
+                  ha="left", va="bottom", transform=ax_left.transData, fontsize = fontsize_for_horizontal_line_label)
+    ax_left.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="dimgray",
+                  ha="left", va="bottom", transform=ax_left.transData, fontsize = fontsize_for_horizontal_line_label)
 
     ax_left.set_xlabel(r"$c_g$")
-    ax_left.set_ylabel("2ΔNLL or Δχ²")
+    ax_left.set_ylabel("2ΔNLL")
     
     # Legend Settings 
     legend = ax_left.legend(loc="upper center", frameon=True, fancybox=True)
@@ -615,8 +617,8 @@ def compare_profile_scans(*datasets):
     # -- Right subplot: c_tg profile scan (profiling over c_g) --
     ax_right = axes[1]
     right_keys = [
-        ("profile_NN_NLL_vals_ctg",    "NLL (profiled over $c_{g}$)",    "profile_ctg_label"),
-        ("profile_chi_squared_ctg",    r"STXS $\chi^2$ (profiled over $c_{g}$)", "profile_ctg_label"),
+        ("profile_NN_NLL_vals_ctg",    "NLL",    "profile_ctg_label"),
+        ("profile_chi_squared_ctg",    "STXS Categorisation", "profile_ctg_label"),
     ]
     
     for data in datasets:
@@ -628,7 +630,7 @@ def compare_profile_scans(*datasets):
                 user_label = data.get(dict_label_key, "")
                 
                 if dataset_name:
-                    legend_label = f"{dataset_name} - {method_label}"
+                    legend_label = f"{dataset_name}"
                 else:
                     legend_label = method_label
                 
@@ -639,21 +641,21 @@ def compare_profile_scans(*datasets):
 
     # Confidence lines
     # Draw the horizontal lines without legend labels
-    ax_right.axhline(1.0, color="red", linestyle="--")
-    ax_right.axhline(4.0, color="blue", linestyle="--")
+    ax_right.axhline(1.0, color="dimgray", linestyle="--")
+    ax_right.axhline(4.0, color="dimgray", linestyle="--")
     
     # Get current x-axis limits to compute a small x-offset
     xlims = ax_right.get_xlim()
     x_offset = xlims[0] + 0.02 * (xlims[1] - xlims[0])  # 2% from the left edge
     
     # Place the text labels directly on the lines
-    ax_right.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="red",
-                  ha="left", va="bottom", transform=ax_right.transData)
-    ax_right.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="blue",
-                  ha="left", va="bottom", transform=ax_right.transData)
+    ax_right.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="dimgray",
+                  ha="left", va="bottom", transform=ax_right.transData, fontsize = fontsize_for_horizontal_line_label) 
+    ax_right.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="dimgray",
+                  ha="left", va="bottom", transform=ax_right.transData, fontsize = fontsize_for_horizontal_line_label)
 
     ax_right.set_xlabel(r"$c_{tg}$")
-    ax_right.set_ylabel("2ΔNLL or Δχ²")
+    ax_right.set_ylabel("2ΔNLL")
     
     
     # Legend Settings 
@@ -667,6 +669,9 @@ def compare_profile_scans(*datasets):
     ax_right.grid(True)
 
     plt.tight_layout()
+    
+    #plt.savefig(thesis_plot_path + "/profile_comparison.pdf")
+    
     plt.show()
 
 def weighted_quantile(values, quantiles, weights):

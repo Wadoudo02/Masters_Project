@@ -381,7 +381,7 @@ def objective_function(x):
         return 1e10  # Return large value if evaluation fails
 
 # Initial guess for the intermediate boundaries
-initial_guess = np.array([ 0.165, 0.204, 0.294])
+initial_guess = np.array([0.256, 0.343, 0.925])
 
 # Define bounds for the optimization
 bounds = [(0.05, 0.95) for _ in range(3)]  # Each boundary must be between 0.05 and 0.95

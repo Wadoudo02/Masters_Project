@@ -29,7 +29,7 @@ loaded_model.load_state_dict(checkpoint["model_state"])
 # Set model to evaluation mode
 loaded_model.eval()
 
-'''
+
 import json
 
 # Load the probability values
@@ -46,11 +46,11 @@ category_boundaries = [
     min_proba + i * (proba_range / 4) for i in range(5)  # 5 boundaries for 4 categories
 ]
 
-'''
+
 #category_boundaries = [0, 0.20592188, 0.23070513, 0.27339321, 1] # Background Percentiles
 
 #category_boundaries = [0.,         0.35235969, 0.51631691, 0.71428785, 1.        ] # Optimised values
-category_boundaries = [0.,         0.18956729, 0.22258152, 0.44875362 ,1.        ]
+#category_boundaries = [0.,         0.18956729, 0.22258152, 0.44875362 ,1.        ]
 
 category_boundaries[0] = 0
 category_boundaries[4] = 1
@@ -489,7 +489,7 @@ quadratic_order = True
 
 
 NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order)
-NLL_Results["Name"] = "NN"
+NLL_Results["Name"] = "NN Categorisation"
 
 #Save_Results_to_JSON(NLL_Results, 'data/standard_NN_results.json')
 

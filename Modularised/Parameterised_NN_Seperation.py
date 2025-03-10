@@ -56,12 +56,12 @@ category_boundaries = [
 '''
 
 
-#category_boundaries = [0, 0.165, 0.204, 0.294, 1] # Background percentiles
+#category_boundaries = [0, 0.256, 0.343, 0.925, 1] # Background percentiles
 category_boundaries = [0.,         0.25129123, 0.5375651,  0.66691406, 1.        ]
 # category_boundaries[0] = 0
 # category_boundaries[4] = 1
 
-plot_entire_chain = True
+plot_entire_chain = False
 
 plot_fraction = False
 
@@ -497,14 +497,14 @@ quadratic_order = True
 
 
 PNN_NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order)
-PNN_NLL_Results["Name"] = "P"
+PNN_NLL_Results["Name"] = "Param NN Categorisation"
 
 #%%
 
 import json
 
 # Specify the filename to read the JSON data from
-filename = 'data/chi_squared_results.json'
+filename = 'data/chi_squared_results.json' # STXS_NLL_results.json'
 
 # Read the JSON data back into a Python dictionary
 with open(filename, 'r') as file:
@@ -523,6 +523,6 @@ with open(filename, 'r') as file:
 
 
 
-compare_frozen_scans(standard_NN_Results, chi_squared_Results, PNN_NLL_Results) 
+#compare_frozen_scans(standard_NN_Results, chi_squared_Results, PNN_NLL_Results) 
 compare_profile_scans(standard_NN_Results, chi_squared_Results, PNN_NLL_Results)
 

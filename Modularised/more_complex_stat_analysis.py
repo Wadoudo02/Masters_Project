@@ -12,7 +12,7 @@ import json
 from utils import *
 
 
-plot_entire_chain = True
+plot_entire_chain = False
 
 plot_fraction = False
 
@@ -319,6 +319,7 @@ quadratic_order = True
 
 
 Chi_Squared_Results = chi_squared_scans(optimized_mus, NLL_hessian_matrix, np.linspace(-1, 1, 1000), quadratic_order)
+
 #%%
 Save_Results_to_JSON(Chi_Squared_Results, 'data/chi_squared_results.json')
 
