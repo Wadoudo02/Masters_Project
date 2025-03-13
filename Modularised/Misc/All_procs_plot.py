@@ -6,6 +6,13 @@ Created on Sat Feb 22 15:16:13 2025
 @author: wadoudcharbak
 """
 
+import sys
+import os
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+    
 import numpy as np
 import pandas as pd
 

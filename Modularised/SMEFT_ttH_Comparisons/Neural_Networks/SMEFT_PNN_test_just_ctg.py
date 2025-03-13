@@ -592,125 +592,125 @@ print(f" --> Saved model to 'data/neural_network_parameterised_just_ctg.pth'")
 #                    LIKELIHOOD RATIO PLOT
 # -------------------------------------------------------------------------
 
-def compute_odds_ratio(model, X):
+
+
+def compute_nll(X, c_value, model,  weights=None):
     """
-    Computes the odds ratio f(x)/(1 - f(x)) for each sample x in X,
-    given a trained model whose final output is a sigmoid in [0,1].
+    Compute the weighted Negative Log-Likelihood (NLL) for a dataset of events X
+    at a specific c_tg hypothesis, using a parameterised neural network 'model'.
     
-    Parameters
-    ----------
-    model : nn.Module
-        Trained PyTorch model with a final sigmoid activation.
-    X : torch.Tensor
-        Input features (N x D) to evaluate.
-        
-    Returns
-    -------
-    odds_ratio : torch.Tensor
-        A tensor with shape (N,) giving the odds ratio for each sample.
+    Args:
+        X (np.ndarray):      Event features of shape (N, D).
+        w (np.ndarray):      Event weights of shape (N,).
+        c_value (float):     The current c_tg value we are testing.
+        model (object):      A parameterised neural network or function 
+                             providing predict(X, c)-> f(x|c).
+    
+    Returns:
+        float: Weighted negative log-likelihood at c_value.
     """
-    model.eval()  # Set the model to evaluation mode
-    with torch.no_grad():
-        # Model's output f(x) in [0,1]
-        f_vals = model(X).squeeze()
-        
-        # Clip f(x) slightly away from 0 and 1 to avoid division by zero
-        eps = 1e-12
-        f_vals = torch.clamp(f_vals, min=eps, max=1 - eps)
-        
-        # Compute the odds ratio f/(1 - f)
-        odds_ratio = f_vals / (1 - f_vals)
-    
-    return odds_ratio
 
-# Suppose X_test_t is your test feature tensor
-odds_test = compute_odds_ratio(model, X_test_t)
+    # 1) Get classifier output f(x_i|c) for each event
+    f_vals = model(X).squeeze().detach().numpy()
 
-# Convert to numpy for further analysis or plotting
-odds_test_np = odds_test.cpu().numpy()
-
-# E.g., histogram of odds
-plt.hist(odds_test_np, bins=50, range=(0, 50), histtype="step")
-plt.xlabel("Odds: f/(1 - f)")
-plt.ylabel("Count")
-plt.show()
-
-
-def compute_log_likelihood(X_t, y_t, w_t, model):
-    """
-    Computes sum of weights * log-likelihood for a batch of events.
-    Negative log-likelihood = -sum_i w_i [y_i log(f_i) + (1-y_i) log(1 - f_i)].
-    This function returns the *positive* log-likelihood for convenience.
-    
-    Parameters
-    ----------
-    X_t : torch.Tensor  (N, D)
-        Feature matrix (including 'ctg' in one column).
-    y_t : torch.Tensor  (N,)
-        Labels {0,1}.
-    w_t : torch.Tensor  (N,)
-        Event weights.
-    model : nn.Module
-        Trained PNN model that outputs f(x) in [0,1].
-    
-    Returns
-    -------
-    logL : float
-        Weighted log-likelihood (sum over events).
-    """
-    model.eval()
-    with torch.no_grad():
-        f_vals = model(X_t).squeeze()  # shape (N,)
-
-    # Clip to avoid log(0)
+    # 2) Numerical safety to avoid log(0) or division by zero
     eps = 1e-12
-    f_vals = torch.clamp(f_vals, min=eps, max=1.0 - eps)
+    f_vals = np.clip(f_vals, eps, 1. - eps)
 
-    # Weighted log-likelihood per event
-    # y_i * log(f_i) + (1-y_i) * log(1 - f_i)
-    logL_per_event = y_t * torch.log(f_vals) + (1 - y_t) * torch.log(1 - f_vals)
+    # 3) Per-event log-likelihood ratio = log( f / (1-f) )
+    log_lr = np.log(f_vals) - np.log(1. - f_vals)  # shape (N,)
 
-    # Multiply by event weight
-    logL_weighted = w_t * logL_per_event
+    # 4) Weighted sum:  - sum_i w_i * log_lr_i
+    
+    if weights is not None:
+        w = np.array(weights, dtype=float)
+        nll = -np.sum(w * log_lr)
+    else:
+        nll = -np.sum( log_lr)
 
-    # Sum over events
-    return torch.sum(logL_weighted).item()
+    return nll
+
+def compute_likelihood(X, c_value, model,  weights=None):
+    """
+    Compute the weighted Negative Log-Likelihood (NLL) for a dataset of events X
+    at a specific c_tg hypothesis, using a parameterised neural network 'model'.
+    
+    Args:
+        X (np.ndarray):      Event features of shape (N, D).
+        w (np.ndarray):      Event weights of shape (N,).
+        c_value (float):     The current c_tg value we are testing.
+        model (object):      A parameterised neural network or function 
+                             providing predict(X, c)-> f(x|c).
+    
+    Returns:
+        float: Weighted negative log-likelihood at c_value.
+    """
+
+    # 1) Get classifier output f(x_i|c) for each event
+    f_vals = model(X).squeeze().detach().numpy()
+
+    # 2) Numerical safety to avoid log(0) or division by zero
+    eps = 1e-12
+    f_vals = np.clip(f_vals, eps, 1. - eps)
+
+    # 3) Per-event likelihood ratio =  f / (1-f) )
+    L_event = f_vals / (1.0 - f_vals)
+
+    
+    if weights is not None:
+        w = np.array(weights, dtype=float)
+        
+        L_total = np.prod(w * L_event)
+    else:
+        L_total = np.prod(L_event)
+
+    return L_total
+
 
 # ------------------------------
 # Example: 1D ctg scan in [-3, 3]
 # ------------------------------
 ctg_values = np.linspace(-3, 3, 31)   # 31 points from -3 to 3
 log_likelihoods = []
+likelihoods = []
 
 # We'll make a copy of the test features as a NumPy array to modify 'ctg' column
 X_test_np = X_test_t.clone().cpu().numpy()   # shape (N, D)
-y_test_np = y_test_t.clone().cpu().numpy()
 w_test_np = w_test_t.clone().cpu().numpy()
 
 for cval in ctg_values:
     # Copy test features
     X_scanned = np.copy(X_test_np)
+    
+    #try using the df_tth set instead
 
     # Here we assume that 'ctg' is the 5th column in your "features"
     # i.e. features = [deltaR_sel, HT_sel, n_jets_sel, delta_phi_gg_sel, ctg, pt_sel]
     # => column index = 4 for 'ctg'
     # If you used a different index for 'ctg', adjust here
-    X_scanned[:, 4] = cval
-
-    # Convert to torch
-    X_scanned_t = torch.tensor(X_scanned, dtype=torch.float32)
-    y_scanned_t = torch.tensor(y_test_np, dtype=torch.float32)
-    w_scanned_t = torch.tensor(w_test_np, dtype=torch.float32)
+    X_scanned[:,5] = cval
 
     # Compute log-likelihood for this ctg
-    logL_cval = compute_log_likelihood(X_scanned_t, y_scanned_t, w_scanned_t, model)
+    logL_cval = compute_nll(X_scanned_t, cval, model,w_test_np )
     log_likelihoods.append(logL_cval)
-
+    
+    likelihood_cval = compute_likelihood(X_scanned_t, cval, model,w_test_np )
+    likelihoods.append(likelihood_cval)
+    
 # Plot log-likelihood vs ctg
 plt.figure(figsize=(8, 6))
 plt.plot(ctg_values, log_likelihoods, marker='o')
 plt.xlabel(r"$c_{tg}$")
 plt.ylabel("Log Likelihood (Weighted)")
 plt.title("1D Scan of Weighted Log Likelihood vs. $c_{tg}$")
+plt.grid(True)
+plt.show()
+
+# Plot likelihood vs ctg
+plt.figure(figsize=(8, 6))
+plt.plot(ctg_values, likelihoods, marker='o')
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel(" Likelihood (Weighted)")
+plt.title("1D Scan of Weighted Likelihood vs. $c_{tg}$")
 plt.grid(True)
 plt.show()

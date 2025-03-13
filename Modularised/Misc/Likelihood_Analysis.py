@@ -5,7 +5,13 @@ Created on Thu Mar  6 16:16:45 2025
 
 @author: wadoudcharbak
 """
+import sys
+import os
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+    
 import numpy as np
 import pandas as pd
 
@@ -17,6 +23,10 @@ from scipy.optimize import minimize
 from scipy.integrate import quad
 import json
 
+
+import os
+print("Current Working Directory:", os.getcwd())
+
 from utils import *
 
 import torch
@@ -24,8 +34,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 
-# Local utilities
-from utils import *
+
 import copy
 
 
@@ -166,13 +175,113 @@ def add_SMEFT_weights_PNN_ctg(proc_data):
     
     return new_w
 
+
+#%%
+
+# -------------------------------------------------------------------------
+#               PLOT HISTOGRAMS OF NN OUTPUT (SM vs SMEFT)
+# -------------------------------------------------------------------------
+
+# Plot Histograms
+plt.figure(figsize=(12, 8), dpi=300)
+
+for ctg_val in np.arange(-2,3):
+    # Slice out one-fifth of the data
+
+    df_tth_plot = copy.deepcopy(df_tth)
+    
+    # Assign this part its ctg value
+    df_tth_plot["ctg"] = ctg_val
+    
+    df_tth_plot["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_plot)
+    
+    df_tth_plot["true_weight"] /= df_tth_plot["true_weight"].sum()
+
+
+    # Prepare the input tensor for the PNN
+    nn_input = torch.tensor(df_tth_plot[features].values, dtype=torch.float32)
+    
+    # Get NN predictions
+    with torch.no_grad():
+        probabilities = loaded_model(nn_input).squeeze().numpy()
+        
+     # Plot the histogram for the current ctg value
+    plt.hist(probabilities, bins=50, range=(0, 1), weights=df_tth_plot["true_weight"],
+             histtype='step', linewidth=2, label=f"f({ctg_val})")
+
+# Format the overall plot
+plt.xlabel("Probability")
+plt.ylabel("Fraction of Events")
+plt.title("Histogram of NN Predictions for different ctg values")
+
+
+plt.legend(loc = "best")
+#hep.cms.label("Classifier SMEFT vs SM", com="13.6", lumi=target_lumi, ax=plt.gca())
+
+plt.tight_layout()
+plt.show()
+
+#%%
+
+# Define the ctg values to use (change as desired)
+ctg_values = [1, 0, -1]
+n = len(ctg_values)
+
+# Create an n x n grid of subplots
+fig, axes = plt.subplots(n, n, figsize=(12, 12), dpi=300, sharex=True, sharey=True)
+
+# Loop over each weight ctg value (rows) and each evaluation ctg value (columns)
+for i, weight_ctg in enumerate(ctg_values):
+    # Compute weights for the current row using the weight ctg value
+    df_weight = copy.deepcopy(df_tth)
+    df_weight["ctg"] = weight_ctg
+    df_weight["true_weight"] = add_SMEFT_weights_PNN_ctg(df_weight)
+    df_weight["true_weight"] /= df_weight["true_weight"].sum()  # normalise weights
+
+    for j, eval_ctg in enumerate(ctg_values):
+        # Prepare a separate dataframe for NN evaluation with the eval ctg value
+        df_eval = copy.deepcopy(df_weight)
+        df_eval["ctg"] = eval_ctg
+
+        # Prepare the input tensor from the feature columns
+        nn_input = torch.tensor(df_eval[features].values, dtype=torch.float32)
+        
+        # Get NN predictions
+        with torch.no_grad():
+            probabilities = loaded_model(nn_input).squeeze().numpy()
+        
+        # Plot the histogram on the appropriate subplot using the weights computed above
+        ax = axes[i, j]
+        ax.hist(probabilities, bins=50, range=(0, 1), weights=df_weight["true_weight"],
+                histtype='step', linewidth=2)
+        
+        # Optionally add titles/labels to the subplots
+        if i == 0:
+            ax.set_title(f"PNN Eval ctg: {eval_ctg}", fontsize=10)
+        if j == 0:
+            ax.set_ylabel(f"Weights ctg: {weight_ctg}", fontsize=10)
+
+# Add common x and y labels
+#fig.text(0.5, 0.04, 'Probability', ha='center', va='center', fontsize=12)
+#fig.text(0.06, 0.5, 'Fraction of Events', ha='center', va='center', rotation='vertical', fontsize=12)
+
+# Add an overall title to the figure
+#fig.suptitle("Histogram of NN Predictions: Weights vs PNN Evaluation ctg", fontsize=14, y=0.97)
+
+plt.tight_layout(rect=[0.05, 0.05, 1, 0.93])
+plt.show()
+
+
+#%%
+
+
 df_tth_like = copy.deepcopy(df_tth)
 
-df_tth_like["ctg"] = 3
+#df_tth_like["ctg"] = 1
 
-df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
-df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
-df_tth_like["true_weight"] *= 1e4
+#df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
+#df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
+#df_tth_like["true_weight"] *= 1e4
 
 # Define our ctg values
 ctg_range = np.linspace(-3, 3, 100)
@@ -186,7 +295,7 @@ likelihood = []
 for i, ctg_val in enumerate(ctg_range):
     # Slice out one-fifth of the data
 
-    #df_tth_like = copy.deepcopy(df_tth)
+    df_tth_like = copy.deepcopy(df_tth)
     
     # Assign this part its ctg value
     df_tth_like["ctg"] = ctg_val
@@ -195,7 +304,7 @@ for i, ctg_val in enumerate(ctg_range):
     
     # Normalise to 1e4
     df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
-    df_tth_like["true_weight"] *= 1e4
+    df_tth_like["true_weight"] *= 1e5
 
 
     # Prepare the input tensor for the PNN
@@ -212,8 +321,22 @@ for i, ctg_val in enumerate(ctg_range):
     log_l_ratios = -1*np.sum(log_ratios* df_tth_like["true_weight"] )  # Use sum instead of np.prod
     negative_log_likelihood_ratios.append(log_l_ratios )
 
-plt.plot(ctg_range, negative_log_likelihood_ratios)
-plt.xlabel("ctg")
-plt.ylabel("Log Likelihood Ratios")
-plt.title("Log Likelihood Ratios vs ctg")
+
+# Plot log-likelihood vs ctg
+plt.figure(figsize=(8, 6))
+plt.plot(ctg_range, negative_log_likelihood_ratios, marker='o')
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel("Log Likelihood (Weighted)")
+plt.title("1D Scan of Weighted Log Likelihood vs. $c_{tg}$")
+plt.grid(True)
 plt.show()
+'''
+# Plot likelihood vs ctg
+plt.figure(figsize=(8, 6))
+plt.plot(ctg_range, likelihood, marker='o')
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel(" Likelihood (Weighted)")
+plt.title("1D Scan of Weighted Likelihood vs. $c_{tg}$")
+plt.grid(True)
+plt.show()
+'''
