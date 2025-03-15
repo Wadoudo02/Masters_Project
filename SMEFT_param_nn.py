@@ -80,11 +80,11 @@ rand_cg_sm = np.random.uniform(*c_g_range, size=len(comb_df_sm))
 rand_ctg_sm = np.random.uniform(*c_tg_range, size=len(comb_df_sm))
 
 #%%
-#Creating 5 copies of dataset all with cg = 0
+#Creating copies of dataset all with cg = 0
 datasets = []
 dataset_weights = []
-ctg_sets = [3, 2.5, 2,1.5,1,0.5,0,-0.5,-1,-1.5,-2, -2.5, -3]
-#ctg_sets = np.linspace(-10,10, 20)
+#ctg_sets = [3, 2.5, 2,1.5,1,0.5,0,-0.5,-1,-1.5,-2, -2.5, -3]
+ctg_sets = np.linspace(-1,1, 20)
 #ctg_sets = [2,1,0,-1,-2]
 if duplicate:
 
@@ -99,11 +99,10 @@ if duplicate:
         
         comb_df_ctg = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=ctg)
         datasets.append(comb_df_ctg)
-        fig, ax = plt.subplots(nrows=1, ncols = len(special_features
-        ),figsize=(30, 5))
+        #fig, ax = plt.subplots(nrows=1, ncols = len(special_features),figsize=(30, 5))
         for i in range(len(special_features)):
             var = special_features[i]
-            plot_eft_hists(df=comb_df_ctg,var= var, combs=[(0,ctg)], weight_col="weight", ax = ax[i])
+            #plot_eft_hists(df=comb_df_ctg,var= var, combs=[(0,ctg)], weight_col="weight", ax = ax[i])
 else:
     if copy_first:
         comb_dfs = np.array_split(comb_df_init,5)
@@ -121,11 +120,10 @@ else:
                 eft_copy = copy.deepcopy(eft_dfs[i])
             comb_df_ctg = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=ctg)
             datasets.append(comb_df_ctg)
-            fig, ax = plt.subplots(nrows=1, ncols = len(special_features
-            ),figsize=(30, 5))
+            #fig, ax = plt.subplots(nrows=1, ncols = len(special_features),figsize=(30, 5))
             for i in range(len(special_features)):
                 var = special_features[i]
-                plot_eft_hists(df=comb_df_ctg,var= var, combs=[(0,ctg)], weight_col="weight", ax = ax[i])
+                #plot_eft_hists(df=comb_df_ctg,var= var, combs=[(0,ctg)], weight_col="weight", ax = ax[i])
 
 comb_df = pd.concat(datasets, axis=0, ignore_index=True)
 comb_df = comb_df.sample(frac=1).reset_index(drop=True)
@@ -181,6 +179,8 @@ y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val
 #Input dim of 10(features + coefs) + 2(cg, ctg) -5(coefs) for parameters and buncha hidden layers.
 input_dim = X_train.shape[1]
 hidden_dim = [256, 64, 32, 16, 8]
+#hidden_dim = [64, 32, 16, 8]
+
 
 #model = MergedNN(input_dim, hidden_dim, 1)
 if mine:
@@ -273,11 +273,11 @@ for epoch in range(num_epochs):
 
     if (epoch + 1) % 10 == 0:
         print(f"Epoch [{epoch+1}/{num_epochs}], Weighted train Loss: {epoch_loss:.4f}, Weighted val Loss: {val_loss:.4f}")
-
 # Load the best model
 model.load_state_dict(torch.load('saved_models/best_model.pth'))
 
 #%%
+#model.load_state_dict(torch.load('saved_models/new_pnn_best.pth'))
 #Testing
 model.eval()
 #test_pairs = [(0.5,0.5), (0.5, -0.5), (0.75, 0.5), (0.5, 0.75), (0.75, 0.75)]
@@ -346,13 +346,20 @@ for cg, ctg in test_pairs:
 
 # %%
 #Variation in AUC over range of ctg values
-hidden_dim = [256, 64, 32, 16, 8]
+if transform:
+    hidden_dim = [256, 64, 32, 16, 8]
+else:
+    hidden_dim = [64, 32, 16, 8]
+
 input_dim = len(special_features)
 auc_ctg = 0.69
 
 if mine:
     model2 = ComplexNN(input_dim, hidden_dim, 1)
-    model2.load_state_dict(torch.load("saved_models/model.pth"))
+    if transform:
+        model2.load_state_dict(torch.load("saved_models/model.pth"))
+    else:
+        model2.load_state_dict(torch.load("saved_models/model_no_trans.pth"))
 else:
     model2 = WadNeuralNetwork(input_dim, input_dim*3)
     model2.load_state_dict(torch.load("saved_models/wad_neural_network.pth"))
@@ -361,7 +368,7 @@ model2.eval()
 auc_nn= []
 
 cg_vals_gen = [-0.75, 0.5, 1.5]
-ctg_vals_test = np.arange(-1.5, 1.5, 0.025)
+ctg_vals_test = np.linspace(-1.5, 1.5, 20)
 #fig, ax = plt.subplots(figsize=(10, 5))
 
 aucs = []
@@ -398,7 +405,8 @@ for ctg in ctg_vals_test:
  
     X, y, w = comb_df_shuf.values, l, w
 
-    X = preprocessor.fit_transform(X)
+    if transform:
+        X = preprocessor.transform(X)
 
     X_tensor= torch.tensor(X, dtype=torch.float32)
     with torch.no_grad():
@@ -475,7 +483,8 @@ for i, cg in enumerate(cg_grid_test):
         
         comb_df_shuf = comb_df_shuf.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
         X, y, w = comb_df_shuf.values, l, w
-        X = preprocessor.fit_transform(X)
+        if transform:
+            X = preprocessor.transform(X)
         X_tensor = torch.tensor(X, dtype=torch.float32)
         #print(X_tensor[:,-2], comb_df_shuf["cg"], X_tensor[:,-1],comb_df_shuf["ctg"])
 
@@ -551,20 +560,22 @@ comb_df_init = comb_df_init.dropna()
 #Randomly splitting same dataset into eft and sm
 comb_df_sm, comb_df_eft = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
 
-true_ctg = 3
-ctg_range = np.linspace(-10, 10, 200)
+true_ctg = -0.5
+ctg_range = np.linspace(-3, 3, 20)
 likelihood_ratios = []
 sm_copy = copy.deepcopy(comb_df_sm)
 eft_copy = copy.deepcopy(comb_df_eft)
 
-comb_df_anal = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=true_ctg, norm_eft=True)
+comb_df_anal = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=true_ctg, norm_eft=False)
 
 w, l = comb_df_anal["weight"], comb_df_anal["labels"]
 
 comb_df_anal = comb_df_anal.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
 
+# Getting prob dist for dataset at true ctg value
 X_true, y, w = comb_df_anal.values, l, w
-X_true = preprocessor.transform(X_true)
+if transform:
+    X_true = preprocessor.transform(X_true)
 X_tensor = torch.tensor(X_true, dtype=torch.float32)
 with torch.no_grad():
     probs_true = model(X_tensor)
@@ -574,7 +585,8 @@ print(comb_df_anal.columns)
 for ctg in ctg_range:
     comb_df_anal["ctg"] = ctg
     X, y, w = comb_df_anal.values, l, w
-    X = preprocessor.transform(X)
+    if transform:
+        X = preprocessor.transform(X)
 
     #Doing liklihoods on just unseen test data.
     # X = np.hstack([X_test[:,:-2], np.full((X_test.shape[0], 1), 0), np.full((X_test.shape[0], 1), ctg)])
@@ -588,21 +600,17 @@ for ctg in ctg_range:
     # # plt.hist(probs_np[l==0], bins = 40, weights=w[l==0], label = "SM", histtype="step", linewidth=2)
     # # plt.hist(probs_np[l==1], bins = 40, weights=w[l==1], label = f"EFT (ctg = {true_ctg})", histtype="step", linewidth=2)
     # plt.hist(probs_np_true, bins = 40, weights=w, label = f"NN output (ctg = {true_ctg})", color="grey", alpha = 0.5)
-    # plt.ylim(0,2000)
+    # plt.ylim(0,15000)
     # plt.xlabel(f"Probability (evaluated at ctg = {ctg:.2f})")
     # plt.ylabel("Frequency")
     # plt.legend(loc = "best")
-    # plt.savefig(f"prob_dist_evol/with_true/ctg_{ctg:.2f}.png")
+    # plt.savefig(f"prob_dist_evol/no_trans/ctg_{ctg:.2f}.png")
     # plt.show()
 
     likelihood = 0
     for i in range(len(probs_np)):
         likelihood += ((np.log(probs_np[i])- np.log(1-probs_np[i]))* w[i])
-        # likelihood*=(probs_np[i]/(1-probs_np[i]))
-        # print(likelihood)
-        
-    #log_ratios = np.log(probs_np) - np.log(1 - probs_np)
-    #log_l_ratios = -1*np.sum(log_ratios)  # Use sum instead of np.prod
+
     likelihood_ratios.append(-1*likelihood)
 
 plt.plot(ctg_range, likelihood_ratios)
@@ -625,15 +633,15 @@ print("Minimum at", filtered_ctg_range[min_index])
 # import os
 
 # # List sorted images from a directory
-# image_files = [os.path.join("prob_dist_evol/with_true", img)
-#                       for img in os.listdir("prob_dist_evol/with_true")
+# image_files = [os.path.join("prob_dist_evol/no_trans", img)
+#                       for img in os.listdir("prob_dist_evol/no_trans")
 #                       if img.endswith(".png")]
 
 # # Create a clip from the images at 10 fps
 # clip = ImageSequenceClip(image_files, fps=10)
 
 # # Write to a file
-# clip.write_videofile("prob_dist_evol/output_with_true_comb.mp4", codec="libx264")
+# clip.write_videofile("prob_dist_evol/output_decent.mp4", codec="libx264")
 #%%
 #Plotting NN output for SM and EFT
 
@@ -657,7 +665,8 @@ for i in range(len(ctg_range)):
         ctg = ctg_range[j]
         comb_df_anal["ctg"] = ctg
         X, y, w = comb_df_anal.values, l, w
-        X = preprocessor.transform(X)
+        if transform:
+            X = preprocessor.transform(X)
         X_tensor = torch.tensor(X, dtype=torch.float32)
         with torch.no_grad():
             probs_true = model(X_tensor)
@@ -667,3 +676,4 @@ for i in range(len(ctg_range)):
         ax[i][j].set_xlabel(f"Probability (evaluated at ctg = {ctg:.2f})")
         ax[i][j].set_ylabel("Frequency")
         ax[i][j].set_ylim(0,3000)
+# %%

@@ -93,10 +93,10 @@ with_back = True
 
 #Loading model
 input_dim = len(new_df[0])-2 #-2 for mass and weight column
-if not param:
-    hidden_dim = [256, 64, 32, 16,16, 8]
-else:
-    hidden_dim = [256, 64, 32, 16, 8]
+# if not param:
+#     hidden_dim = [256, 64, 32, 16,16, 8]
+# else:
+hidden_dim = [256, 64, 32, 16, 8]
 
 if mine:
     model = ComplexNN(input_dim, hidden_dim, 1)
@@ -245,12 +245,13 @@ ax_bottom_right.legend()
 plot_eft_hists(df=ttH_df,var="pt", combs = [(cg, ctg)], ax=None, ax_ratio=None)
 #%%
 #Getting weighted average of coefficients
-
+cats = [0, 0.3, 0.4, 0.5, 0.6, 1]
 ttH_probs = dfs_preds["ttH"][0]
 ttH_cats = []
 for i in range(1, len(cats)):
     bools = ((cats[i-1]<ttH_probs) & (ttH_probs<cats[i])).squeeze()
     ttH_cats.append(ttH_df[bools])
+    print(len(ttH_cats[-1]))
 
 a_cgs = []
 a_ctgs = []
@@ -265,6 +266,8 @@ for cat in ttH_cats:
     b_cg_ctgs.append(np.average(cat["b_cg_ctgre"], weights=cat["true_weight_sel"]))
     b_ctg_ctgs.append(np.average(cat["b_ctgre_ctgre"], weights=cat["true_weight_sel"]))
 
+print(a_cgs, a_ctgs, b_cg_cgs, b_cg_ctgs, b_ctg_ctgs)
+#%%
 
 hists = {}
 mass_range = (120,130)

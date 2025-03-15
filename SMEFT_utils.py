@@ -7,11 +7,86 @@ import seaborn as sns
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+import torch.optim as optim
+
+from sklearn.base import BaseEstimator, ClassifierMixin
 
 from EFT import *
 from Plotter import Plotter
 
 plotter = Plotter()
+class TorchClassifier(BaseEstimator, ClassifierMixin):
+    def __init__(self, input_dim, hidden_dim=[64, 32, 16, 8], lr=0.01, num_epochs=100, batch_size=32, device=None, verbose=False):
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.lr = lr
+        self.num_epochs = num_epochs
+        self.batch_size = batch_size
+        self.verbose = verbose
+        
+        # Determine device
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._build_model()
+        
+    def _build_model(self):
+        # Instantiate your model and move to device
+        self.model = ComplexNN(self.input_dim, self.hidden_dim, 1).to(self.device)
+        # Loss function – note that if you need to incorporate sample weights,
+        # you might modify this (or pass the weights to the loss function during training)
+        self.criterion = WeightedBCELoss()
+        # Optimizer
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+    
+    def fit(self, X, y, sample_weight=None):
+        # Convert data to tensors and move to device
+        X_tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
+        # Ensure y is the correct shape for BCELoss (as a column vector)
+        y_tensor = torch.tensor(y, dtype=torch.float32).view(-1, 1).to(self.device)
+        if sample_weight is not None:
+            w_tensor = torch.tensor(sample_weight, dtype=torch.float32).view(-1, 1).to(self.device)
+        else:
+            w_tensor = torch.ones_like(y_tensor)  # Default weight = 1 if not provided
+        # Create a TensorDataset and DataLoader
+        dataset = TensorDataset(X_tensor, y_tensor, w_tensor)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        
+        # Reinitialize the model for each new fit call
+        self._build_model()
+        
+        self.model.train()
+        for epoch in range(self.num_epochs):
+            epoch_loss = 0.0
+            for batch_X, batch_y, batch_w in dataloader:
+                self.optimizer.zero_grad()
+                logits = self.model(batch_X)
+                # For simplicity, we ignore sample_weight here; you could incorporate it if needed.
+                loss = self.criterion(logits, batch_y, batch_w)
+                loss.backward()
+                self.optimizer.step()
+                epoch_loss += loss.item()
+            if self.verbose and (epoch + 1) % 10 == 0:
+                print(f"Epoch [{epoch+1}/{self.num_epochs}], Loss: {epoch_loss/len(dataloader):.4f}")
+        return self
+
+    def predict_proba(self, X):
+        self.model.eval()
+        X_tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
+        with torch.no_grad():
+            probs = self.model(X_tensor)
+            #probs = torch.sigmoid(logits)
+        # For binary classification, return probability for each class.
+        probs = probs.cpu().numpy().flatten()
+        return np.vstack([1 - probs, probs]).T
+
+    def predict(self, X):
+        proba = self.predict_proba(X)[:, 1]
+        return (proba > 0.5).astype(int)
+
+    def score(self, X, y):
+        y_pred = self.predict(X)
+        return accuracy_score(y, y_pred)
+    
 class WadNeuralNetwork(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super(WadNeuralNetwork, self).__init__()
@@ -101,7 +176,7 @@ class WeightedBCELoss(nn.Module):
         self.bce_loss = nn.BCELoss(reduction='none')
     def forward(self, logits, targets, weights):
         loss = self.bce_loss(logits, targets)
-        weighted_loss = loss * weights
+        weighted_loss = (loss * weights)
         return weighted_loss.mean()
     
 

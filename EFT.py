@@ -39,7 +39,7 @@ def calc_weights(df, cg=c_g_con, ctg=c_tg_con, weight_col = "plot_weight"):
     cur_weights=df[weight_col]*(1.0+df["a_cg"]*cg +
                                     df["a_ctgre"]*ctg)
                                     
-    cur_weights += df["b_cg_cg"]*(cg**2)+df["b_cg_ctgre"]*(ctg*cg) + df["b_ctgre_ctgre"]*(ctg**2)
+    cur_weights += df[weight_col]*(df["b_cg_cg"]*(cg**2)+df["b_cg_ctgre"]*(ctg*cg) + df["b_ctgre_ctgre"]*(ctg**2))
     return cur_weights
 def apply_weight_change(df, ax, cg=0, ctg=0, var="mass_sel", weight_col = "plot_weight", density = True):
     
@@ -51,7 +51,7 @@ def apply_weight_change(df, ax, cg=0, ctg=0, var="mass_sel", weight_col = "plot_
     return hist
     
 #All_combs =True will plot all 4 combinations, False will plot SM and just cg and just ctg combs aswell
-def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], ax=None, ax_ratio=None, weight_col = "plot_weight", density = True):
+def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], ax=None, ax_ratio=None, weight_col = "plot_weight", density = True, fontsize = 24):
     if not ax and not ax_ratio:
         fig, (ax, ax_ratio) = plt.subplots(2,1, figsize=(15,15),gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
     
@@ -59,9 +59,10 @@ def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], a
     
     if ax_ratio:
         ax_ratio.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", )
-    ax.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", fontsize = 30)
+    else:
+        ax.set_xlabel(f"{feat_maps[var] if var in feat_maps else var}", fontsize = fontsize)
 
-    ax.set_ylabel("Events", fontsize =30)
+    ax.set_ylabel("Events", fontsize =fontsize)
 
     #fig.suptitle("Event distribution for different wilson coefficients.")
 
@@ -75,7 +76,8 @@ def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], a
         hist = apply_weight_change(df, ax, cg=c_g, ctg=c_tg, var=var, weight_col=weight_col, density=density)
 
         bin_centers = (hist[1][:-1] + hist[1][1:]) / 2
-        ratio = hist[0] / hist_sm[0]
+        ratio = [hist[0][i] / hist_sm[0][i] if hist_sm[0][i] != 0 else 0 for i in range(len(hist[0]))]
+        #ratio = hist[0] / hist_sm[0]
         if ax_ratio:
             ax_ratio.plot(bin_centers, ratio, label=f"EFT/SM", drawstyle='steps-mid', color="black")
     if ax_ratio:
@@ -84,7 +86,7 @@ def plot_eft_hists(df = ttH_df, var="mass_sel", combs = [(c_g_con, c_tg_con)], a
         ax_ratio.axhline(1, color='grey', linestyle='--')
         ax_ratio.set_ylabel("Ratio to SM")
         ax_ratio.legend()
-    ax.legend(loc="best")
+    ax.legend(loc="best", fontsize=fontsize-5)
     #plt.tight_layout()
     #plt.show()
 

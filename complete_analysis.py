@@ -31,10 +31,88 @@ col_name = "_sel"
 
 # Load dataframes
 dfs = get_dfs(sample_path)
-#%%
+
+pre_selection_pi = [sum(dfs[proc]["true_weight_sel"]) for proc in procs.keys()]
+
 #Apply selection
 for i, proc in enumerate(procs.keys()):   
-    dfs[proc] = get_selection(dfs[proc], proc)
+    dfs[proc] = get_selection(dfs[proc], proc, soft = False)
+post_selection_pi = [sum(dfs[proc]["true_weight_sel"]) for proc in procs.keys()]
+
+#%%
+# plt.pie(pre_selection_pi, labels=[procs[proc][0] for proc in procs.keys()], autopct='%1.1f%%', explode=(0, 0.2, 0.4, 0.6, 0.8), )
+fig, ax = plt.subplots(2, 2, figsize=(10, 10))
+def autopct_format(pct):
+    return ('%1.1f%%' % pct) if pct > 0 else ''
+
+def adjust_labels_and_percentages(patches, texts, autotexts, explode):
+    for i, (text, autotext, exp) in enumerate(zip(texts, autotexts, explode)):
+        x, y = text.get_position()
+        autotext.set_position((x * (1 + exp), y * (1 + exp)))  # Adjust for explode
+        text.set_position((x * (1 + exp) , y * (1 + exp + 0.2)))  # Shift label closer to percentage
+        text.set_fontsize(16)
+        autotext.set_fontsize(16)
+        text.set_fontweight("bold")
+        autotext.set_fontweight("bold")
+
+# First pie chart
+patches, texts, autotexts = ax[0][0].pie(
+    [pre_selection_pi[0], sum(pre_selection_pi[1:])], 
+    labels=["Background", "Production modes"], 
+    autopct=autopct_format, 
+    explode=(0.1, 0),
+    colors=["darkorange", "black"],
+    pctdistance=0.85,
+    labeldistance=2,
+    textprops={'fontsize': 16, 'fontweight': 'bold'}
+)
+#adjust_labels_and_percentages(patches, texts, autotexts, (0.1, 0))
+
+# Second pie chart
+patches, texts, autotexts = ax[1][0].pie(
+    pre_selection_pi[1:], 
+    labels=["ttH", "ggH", "VBF", "VH"], 
+    autopct=autopct_format, 
+    explode=(0.3, 0, 0.1, 0.2),
+    colors=["#0200FB", "#FF0F17", "#58D354", "mediumorchid"],
+    pctdistance=0.85,
+    labeldistance=2,
+    textprops={'fontsize': 16, 'fontweight': 'bold'}
+)
+#adjust_labels_and_percentages(patches, texts, autotexts, (0.3, 0, 0.1, 0.2))
+
+# Third pie chart
+patches, texts, autotexts = ax[0][1].pie(
+    [post_selection_pi[0], sum(post_selection_pi[1:])], 
+    labels=["Background", "Production modes"], 
+    autopct=autopct_format, 
+    explode=(0.1, 0),
+    colors=["darkorange","black"],
+    pctdistance=1.2,
+    labeldistance=2,
+    textprops={'fontsize': 16, 'fontweight': 'bold'}
+)
+#adjust_labels_and_percentages(patches, texts, autotexts, (0.1, 0))
+
+# Fourth pie chart
+patches, texts, autotexts = ax[1][1].pie(
+    sorted(post_selection_pi[1:]), 
+    labels=["VBF", "VH", "ggH", "ttH"], 
+    autopct=autopct_format, 
+    explode=(0.3, 0.2, 0.1, 0),
+    colors=["#58D354", "mediumorchid", "#FF0F17", "#0200FB"],
+    pctdistance=1,
+    labeldistance=2,
+    textprops={'fontsize': 16, 'fontweight': 'bold'}
+)
+#adjust_labels_and_percentages(patches, texts, autotexts, (0.3, 0.2, 0.1, 0))
+
+plt.show()
+
+print(pre_selection_pi, post_selection_pi)
+
+print(sum(pre_selection_pi[1:]), sum(post_selection_pi[1:]))
+#%%
 #Categorisation
 dfs = get_categorisation(dfs)
 
