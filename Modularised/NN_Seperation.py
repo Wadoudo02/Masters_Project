@@ -55,9 +55,11 @@ category_boundaries = [
 category_boundaries[0] = 0
 category_boundaries[4] = 1
 
-#category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.710416158614033, 1.0]
 
-plot_entire_chain = False
+
+#category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.610416158614033, 1.0]
+
+plot_entire_chain = True
 
 plot_fraction = False
 
@@ -283,128 +285,7 @@ for cat in cats_unique:
         fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
         plt.show()
     
-#%%
 
-# Looking into the NN, how its categorising the different features
-
-import seaborn as sns
-
-
-# Suppose you have this flag somewhere in your code:
-plot_fraction = True  # or False, depending on your needs
-
-plt.style.use(hep.style.CMS)
-
-# Define your unique category labels
-cats_unique = ["NN Cat A", "NN Cat B", "NN Cat C", "NN Cat D"]
-
-# Create a colour palette from seaborn and map each category to a unique colour
-palette = sns.color_palette("hls", n_colors=len(cats_unique))
-cat_colours = dict(zip(cats_unique, palette))
-
-features_to_plot = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
-
-# Create a 2x2 figure
-fig, axs = plt.subplots(2, 2, figsize=(16, 12), dpi=500)
-axs = axs.flatten()
-
-# Loop over each feature and its corresponding subplot
-for i, feat in enumerate(features_to_plot):
-    ax = axs[i]
-    
-    # Unpack the list: number of bins, range, log flag, and label text
-    bins, rng, logscale, xlabel = vars_plotting_dict[feat]
-    
-    feat_to_plot = feat + "_sel"
-
-    # For each category, plot a separate histogram
-    for cat in cats_unique:
-        # Create a mask for the current category
-        cat_mask = (dfs["ttH"]["category"] == cat)
-        x = dfs["ttH"][feat_to_plot][cat_mask]
-        w = dfs["ttH"]["plot_weight"][cat_mask]
-
-        # If requested, normalise the weights so each category's histogram has area=1
-        if plot_fraction and len(w) > 0 and w.sum() != 0:
-            w = w / w.sum()
-
-        # Plot the histogram for the current category
-        ax.hist(
-            x,
-            bins=bins,
-            range=rng,
-            weights=w,
-            histtype="step",
-            lw=2,
-            label=cat,
-            color=cat_colours[cat]
-        )
-
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel("Events")
-    ax.legend(loc="best")
-
-    # If the logscale flag is True, set the y-axis to a logarithmic scale
-    if logscale:
-        ax.set_yscale("log")
-
-# Add a CMS label to one of the subplots (or you can add it to all if preferred)
-hep.cms.label("ttH Features", data=True, lumi=300, com=13.6, ax=axs[0], lumi_format="{0:.0f}")
-
-plt.tight_layout()
-plt.show()
-# If you want to save to file:
-# fig.savefig("NN_feature_distributions.png", dpi=150, bbox_inches="tight")
-
-
-#%%
-plot_fraction = True
-
-if plot_entire_chain:
-    # Create a 5x1 figure. Adjust figsize/dpi to your liking.
-    fig, axs = plt.subplots(1, 5, figsize=(50, 10), dpi=300, sharex=True)
-    axs = axs.flatten()  # In case of indexing convenience
-
-    # Ensure the subplots do not overlap
-    plt.tight_layout(pad=3.0)
-
-    # Plot each process in its own subplot
-    for i, proc in enumerate(procs.keys()):
-        ax = axs[i]
-
-        # Grab the data and weights
-        x = dfs[proc]["NN_probabilities"]
-        w = dfs[proc]["true_weight"]
-
-        # Normalise to area=1 for this process if requested and non-zero sum
-        if plot_fraction and w.sum() > 0:
-            w = w / w.sum()  # Now the area under the histogram will be 1.
-        
-        # Plot the histogram with your chosen binning
-        ax.hist(
-            x,
-            bins=50,
-            range=(0, 1),
-            weights=w,
-            histtype='step',
-            linewidth=2,
-            label=f"{proc}",
-            density=False  # We handle normalisation ourselves
-        )
-
-        # Set axis labels
-        ax.set_xlabel("Neural Network Output")
-        ax.set_ylabel("Fraction of Events" if plot_fraction else "Events")
-
-        # Add legend
-        ax.legend(loc="best")
-
-        # Optionally add the CMS label to each subplot
-        hep.cms.label(f"{proc}", com="13.6", lumi=target_lumi, ax=ax)
-
-    # Final layout adjustments
-    plt.tight_layout()
-    plt.show()
 #%%
 
 probabilities = dfs["background"]["NN_probabilities"]

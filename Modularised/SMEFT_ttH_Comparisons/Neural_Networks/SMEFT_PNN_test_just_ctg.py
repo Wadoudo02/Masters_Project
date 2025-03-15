@@ -133,13 +133,35 @@ def add_SMEFT_weights_PNN_ctg(proc_data):
     new_w = proc_data["true_weight"] * (1.0 + proc_data["a_ctgre"] * ctg_vals)
     
     # Optional quadratic term
-    new_w += (ctg_vals ** 2) * proc_data["b_ctgre_ctgre"]
+    new_w += ((ctg_vals ** 2) * proc_data["b_ctgre_ctgre"]) * proc_data["true_weight"] 
     
     return new_w
 
+from sklearn.preprocessing import StandardScaler
+
+# List of features to be normalised (excluding 'ctg')
+features_to_normalise = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel"]
+
+# Initialise the scaler
+scaler = StandardScaler()
+
+# Fit the scaler on the selected features and transform them
+norm_values = scaler.fit_transform(df_tth[features_to_normalise])
+
+# Create new columns with a '_norm' suffix
+for i, feature in enumerate(features_to_normalise):
+    df_tth[f"{feature}_norm"] = norm_values[:, i]
+
+# Now your training features could be the new normalised columns plus 'ctg'
+training_features = [f"{feat}_norm" for feat in features_to_normalise] + ["ctg"]
+
+print(df_tth.head())
+
+
+training_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel", "ctg"]
 
 # Define our ctg values
-ctg_values = [-2, -1, 0, 1, 2]
+ctg_values = np.linspace(-2, 2, 41)
 
 # Optional: shuffle your dataset so each split is representative
 df_shuffled = df_tth.sample(frac=1, random_state=seed_number).reset_index(drop=True)
@@ -156,7 +178,7 @@ for i, ctg_val in enumerate(ctg_values):
     # For the last slice, make sure we include all remaining events
     end_idx = (i + 1) * subset_size if i < 4 else N_total
     
-    df_part = df_shuffled.iloc[start_idx:end_idx].copy() # copy.deepcopy(df_shuffled) #
+    df_part = copy.deepcopy(df_shuffled) #df_shuffled.iloc[start_idx:end_idx].copy() # copy.deepcopy(df_shuffled) #
     
     # Assign this part its ctg value
     df_part["ctg"] = ctg_val
@@ -205,11 +227,11 @@ df_combined["original_index"] = np.arange(len(df_combined))
 # (We add "cg" and "ctg" to the set of features.)
 PlotInputFeatures = False
 
-features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel",  "pt_sel", "ctg"] 
+plot_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel"]
 
 if PlotInputFeatures:
     print(" --> Plotting input feature distributions...")
-    for feat in features:
+    for feat in plot_features:
         plt.figure(figsize=(10, 6))
         sns.histplot(
             data=df_combined,
@@ -234,10 +256,10 @@ if PlotInputFeatures:
 plot_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel"]
 
 # Unique ctg values used above
-ctg_values = [-2, -1, 0, 1, 2]
+ctg_values = np.linspace(-1, 1, 21)
 
 # Create a 5x5 grid (5 rows for ctg values, 5 columns for the chosen features)
-fig, axes = plt.subplots(nrows=5, ncols=len(plot_features), figsize=(25, 20))
+fig, axes = plt.subplots(nrows=len(ctg_values), ncols=len(plot_features), figsize=(25, 100))
 
 for i, ctg_val in enumerate(ctg_values):
     # Filter the dataframe for the given ctg value
@@ -289,7 +311,7 @@ plot_features = [
 ]
 
 # Unique ctg values
-ctg_values = [-2, -1, 0, 1, 2]
+ctg_values = nctg_values = [-0.5, -0.2, 0, 0.2, 0.5]
 
 # Define colors from the husl palette
 colors = sns.color_palette("husl", len(ctg_values))
@@ -354,20 +376,20 @@ plt.show()
 # -------------------------------------------------------------------------
 #               SPLIT DATA INTO TRAIN & TEST, PREPARE TENSORS
 # -------------------------------------------------------------------------
-X = df_combined[features].values
+
+X = df_combined[training_features].values
 y = df_combined["label"].values
 w = df_combined["true_weight"].values
 
 # We also keep the original index as a separate array
 idx = df_combined["original_index"].values
 
-from sklearn.model_selection import train_test_split
-
 X_train, X_test, y_train, y_test, w_train, w_test, idx_train, idx_test = train_test_split(
     X, y, w, idx,
     test_size=0.3,
     random_state=seed_number
 )
+#%%
 
 # Convert to PyTorch tensors
 X_train_t = torch.tensor(X_train, dtype=torch.float32)
@@ -381,6 +403,7 @@ w_test_t  = torch.tensor(w_test,  dtype=torch.float32)
 train_data = torch.utils.data.TensorDataset(X_train_t, y_train_t, w_train_t)
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=64, shuffle=True)
 
+#%%
 
 # -------------------------------------------------------------------------
 #                   DEFINE OUR NEURAL NETWORK
@@ -580,7 +603,7 @@ model_ckpt = {
     "input_dim": input_dim,
     "hidden_dim": hidden_dim
 }
-torch.save(model_ckpt, "data/neural_network_parameterised_just_ctg.pth")
+torch.save(model_ckpt, "data/neural_network_parameterised_just_ctg_new_func.pth")
 
 
 print(f" --> Saved model to 'data/neural_network_parameterised_just_ctg.pth'")

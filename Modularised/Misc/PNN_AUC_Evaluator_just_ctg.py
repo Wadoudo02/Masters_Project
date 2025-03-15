@@ -38,7 +38,7 @@ from sklearn.metrics import (
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_parameterised_just_ctg.pth")
+checkpoint = torch.load("data/neural_network_parameterised_just_ctg_new_func.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -156,7 +156,7 @@ def add_SMEFT_weights_PNN_ctg(proc_data):
     new_w = proc_data["true_weight"] * (1.0 + proc_data["a_ctgre"] * ctg_vals)
     
     # Optional quadratic term
-    new_w += (ctg_vals ** 2) * proc_data["b_ctgre_ctgre"]
+    new_w += proc_data["true_weight"] * (ctg_vals ** 2) * proc_data["b_ctgre_ctgre"]
     
     return new_w
 

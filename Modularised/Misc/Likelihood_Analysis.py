@@ -300,11 +300,11 @@ for i, ctg_val in enumerate(ctg_range):
     # Assign this part its ctg value
     df_tth_like["ctg"] = ctg_val
     
-    df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
+   # df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
     
     # Normalise to 1e4
     df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
-    df_tth_like["true_weight"] *= 1e5
+    df_tth_like["true_weight"] *= 1e4
 
 
     # Prepare the input tensor for the PNN

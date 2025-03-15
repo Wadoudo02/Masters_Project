@@ -42,7 +42,7 @@ LossPlotLog = True  # Toggle for log scale
 seed_number = 42
 
 
-features = ["deltaR", "HT", "n_jets", "delta_phi_gg"] 
+features = ["deltaR", "HT", "n_jets", "delta_phi_gg", "pt"] 
 features = [f"{feature}_sel" for feature in features]
 
 
@@ -51,7 +51,7 @@ features = [f"{feature}_sel" for feature in features]
 def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
     proc_data[name] = proc_data['true_weight'] * (1 + proc_data['a_cg'] * cg + proc_data['a_ctgre'] * ctg)
     if quadratic:
-        proc_data[name] += (
+        proc_data[name] +=  (
             (cg ** 2) * proc_data["b_cg_cg"]
             + cg * ctg * proc_data["b_cg_ctgre"]
             + (ctg ** 2) * proc_data["b_ctgre_ctgre"]
@@ -289,7 +289,7 @@ plt.show()
 
 
 # Save the model
-torch.save({"model_state": model.state_dict(), "input_dim": input_dim, "hidden_dim": hidden_dim}, "data/neural_network_yielded.pth")
+torch.save({"model_state": model.state_dict(), "input_dim": input_dim, "hidden_dim": hidden_dim}, "data/neural_network_new_func.pth")
 
 # Compute max and min probabilities
 max_proba = y_proba_test.max()
@@ -299,7 +299,7 @@ min_proba = y_proba_test.min()
 import json
 
 proba_data = {"max_proba": float(max_proba), "min_proba": float(min_proba)}
-with open("data/proba_values_yielded.json", "w") as json_file:
+with open("data/proba_values_new_func.json", "w") as json_file:
     json.dump(proba_data, json_file)
 #%%
 
