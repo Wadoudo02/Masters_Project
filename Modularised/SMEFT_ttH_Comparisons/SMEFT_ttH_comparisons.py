@@ -20,16 +20,15 @@ cg_ctg_pairs = [(0, 0),  (0, 1), (0, 2), (0, -1), (0, -2)]  # SMEFT parameter pa
 pt_bins = [0, 60, 120, 200, 300, np.inf]
 pt_labels = ['0-60', '60-120', '120-200', '200-300', '>300']
 
-# SMEFT weighting function
-def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
-    proc_data[name] = proc_data['true_weight'] * (1 + proc_data['a_cg'] * cg + proc_data['a_ctgre'] * ctg)
+
+
+def add_SMEFT_weights(proc_data, cg, ctg, quadratic = True):
+
+    new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg + proc_data["a_ctgre"]*ctg)
+    # optional quadratic:
     if quadratic:
-        proc_data[name] += (
-            (cg ** 2) * proc_data["b_cg_cg"]
-            + cg * ctg * proc_data["b_cg_ctgre"]
-            + (ctg ** 2) * proc_data["b_ctgre_ctgre"]
-        )
-    return proc_data
+        new_w += proc_data["true_weight"] * ((cg**2)*proc_data["b_cg_cg"] + (cg*ctg)*proc_data["b_cg_ctgre"] + (ctg**2)*proc_data["b_ctgre_ctgre"])
+    return new_w
 
 # Variable to plot
 v = "HT"
@@ -94,7 +93,10 @@ colors = sns.color_palette("husl", len(cg_ctg_pairs))
 for j, (cg, ctg) in enumerate(cg_ctg_pairs):
     # Apply SMEFT weights
     df_tth_temp = df_tth.copy()
-    df_tth_temp = add_SMEFT_weights(df_tth_temp, cg, ctg, name="true_weight", quadratic=Quadratic)
+    df_tth_temp["true_weight"] = add_SMEFT_weights(df_tth_temp, cg, ctg, quadratic=Quadratic)
+    
+    df_tth_temp["true_weight"] /= df_tth_temp["true_weight"].sum()
+    df_tth_temp["true_weight"] *= 1e4
     
 
     # Histogram data
