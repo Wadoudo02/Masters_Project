@@ -18,7 +18,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_yielded.pth")
+checkpoint = torch.load("data/neural_network_new_func.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -29,11 +29,11 @@ loaded_model.load_state_dict(checkpoint["model_state"])
 # Set model to evaluation mode
 loaded_model.eval()
 
-
+'''
 import json
 
 # Load the probability values
-with open("data/proba_values_yielded.json", "r") as json_file:
+with open("data/proba_values_new_func.json", "r") as json_file:
     proba_data = json.load(json_file)
 
 max_proba = proba_data["max_proba"]
@@ -46,16 +46,18 @@ category_boundaries = [
     min_proba + i * (proba_range / 4) for i in range(5)  # 5 boundaries for 4 categories
 ]
 
+category_boundaries[0] = 0
+category_boundaries[4] = 1
+'''
 
 #category_boundaries = [0, 0.20592188, 0.23070513, 0.27339321, 1] # Background Percentiles
 
 #category_boundaries = [0.,         0.35235969, 0.51631691, 0.71428785, 1.        ] # Optimised values
 #category_boundaries = [0.,         0.18956729, 0.22258152, 0.44875362 ,1.        ]
 
-category_boundaries[0] = 0
-category_boundaries[4] = 1
 
 
+category_boundaries = [0, 0.31, 0.35, 0.4, 1]
 
 #category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.610416158614033, 1.0]
 
@@ -159,7 +161,7 @@ for i, proc in enumerate(procs.keys()):
 
 
      # Extract the features for NN input
-    features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
+    features = ["deltaR", "HT", "n_jets", "delta_phi_gg", "pt"]
     features = [f"{feature}_sel" for feature in features]
     
     if not all(feature in dfs[proc].columns for feature in features):

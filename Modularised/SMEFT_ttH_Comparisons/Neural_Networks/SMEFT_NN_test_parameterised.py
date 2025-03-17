@@ -53,21 +53,15 @@ sample_path="/Users/wadoudcharbak/Downloads/Pass2"
 # -------------------------------------------------------------------------
 #                         SMEFT WEIGHTING FUNCTION
 # -------------------------------------------------------------------------
-def add_SMEFT_weights(proc_data, cg_val, ctg_val, name="new_weights", quadratic=False):
-    """
-    For each row in proc_data, calculates the reweighting factor for the 
-    specified c_g and c_tg using linear and (optionally) quadratic terms.
-    """
-    proc_data[name] = proc_data["true_weight"] * (
-        1.0 + proc_data["a_cg"] * cg_val + proc_data["a_ctgre"] * ctg_val
-    )
-    if quadratic:
-        proc_data[name] += (
-            (cg_val**2) * proc_data["b_cg_cg"]
-            + cg_val * ctg_val * proc_data["b_cg_ctgre"]
-            + (ctg_val**2) * proc_data["b_ctgre_ctgre"]
-        )
-    return proc_data
+
+def add_SMEFT_weights_PNN(proc_data):
+    cg_vals  = proc_data["cg"]
+    ctg_vals = proc_data["ctg"]
+    # baseline:
+    new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
+    # optional quadratic:
+    new_w += proc_data["true_weight"] * ((cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"])
+    return new_w
 
 
 # -------------------------------------------------------------------------
@@ -143,14 +137,6 @@ df_smeft["label"] = 1  # "SMEFT"
 
 # 4) Reweight to these random parameter values
 #    We'll define a function as in your code:
-def add_SMEFT_weights_PNN(proc_data):
-    cg_vals  = proc_data["cg"]
-    ctg_vals = proc_data["ctg"]
-    # baseline:
-    new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
-    # optional quadratic:
-    new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
-    return new_w
 
 df_smeft["true_weight"] = add_SMEFT_weights_PNN(df_smeft)
 
@@ -431,13 +417,13 @@ model_ckpt = {
     "input_dim": input_dim,
     "hidden_dim": hidden_dim
 }
-torch.save(model_ckpt, "data/neural_network_parameterised_yielded.pth")
+torch.save(model_ckpt, "data/neural_network_parameterised_new_func.pth")
 
 max_proba = float(y_proba_test.max())
 min_proba = float(y_proba_test.min())
 proba_data = {"max_proba": max_proba, "min_proba": min_proba}
 
-with open("data/proba_values_PNN_yielded.json", "w") as json_file:
+with open("data/proba_values_PNN_new_func.json", "w") as json_file:
     json.dump(proba_data, json_file)
 
 print(f" --> Saved model to 'data/neural_network_parameterised_yielded.pth'")

@@ -48,15 +48,15 @@ features = [f"{feature}_sel" for feature in features]
 
 
 # SMEFT weighting function
-def add_SMEFT_weights(proc_data, cg, ctg, name="new_weights", quadratic=False):
-    proc_data[name] = proc_data['true_weight'] * (1 + proc_data['a_cg'] * cg + proc_data['a_ctgre'] * ctg)
+
+def add_SMEFT_weights(proc_data, cg, ctg, quadratic = True):
+
+    new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg + proc_data["a_ctgre"]*ctg)
+    # optional quadratic:
     if quadratic:
-        proc_data[name] +=  (
-            (cg ** 2) * proc_data["b_cg_cg"]
-            + cg * ctg * proc_data["b_cg_ctgre"]
-            + (ctg ** 2) * proc_data["b_ctgre_ctgre"]
-        )
-    return proc_data
+        new_w += proc_data["true_weight"] * ((cg**2)*proc_data["b_cg_cg"] + (cg*ctg)*proc_data["b_cg_ctgre"] + (ctg**2)*proc_data["b_ctgre_ctgre"])
+    return new_w
+
 
 # Load and preprocess ttH data
 print(" --> Loading process: ttH")
@@ -79,13 +79,8 @@ df_tth["true_weight"] *= yield_weight
 # Split the dataset into two random halves
 df_sm, df_smeft = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
 
-df_smeft = add_SMEFT_weights(df_smeft, cg=cg, ctg=ctg, name="true_weight", quadratic=Quadratic)
+df_smeft["true_weight"] = add_SMEFT_weights(df_smeft, cg=cg, ctg=ctg, quadratic=Quadratic)
 
-'''
-# Add SMEFT weights for classification
-df_smeft = add_SMEFT_weights(df_tth.copy(), cg=cg, ctg=ctg, name="true_weight", quadratic=Quadratic)
-df_sm = df_tth.copy()  # SM is treated as the baseline with cg=0, ctg=0
-'''
 
 # Normalize the "true_weight" for df_smeft
 df_smeft["true_weight"] /= df_smeft["true_weight"].sum()
@@ -389,7 +384,7 @@ auc_vs_cg = []
 for cg_val in cg_values:
     df_smeft_test = df_sm_test.copy()
     df_smeft_test["label"] = 1
-    df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=0, name="true_weight", quadratic=Quadratic)
+    df_smeft_test["true_weight"] = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=0, quadratic=Quadratic)
     auc_score = compute_auc_for_dataset(
         df_sm_test,
         df_smeft_test,
@@ -414,7 +409,7 @@ auc_vs_ctg = []
 for ctg_val in ctg_values:
     df_smeft_test = df_sm_test.copy()
     df_smeft_test["label"] = 1
-    df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=0, ctg=ctg_val, name="true_weight", quadratic=Quadratic)
+    df_smeft_test["true_weight"] = add_SMEFT_weights(df_smeft_test, cg=0, ctg=ctg_val, quadratic=Quadratic)
     auc_score = compute_auc_for_dataset(
         df_sm_test,
         df_smeft_test,

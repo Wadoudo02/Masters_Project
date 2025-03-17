@@ -82,25 +82,6 @@ PlotInputFeatures = False
 LossPlotLog = True  # Toggle for log scale
 
 sample_path="/Users/wadoudcharbak/Downloads/Pass2"
-# -------------------------------------------------------------------------
-#                         SMEFT WEIGHTING FUNCTION
-# -------------------------------------------------------------------------
-def add_SMEFT_weights(proc_data, cg_val, ctg_val, name="new_weights", quadratic=False):
-    """
-    For each row in proc_data, calculates the reweighting factor for the 
-    specified c_g and c_tg using linear and (optionally) quadratic terms.
-    """
-    proc_data[name] = proc_data["true_weight"] * (
-        1.0 + proc_data["a_cg"] * cg_val + proc_data["a_ctgre"] * ctg_val
-    )
-    if quadratic:
-        proc_data[name] += (
-            (cg_val**2) * proc_data["b_cg_cg"]
-            + cg_val * ctg_val * proc_data["b_cg_ctgre"]
-            + (ctg_val**2) * proc_data["b_ctgre_ctgre"]
-        )
-    return proc_data
-
 
 # -------------------------------------------------------------------------
 #               LOAD & PREPARE THE BASELINE (ttH) DATAFRAME
