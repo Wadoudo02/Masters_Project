@@ -148,7 +148,7 @@ def compute_auc_for_dataset(df_class0, df_class1, model, feature_cols):
     Combines df_class0(label=0) and df_class1(label=1), 
     runs the model, computes weighted AUC.
     """
-    #breakpoint()
+    #breakpoint()+-
     df_combined = pd.concat([df_class0, df_class1], ignore_index=True)
     #breakpoint()
     X_data = torch.tensor(df_combined[feature_cols].values, dtype=torch.float32)
@@ -173,7 +173,7 @@ features.append("ctg")
 import json
 
 # Specify the filename to read the JSON data from
-filename = 'data/NN_AUC_Scores.json'
+filename = 'data/NN_AUC_Scores_new_func.json'
 
 # Read the JSON data back into a Python dictionary
 with open(filename, 'r') as file:

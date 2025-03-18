@@ -341,7 +341,7 @@ category_boundaries = np.array([min_proba + i * (proba_range / 4) for i in range
 
 #%% 2) ISOLATE A PURE-SM TEST SUBSET
 # Filter out events with label = 0 (SM)
-df_combined_test = df_combined.loc[idx_test].copy()
+df_combined_test = df_combined.copy()#.loc[idx_test].copy()
 
 # Now df_combined_test has all the columns from df_combined, e.g.:
 #   - "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"
@@ -436,7 +436,7 @@ NN_AUC_Scores = {
     "NN: AUC vs Ctg": auc_vs_ctg,
     }
 
-Save_Results_to_JSON(NN_AUC_Scores, 'data/NN_AUC_Scores.json')
+Save_Results_to_JSON(NN_AUC_Scores, 'data/NN_AUC_Scores_new_func.json')
 
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
 cg_range = np.linspace(-5, 2, 50)
@@ -447,7 +447,7 @@ for i, cg_val in enumerate(cg_range):
     for j, ctg_val in enumerate(ctg_range):
         df_smeft_test = df_sm_test.copy()
         df_smeft_test["label"] = 1
-        df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=ctg_val, name="true_weight", quadratic=Quadratic)
+        df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=ctg_val, quadratic=Quadratic)
         auc_grid[i, j] = compute_auc_for_dataset(
             df_sm_test,
             df_smeft_test,
