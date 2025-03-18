@@ -258,7 +258,9 @@ plt.show()
 
 df_tth_like = copy.deepcopy(df_tth)
 
-df_tth_like["ctg"] = 0.5
+ctg = 0.8
+
+df_tth_like["ctg"] = ctg
 
 df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
 df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
@@ -305,19 +307,110 @@ for i, ctg_val in enumerate(ctg_range):
 
 # Plot log-likelihood vs ctg
 plt.figure(figsize=(8, 6))
-plt.plot(ctg_range, negative_log_likelihood_ratios, marker='o')
+plt.plot(ctg_range, negative_log_likelihood_ratios, marker='o', label = f"W(ctg = {ctg})")
 plt.xlabel(r"$c_{tg}$")
 plt.ylabel("Log Likelihood (Weighted)")
 plt.title("1D Scan of Weighted Log Likelihood vs. $c_{tg}$")
 plt.grid(True)
+plt.legend()
 plt.show()
-'''
-# Plot likelihood vs ctg
-plt.figure(figsize=(8, 6))
-plt.plot(ctg_range, likelihood, marker='o')
-plt.xlabel(r"$c_{tg}$")
-plt.ylabel(" Likelihood (Weighted)")
-plt.title("1D Scan of Weighted Likelihood vs. $c_{tg}$")
-plt.grid(True)
-plt.show()
-'''
+
+
+#%%
+
+import imageio
+import os
+
+# Create a directory to save plots (optional)
+output_dir = "/Users/wadoudcharbak/Downloads/plots_for_animation"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+ctg_range_anim = np.linspace(-2, 2, 41)
+
+filenames = []
+
+for j, ctg_weight in enumerate(ctg_range_anim):
+
+    df_tth_like = copy.deepcopy(df_tth)
+    
+    ctg = ctg_weight
+    
+    df_tth_like["ctg"] = ctg
+    
+    df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
+    df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
+    df_tth_like["true_weight"] *= 1e4
+    
+    # Define our ctg values
+    ctg_range = np.linspace(-3, 3, 100)
+    
+    # Optional: shuffle your dataset so each split is representative
+    #df_tth = df_tth.sample(frac=1, random_state=seed_number).reset_index(drop=True)
+    
+    negative_log_likelihood_ratios = []
+    likelihood = []
+    
+    for i, ctg_val in enumerate(ctg_range):
+        # Slice out one-fifth of the data
+    
+        #df_tth_like = copy.deepcopy(df_tth)
+        
+        # Assign this part its ctg value
+        df_tth_like["ctg"] = ctg_val
+        
+        #df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
+        
+        # Normalise to 1e4
+        df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
+        df_tth_like["true_weight"] *= 1e4
+    
+    
+        # Prepare the input tensor for the PNN
+        nn_input = torch.tensor(df_tth_like[features].values, dtype=torch.float32)
+        
+        # Get NN predictions
+        with torch.no_grad():
+            probabilities = loaded_model(nn_input).squeeze().numpy()
+            
+        w_likelihood = probabilities / (1-probabilities)
+        likelihood.append(np.prod(w_likelihood * df_tth_like["true_weight"]))
+        
+        log_ratios = np.log(probabilities) - np.log(1 - probabilities)
+        log_l_ratios = -1*np.sum(log_ratios* df_tth_like["true_weight"] )  # Use sum instead of np.prod
+        negative_log_likelihood_ratios.append(log_l_ratios )
+        two_delta_NLL = TwoDeltaNLL(negative_log_likelihood_ratios)
+    
+    
+    # Plot log-likelihood vs ctg
+    plt.figure(figsize=(10, 8))
+    plt.plot(ctg_range, two_delta_NLL, marker='o', label = f"W(ctg = {ctg:.2f})")
+    plt.xlabel(r"$c_{tg}$")
+    plt.ylabel("2$\\Delta$NLL (Weighted)")
+    plt.title("1D Scan of Weighted 2$\\Delta$NLL vs. $c_{tg}$")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    
+        # Save the figure
+    filename = os.path.join(output_dir, f"2deltaNLL_plot_{j:02d}.png")
+    plt.savefig(filename, dpi = 300)
+    plt.close()
+    filenames.append(filename)
+#%%
+# Define the directory where the plots are saved
+output_dir = "/Users/wadoudcharbak/Downloads/plots_for_animation"
+
+# Collect the filenames of the saved PNG plots (sorted in order)
+filenames = sorted([os.path.join(output_dir, fname) for fname in os.listdir(output_dir) if fname.endswith('.png')])
+
+# Read the images
+images = [imageio.imread(fname) for fname in filenames]
+
+# Define the output video filename (saved in the same folder)
+output_video = os.path.join(output_dir, "ctg_scan_animation_2deltaNLL.mp4")
+
+# Create the animation video at ~20 fps
+imageio.mimwrite(output_video, images, fps=7)
+
+print(f"Animation saved as {output_video}")
