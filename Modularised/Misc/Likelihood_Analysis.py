@@ -238,9 +238,9 @@ for i, weight_ctg in enumerate(ctg_values):
         
         # Optionally add titles/labels to the subplots
         if i == 0:
-            ax.set_title(f"PNN Eval ctg: {eval_ctg}", fontsize=10)
+            ax.set_title(f"PNN Eval ctg: {eval_ctg}", fontsize=20)
         if j == 0:
-            ax.set_ylabel(f"Weights ctg: {weight_ctg}", fontsize=10)
+            ax.set_ylabel(f"Weights ctg: {weight_ctg}", fontsize=20)
 
 # Add common x and y labels
 #fig.text(0.5, 0.04, 'Probability', ha='center', va='center', fontsize=12)
@@ -258,11 +258,11 @@ plt.show()
 
 df_tth_like = copy.deepcopy(df_tth)
 
-#df_tth_like["ctg"] = 1
+df_tth_like["ctg"] = 0.5
 
-#df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
-#df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
-#df_tth_like["true_weight"] *= 1e4
+df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
+df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
+df_tth_like["true_weight"] *= 1e4
 
 # Define our ctg values
 ctg_range = np.linspace(-3, 3, 100)
@@ -276,12 +276,12 @@ likelihood = []
 for i, ctg_val in enumerate(ctg_range):
     # Slice out one-fifth of the data
 
-    df_tth_like = copy.deepcopy(df_tth)
+    #df_tth_like = copy.deepcopy(df_tth)
     
     # Assign this part its ctg value
     df_tth_like["ctg"] = ctg_val
     
-   # df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
+    #df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
     
     # Normalise to 1e4
     df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
