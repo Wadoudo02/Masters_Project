@@ -299,6 +299,108 @@ plt.show()
 
 #%%
 
+# Define the features we actually want to plot (excluding 'ctg' itself)
+plot_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel"]
+
+# Unique ctg values used above
+ctg_values = np.linspace(-2, 2, 41)
+
+# Path to save plots
+output_path = "/Users/wadoudcharbak/Downloads/plots_for_animation"
+os.makedirs(output_path, exist_ok=True)  # Create the directory if it doesn't exist
+
+filenames = []
+
+# Loop over each ctg value, creating a separate figure for each
+for ctg_val in ctg_values:
+    # Filter the dataframe for the given ctg value
+    df_subset = df_combined[df_combined["ctg"] == ctg_val]
+    
+    # Create a figure with 1 row and columns equal to the length of plot_features
+    fig, axes = plt.subplots(nrows=1, ncols=len(plot_features), figsize=(25, 10))
+    
+    # Add a single title at the top
+    fig.suptitle(f"ctg = {ctg_val:.2f}", fontsize=30)
+    
+    # Ensure axes is iterable even if only one feature
+    if len(plot_features) == 1:
+        axes = [axes]
+
+    for j, feat in enumerate(plot_features):
+        
+        feature_label = feat.replace("_sel", "")
+        
+        if feature_label == "pt":
+            num_bins, plot_range, logplot, x_label = [50, (0, 1000), False, "$p_T$ [GeV]"]
+        else:
+            num_bins, plot_range, logplot, x_label = vars_plotting_dict[feature_label]
+        
+        ax = axes[j]
+
+        # Plot SM vs. SMEFT distributions
+        sns.histplot(
+            data=df_subset,
+            x=feat,
+            hue="label",
+            weights="true_weight",
+            bins=num_bins,
+            element="step",
+            common_norm=False,
+            kde=False,
+            palette={0: "green", 1: "blue"},
+            ax=ax
+        )
+        
+        # Remove '_sel' from the feature label for a cleaner x-axis name
+        
+        # X label
+        ax.set_xlabel(x_label)
+        
+        # Only the leftmost subplot shows the y-axis label
+        if j == 0:
+            ax.set_ylabel("Weighted Count")
+        else:
+            ax.set_ylabel("")
+        
+        # Remove subplot title (so we only rely on the main title)
+        ax.set_title("")
+        
+        # Fix the legend to show "SM" and "SMEFT"
+        handles, _ = ax.get_legend_handles_labels()
+        ax.legend(handles, ["SM", "SMEFT"], loc="best")
+
+    plt.tight_layout()
+    
+    # Save the figure for this ctg value (identical naming as before)
+    filename = os.path.join(output_path, f"plots_ctg_{ctg_val:.2f}.png")
+    plt.savefig(filename, dpi=300)
+    plt.close()
+    filenames.append(filename)
+    
+#%%
+
+import os
+import imageio
+from PIL import Image
+import numpy as np
+
+# Define the directory where the plots are saved
+output_dir = "/Users/wadoudcharbak/Downloads/plots_for_animation"
+
+
+# Define the output video filename (saved in the same folder)
+output_video = os.path.join(output_dir, "features_evolving.mp4")
+
+# Read images without resizing
+images = [imageio.imread(fname) for fname in filenames]
+
+# Create the animation video at 7 fps
+imageio.mimwrite(output_video, images, fps=7)
+
+print(f"Animation saved as {output_video}")
+
+#%%
+
 import seaborn as sns
 
 

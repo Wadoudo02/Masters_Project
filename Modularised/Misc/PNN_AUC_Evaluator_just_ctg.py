@@ -237,14 +237,14 @@ for cg_val in cg_lines:
     plt.plot(ctg_values, auc_scores, label='PNN', marker = "o")
 
 # Label the axes and add a title
-plt.xlabel('ctg value')
+plt.xlabel(r"$c_{tg}$")
 plt.ylabel('AUC score')
-plt.title('AUC vs ctg')
+plt.title(r'AUC vs $c_{tg}$')
 
 plt.plot(NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"], label="NN AUC Score", marker = "o")
 
-#plt.axvline(x=-0.4, color='grey', linestyle='--', label=r'$\mathrm{AUC_{PNN}} < \mathrm{AUC_{NN}}$')
-#plt.plot([], [], linestyle='None', label=r'$\mathrm{c_g}=0,\ \mathrm{c_{tg}}=-0.4$')
+plt.axvline(x=0.69, color='grey', linestyle='--', label=r'NN trained here')
+#plt.plot([], [], linestyle='None', label='was trained')
 
 
 # Add a legend to distinguish between the different pairs

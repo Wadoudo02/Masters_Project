@@ -439,15 +439,15 @@ NN_AUC_Scores = {
 Save_Results_to_JSON(NN_AUC_Scores, 'data/NN_AUC_Scores_new_func.json')
 
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
-cg_range = np.linspace(-5, 2, 50)
-ctg_range = np.linspace(-2, 4, 50)
+cg_range = np.linspace(-2, 2, 50)
+ctg_range = np.linspace(-2, 2, 50)
 auc_grid = np.zeros((len(cg_range), len(ctg_range)))
 
 for i, cg_val in enumerate(cg_range):
     for j, ctg_val in enumerate(ctg_range):
         df_smeft_test = df_sm_test.copy()
         df_smeft_test["label"] = 1
-        df_smeft_test = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=ctg_val, quadratic=Quadratic)
+        df_smeft_test["true_weight"] = add_SMEFT_weights(df_smeft_test, cg=cg_val, ctg=ctg_val, quadratic=Quadratic)
         auc_grid[i, j] = compute_auc_for_dataset(
             df_sm_test,
             df_smeft_test,
@@ -458,11 +458,18 @@ for i, cg_val in enumerate(cg_range):
 # Create mesh for plotting
 CG, CTG = np.meshgrid(ctg_range, cg_range)  
 # We'll put c_{tg} on the x-axis and c_g on the y-axis.
-
-plt.figure(figsize=(8,6))
+#%%
+plt.figure(figsize=(8,6), dpi=300)
 cs = plt.contourf(CG, CTG, auc_grid, levels=20, cmap="viridis")
 plt.colorbar(cs, label="AUC Score")
 plt.xlabel(r"$c_{tg}$")
 plt.ylabel(r"$c_{g}$")
 plt.title(r"2D Contour of AUC vs $(c_g, c_{tg})$")
+
+# Add a red point at (0,0)
+plt.plot(0, 0, 'ro', label = "Minimum")  # 'ro' specifies red circles
+
+# Annotate the point with the text "minimum"
+plt.text(0, 0, ' Minimum', color='red', fontsize=15, ha='left', va='bottom')
+#plt.legend()
 plt.show()
