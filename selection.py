@@ -39,15 +39,15 @@ def prep_df(df, proc):
     df.loc[:, 'second_max_b_tag_score'] = second_max_b_tag_score
     return df
 
-def get_dfs(sample_path):
+def get_dfs(sample_path, cols_to_load = None):
     dfs = {}
     for i, proc in enumerate(procs.keys()):
         #if proc != "ttH": continue
         print(f" --> Loading process: {proc}")
         if proc=="ttH" and sample_path==new_sample_path:
-            dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected_with_smeft_cut_mupcleq90.parquet")
+            dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected_with_smeft_cut_mupcleq90.parquet", columns=cols_to_load)
         else:
-            dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
+            dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet", columns=cols_to_load)
 
         # Remove nans from dataframe
         dfs[proc] = dfs[proc][(dfs[proc]['mass'+col_name] == dfs[proc]['mass'+col_name])]
@@ -77,6 +77,7 @@ def get_selection(df, proc, soft=True):
     yield_before_sel = df['true_weight'+col_name].sum()
     if soft:
         mask = df['n_jets_sel'] >= 2
+        mask = mask & (df['max_b_tag_score'] > 0.4)
     else:
         mask = df['n_jets_sel'] >= 2
         mask = mask & (df['max_b_tag_score'] > 0.8)

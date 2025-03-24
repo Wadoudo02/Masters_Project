@@ -1,9 +1,12 @@
+#%%
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_curve, auc
 from sklearn.model_selection import train_test_split
 import seaborn as sns
+from moviepy import ImageSequenceClip
+import os
 
 import torch
 import torch.nn as nn
@@ -193,7 +196,7 @@ def get_tensors(oned, twod):
     return res
 
 def plot_classifier_output(y_probs, y_true, ws, ax=None, ax_ratio=None, cg=0.3, ctg=0.69):
-    if ax is None or ax_ratio is None:
+    if ax is None and ax_ratio is None:
         fig, (ax, ax_ratio) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}, sharex=True)
 
     sm_probs = y_probs[y_true == 0].squeeze()  # Probabilities for SM (true label 0)
@@ -207,12 +210,17 @@ def plot_classifier_output(y_probs, y_true, ws, ax=None, ax_ratio=None, cg=0.3, 
     bin_centers = (bins_sm[:-1] + bins_sm[1:]) / 2
 
     # Plot the ratio
-    ax_ratio.plot(bin_centers, ratio, label='EFT/SM', color='#0200FB', drawstyle='steps-mid')
-    ax_ratio.set_xlabel('Predicted Probabilities')
-    ax_ratio.set_ylabel('Ratio to SM')
-    ax_ratio.set_ylim(0, 6)
-    ax_ratio.axhline(1, color='black', linestyle='--')
-    ax_ratio.legend()
+    if ax_ratio:
+        ax_ratio.plot(bin_centers, ratio, label='EFT/SM', color='#0200FB', drawstyle='steps-mid')
+        ax_ratio.set_xlabel('Predicted Probabilities')
+        ax_ratio.set_ylabel('Ratio to SM')
+        ax_ratio.set_ylim(0, 6)
+        ax_ratio.axhline(1, color='black', linestyle='--')
+        ax_ratio.legend()
+    else:
+        ax.set_xlabel('Predicted Probabilities')
+        ax.set_ylabel('Weighted Frequency')
+        ax.legend(loc="best")
     # ax.hist(sm_probs, weights=ws[y_true == 0], histtype="step",bins=30, alpha=0.7, color='blue', label="SM (cg=0, ctg=0)", linewidth=2)
     # ax.hist(eft_probs, weights=ws[y_true == 1], histtype="step", bins=30, alpha=0.7, color='orange', label="EFT (cg=0.3, ctg=0.69)", linewidth=2)
     # ax.set_xlim(0, 1)
@@ -397,9 +405,6 @@ def get_preds_cats(dfs, unscaled_dfs ,model, cats, order=["ttH_EFT","background"
         ax[i].set_title(f"{proc}")
         ax[i].legend().remove()
 
-        # fig, ax, = plt.subplots(figsize=(10, 6))
-        # plot_classifier_output(probs, np.zeros(len(probs)), weight.flatten(), ax)
-        # probs = model(df)
         #print(proc, list(probs))
         dfs_preds[proc] = [probs, mass.flatten().numpy(),weight.flatten().numpy(), unscaled_dfs[proc]]
         i+=1
@@ -418,3 +423,17 @@ def get_preds_cats(dfs, unscaled_dfs ,model, cats, order=["ttH_EFT","background"
             dfs_cats[proc]["mass"].append(mass[bools])
             dfs_cats[proc]["features"].append(feats[bools])
     return dfs_preds, dfs_cats
+
+
+def make_video(src_path, save_path, fps=10):
+
+    # List sorted images from a directory
+    image_files = [os.path.join(src_path, img)
+                        for img in os.listdir(src_path)
+                        if img.endswith(".png")]
+
+    # Create a clip from the images at 10 fps
+    clip = ImageSequenceClip(image_files, fps=fps)
+
+    # Write to a file
+    clip.write_videofile(save_path, codec="libx264")

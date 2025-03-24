@@ -1,3 +1,4 @@
+#%%
 import matplotlib.pyplot as plt
 import numpy as np
 #from SMEFT_classification import special_features
@@ -14,23 +15,24 @@ plt.style.use(hep.style.CMS)
 
 plotter = Plotter()
 
-mine = False
+mine = True
 param = True
+
 cg = 0.3
 ctg = 0.69
 #Extract relevant columns from overall df
 categories = [0, 0.4, 0.5, 0.6, 0.7,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
-
+columns_to_load = special_features+["mass_sel", "plot_weight", 'j0_btagB_sel', 'j1_btagB_sel', 'j2_btagB_sel', 'j3_btagB_sel']
 
 ttH_df = get_tth_df(cg=cg, ctg=ctg)
 scaler = joblib.load('saved_models/scaler.pkl')
 
-dfs = get_dfs(new_sample_path)
-
+dfs = get_dfs(new_sample_path,cols_to_load=columns_to_load)
+#%%
 for i, proc in enumerate(procs.keys()):
     #dfs[proc].dropna(inplace=True)
-    dfs[proc] = get_selection(dfs[proc], proc)
+    dfs[proc] = get_selection(dfs[proc], proc, soft=True)
 
     invalid_weights = dfs[proc]["true_weight_sel"] <= 0
     init_yield = dfs[proc]["true_weight_sel"].sum()
@@ -79,7 +81,7 @@ hidden_dim = [256, 64, 32, 16, 8]
 if mine:
     model = ComplexNN(input_dim, hidden_dim, 1)
     if param:
-        model.load_state_dict(torch.load("saved_models/param_model.pth"))
+        model.load_state_dict(torch.load("saved_models/best_model.pth"))
     else:
         model.load_state_dict(torch.load("saved_models/model.pth"))
 else:

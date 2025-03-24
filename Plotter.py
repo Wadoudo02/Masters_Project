@@ -162,7 +162,7 @@ class Plotter:
                    edgecolor='black',  # Set edge color
                    fancybox=True,  # Rounded corners
                    framealpha=1)  # Solid background)
-        hep.cms.label("", com="13.6", lumi=300, lumi_format="{0:.2f}", ax=axes, fontsize=title_size)
+        #hep.cms.label("", com="13.6", lumi=300, lumi_format="{0:.2f}", ax=axes, fontsize=title_size)
         plt.tight_layout()
 
         #plt.show()

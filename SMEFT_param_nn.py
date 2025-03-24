@@ -23,9 +23,13 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 plt.style.use(hep.style.CMS)
 from Plotter import Plotter
 
-def get_eft_comb_df(comb_df_sm, comb_df_eft, cgs, ctgs, norm_eft=True):
-    comb_df_sm["cg"] = cgs
-    comb_df_sm["ctg"] = ctgs
+def get_eft_comb_df(comb_df_sm, comb_df_eft, cgs, ctgs, norm_eft=True, rand_sm=None):
+    if rand_sm:
+        comb_df_sm["cg"] = rand_sm[0]
+        comb_df_sm["ctg"] = rand_sm[1]
+    else:
+        comb_df_sm["cg"] = cgs
+        comb_df_sm["ctg"] = ctgs
     comb_df_sm["labels"] = 0    
 
     comb_df_sm.reset_index(drop=True, inplace=True)
@@ -67,6 +71,7 @@ norm_eft = True
 duplicate = True
 copy_first = True
 transform = True
+retrain = True
 
 #Duplicating dataset for eft and sm
 # comb_df_eft = copy.deepcopy(comb_df_init)
@@ -84,7 +89,14 @@ rand_ctg_sm = np.random.uniform(*c_tg_range, size=len(comb_df_sm))
 datasets = []
 dataset_weights = []
 #ctg_sets = [3, 2.5, 2,1.5,1,0.5,0,-0.5,-1,-1.5,-2, -2.5, -3]
-ctg_sets = np.linspace(-1,1, 20)
+# ctg_sets = np.arange(-1.5,1.5, 0.1)
+ctg_sets= [1.5, 1, 0.5, -0.5, 1, 1.5]
+#ctg_sets = [1,2,3]
+
+#ctg_sets = np.linspace(-1.5, 1.5, 12)
+#ctg_sets = [1]
+
+#print(ctg_sets)
 #ctg_sets = [2,1,0,-1,-2]
 if duplicate:
 
@@ -92,7 +104,10 @@ if duplicate:
         #If copy_first we split after duplicating otherwise we use same split for all
         if copy_first:
             comb_df_init_copy = copy.deepcopy(comb_df_init)
-            eft_copy, sm_copy = train_test_split(comb_df_init_copy, test_size=0.5, random_state=25, shuffle=True)
+            eft_copy, sm_copy = train_test_split(comb_df_init_copy, test_size=0.5, shuffle=True)
+
+            # eft_copy = copy.deepcopy(comb_df_init)
+            # sm_copy = copy.deepcopy(comb_df_init)
         else:
             eft_copy = copy.deepcopy(comb_df_eft)
             sm_copy = copy.deepcopy(comb_df_sm)
@@ -100,8 +115,8 @@ if duplicate:
         comb_df_ctg = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=ctg)
         datasets.append(comb_df_ctg)
         #fig, ax = plt.subplots(nrows=1, ncols = len(special_features),figsize=(30, 5))
-        for i in range(len(special_features)):
-            var = special_features[i]
+        # for i in range(len(special_features)):
+        #     var = special_features[i]
             #plot_eft_hists(df=comb_df_ctg,var= var, combs=[(0,ctg)], weight_col="weight", ax = ax[i])
 else:
     if copy_first:
@@ -121,13 +136,12 @@ else:
             comb_df_ctg = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=ctg)
             datasets.append(comb_df_ctg)
             #fig, ax = plt.subplots(nrows=1, ncols = len(special_features),figsize=(30, 5))
-            for i in range(len(special_features)):
-                var = special_features[i]
+            # for i in range(len(special_features)):
+            #     var = special_features[i]
                 #plot_eft_hists(df=comb_df_ctg,var= var, combs=[(0,ctg)], weight_col="weight", ax = ax[i])
 
 comb_df = pd.concat(datasets, axis=0, ignore_index=True)
 comb_df = comb_df.sample(frac=1).reset_index(drop=True)
-
 #%%
 weights, labels, og_weights = comb_df["weight"], comb_df["labels"], comb_df["og_weight"]
 
@@ -136,6 +150,7 @@ a_cg, a_ctgre, b_cg_cg, b_cg_ctgre, b_ctgre_ctgre = comb_df["a_cg"], comb_df["a_
 
 comb_df = comb_df.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre", "og_weight"])
 print("Final training data columns: ", comb_df.columns)
+print(comb_df)
 
 
 X, y, w, og_w = comb_df.values, labels.values, weights.values, og_weights.values
@@ -217,64 +232,66 @@ val_dataset = TensorDataset(X_val_tensor, y_val_tensor, w_val_tensor)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=True)
 #%%
 # Training loop
-for epoch in range(num_epochs):
-    # Forward pass
-    model.train()
-    epoch_loss = 0.0
-    for X_batch, y_batch, w_batch in train_loader:
+if retrain:
+    for epoch in range(num_epochs):
+        # Forward pass
+        model.train()
+        epoch_loss = 0.0
+        for X_batch, y_batch, w_batch in train_loader:
+            
+            logits = model(X_batch)
+            loss_mean = criterion(logits, y_batch, w_batch)  #Mean loss values
+
+            # Backward pass and optimization
+
+            #zero the gradients of the optimizer
+            optimizer.zero_grad()
+
+            #Perform backward pass and calc gradients wrt weights
+            loss_mean.backward()
+
+            #Take step in direction of gradients and update parameters
+            optimizer.step()
+
+            epoch_loss += loss_mean.item()
         
-        logits = model(X_batch)
-        loss_mean = criterion(logits, y_batch, w_batch)  #Mean loss values
+        epoch_loss /= len(train_loader)
+        loss_values.append(epoch_loss)
 
-        # Backward pass and optimization
+        # VALIDATION
+        model.eval()  # Set model to evaluation mode
+        val_loss = 0.0
+        with torch.no_grad():
+            for X_batch, y_batch, w_batch in val_loader:
+                val_logits = model(X_batch)
+                val_loss_mean = criterion(val_logits, y_batch, w_batch)  # Mean loss values
+                val_loss += val_loss_mean.item()
 
-        #zero the gradients of the optimizer
-        optimizer.zero_grad()
+        
+        # Calculate average validation loss for the epoch
+        val_loss /= len(val_loader)
+        val_loss_values.append(val_loss)
 
-        #Perform backward pass and calc gradients wrt weights
-        loss_mean.backward()
+        # Adjust learning rate
+        scheduler.step(val_loss)
 
-        #Take step in direction of gradients and update parameters
-        optimizer.step()
+        # Early stopping check
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            epochs_without_improvement = 0
+            # Save the best model
+            torch.save(model.state_dict(), 'saved_models/best_model.pth')
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= early_stopping_patience:
+                print(f"Early stopping at epoch {epoch+1}")
+                break
 
-        epoch_loss += loss_mean.item()
-    
-    epoch_loss /= len(train_loader)
-    loss_values.append(epoch_loss)
-
-    # VALIDATION
-    model.eval()  # Set model to evaluation mode
-    val_loss = 0.0
-    with torch.no_grad():
-        for X_batch, y_batch, w_batch in val_loader:
-            val_logits = model(X_batch)
-            val_loss_mean = criterion(val_logits, y_batch, w_batch)  # Mean loss values
-            val_loss += val_loss_mean.item()
-
-    
-    # Calculate average validation loss for the epoch
-    val_loss /= len(val_loader)
-    val_loss_values.append(val_loss)
-
-    # Adjust learning rate
-    scheduler.step(val_loss)
-
-    # Early stopping check
-    if val_loss < best_val_loss:
-        best_val_loss = val_loss
-        epochs_without_improvement = 0
-        # Save the best model
-        torch.save(model.state_dict(), 'saved_models/best_model.pth')
-    else:
-        epochs_without_improvement += 1
-        if epochs_without_improvement >= early_stopping_patience:
-            print(f"Early stopping at epoch {epoch+1}")
-            break
-
-    if (epoch + 1) % 10 == 0:
-        print(f"Epoch [{epoch+1}/{num_epochs}], Weighted train Loss: {epoch_loss:.4f}, Weighted val Loss: {val_loss:.4f}")
+        if (epoch + 1) % 10 == 0:
+            print(f"Epoch [{epoch+1}/{num_epochs}], Weighted train Loss: {epoch_loss:.4f}, Weighted val Loss: {val_loss:.4f}")
 # Load the best model
 model.load_state_dict(torch.load('saved_models/best_model.pth'))
+#model.load_state_dict(torch.load('saved_models/new_pnn_best.pth'))
 
 #%%
 #model.load_state_dict(torch.load('saved_models/new_pnn_best.pth'))
@@ -357,7 +374,7 @@ auc_ctg = 0.69
 if mine:
     model2 = ComplexNN(input_dim, hidden_dim, 1)
     if transform:
-        model2.load_state_dict(torch.load("saved_models/model.pth"))
+        model2.load_state_dict(torch.load("saved_models/model_ctg.pth"))
     else:
         model2.load_state_dict(torch.load("saved_models/model_no_trans.pth"))
 else:
@@ -368,7 +385,7 @@ model2.eval()
 auc_nn= []
 
 cg_vals_gen = [-0.75, 0.5, 1.5]
-ctg_vals_test = np.linspace(-1.5, 1.5, 20)
+ctg_vals_test = np.linspace(-3, 3, 60)
 #fig, ax = plt.subplots(figsize=(10, 5))
 
 aucs = []
@@ -409,6 +426,7 @@ for ctg in ctg_vals_test:
         X = preprocessor.transform(X)
 
     X_tensor= torch.tensor(X, dtype=torch.float32)
+    print(X_tensor)
     with torch.no_grad():
         probs = model(X_tensor)
     probs_np=probs.squeeze().detach().numpy()
@@ -429,14 +447,15 @@ for ctg in ctg_vals_test:
     #param_aucs[cg] = aucs
 # ax.plot(cg_vals_test, aucs, label=f"ctg={auc_ctg}")
 
-# ax.set_xlabel("cg")
-# ax.set_ylabel("AUC")
+
 # ax.legend()
 fig, ax = plt.subplots(figsize=(7, 5))
-plotter.overlay_line_plots(ctg_vals_test, [auc_nn, aucs],xlabel="cg", ylabel="AUC", title="AUC variation over cg", labels=["Basic NN, cg=0.3", "Param NN"], colors=["blue", "orange"], axes=ax)
-ax.axvline(x=0.3, color="black", linestyle="--", label="Basic NN training cg = 0.3")
+plotter.overlay_line_plots(ctg_vals_test, [auc_nn, aucs],xlabel="ctg", ylabel="AUC", labels=["Basic NN", "Param NN"], colors=["blue", "orange"], axes=ax)
+ax.axvline(x=0.3, color="black", linestyle="--", label="Basic NN training ctg = 0.69")
+ax.set_title("AUC variation over ctg", fontsize=20)
 ax.legend(fontsize=12)
-
+ax.set_xlabel(r"$C_{tg}$", fontsize=20)
+ax.set_ylabel("AUC score", fontsize=20)
 #%%
 #2D variation of AUC over cg and ctg
 # Define the range of values for cg and ctg
@@ -547,7 +566,7 @@ plt.ylabel(r"$c_{g}$")
 plt.show()
 # %%
 #Likelihood ratio analysis
-
+from scipy.signal import find_peaks
 ttH_df = get_tth_df()
 
 #special_features = ["lead_pt_sel", "HT_sel", "cosDeltaPhi_sel" ,"pt-over-mass_sel", "deltaR_sel", "min_delta_R_j_g_sel", "delta_phi_jj_sel", "sublead_pt-over-mass_sel", "delta_eta_gg_sel", "lead_pt-over-mass_sel", "delta_phi_gg_sel"]
@@ -560,120 +579,174 @@ comb_df_init = comb_df_init.dropna()
 #Randomly splitting same dataset into eft and sm
 comb_df_sm, comb_df_eft = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
 
-true_ctg = -0.5
-ctg_range = np.linspace(-3, 3, 20)
-likelihood_ratios = []
+true_ctg = 1
+ctg_range = np.linspace(-3, 3, 100)
 sm_copy = copy.deepcopy(comb_df_sm)
 eft_copy = copy.deepcopy(comb_df_eft)
 
-comb_df_anal = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=true_ctg, norm_eft=False)
 
-w, l = comb_df_anal["weight"], comb_df_anal["labels"]
+#lr_ctg = np.linspace(0, 1, 8)
+lr_ctg = np.arange(0, 1.5, 0.1)
+mins = []
 
-comb_df_anal = comb_df_anal.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
+for true_ctg in lr_ctg:
+    likelihood_ratios = []
+    #comb_df_anal = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=true_ctg, norm_eft=False)
+    comb_df_init["weight"] = calc_weights(comb_df_init, cg=0, ctg=true_ctg, weight_col="weight")
+    comb_df_init["cg"] = 0
+    comb_df_init["ctg"] = true_ctg
+    comb_df_init["labels"] = 1
+    w, l = np.array(comb_df_init["weight"]), comb_df_init["labels"]
 
-# Getting prob dist for dataset at true ctg value
-X_true, y, w = comb_df_anal.values, l, w
-if transform:
-    X_true = preprocessor.transform(X_true)
-X_tensor = torch.tensor(X_true, dtype=torch.float32)
-with torch.no_grad():
-    probs_true = model(X_tensor)
-probs_np_true = probs_true.squeeze().detach().numpy()
+    comb_df_anal = comb_df_init.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
+    comb_df_anal.reset_index(drop=True, inplace=True)
 
-print(comb_df_anal.columns)
-for ctg in ctg_range:
-    comb_df_anal["ctg"] = ctg
-    X, y, w = comb_df_anal.values, l, w
+    # Getting prob dist for dataset at true ctg value
+    X_true, y= comb_df_anal.values, l
     if transform:
-        X = preprocessor.transform(X)
-
-    #Doing liklihoods on just unseen test data.
-    # X = np.hstack([X_test[:,:-2], np.full((X_test.shape[0], 1), 0), np.full((X_test.shape[0], 1), ctg)])
-    
-    X_tensor = torch.tensor(X, dtype=torch.float32)
+        X_true = preprocessor.transform(X_true)
+    X_tensor = torch.tensor(X_true, dtype=torch.float32)
     with torch.no_grad():
-        probs = model(X_tensor)
-    probs_np = probs.squeeze().detach().numpy()
+        probs_true = model(X_tensor)
+    probs_np_true = probs_true.squeeze().detach().numpy()
 
-    # plt.hist(probs_np, bins = 40, weights=w, label = f"NN output ctg = {ctg}", histtype="step", linewidth=2)
-    # # plt.hist(probs_np[l==0], bins = 40, weights=w[l==0], label = "SM", histtype="step", linewidth=2)
-    # # plt.hist(probs_np[l==1], bins = 40, weights=w[l==1], label = f"EFT (ctg = {true_ctg})", histtype="step", linewidth=2)
-    # plt.hist(probs_np_true, bins = 40, weights=w, label = f"NN output (ctg = {true_ctg})", color="grey", alpha = 0.5)
-    # plt.ylim(0,15000)
-    # plt.xlabel(f"Probability (evaluated at ctg = {ctg:.2f})")
-    # plt.ylabel("Frequency")
-    # plt.legend(loc = "best")
-    # plt.savefig(f"prob_dist_evol/no_trans/ctg_{ctg:.2f}.png")
-    # plt.show()
+    print(comb_df_anal.columns)
+    for ctg in ctg_range:
+        comb_df_anal["ctg"] = ctg
+        X, y= comb_df_anal.values, l
+        if transform:
+            X = preprocessor.transform(X)
 
-    likelihood = 0
-    for i in range(len(probs_np)):
-        likelihood += ((np.log(probs_np[i])- np.log(1-probs_np[i]))* w[i])
+        #Doing liklihoods on just unseen test data.
+        # X = np.hstack([X_test[:,:-2], np.full((X_test.shape[0], 1), 0), np.full((X_test.shape[0], 1), ctg)])
+        
+        X_tensor = torch.tensor(X, dtype=torch.float32)
+        with torch.no_grad():
+            probs = model(X_tensor)
+        probs_np = probs.squeeze().detach().numpy()
 
-    likelihood_ratios.append(-1*likelihood)
+        # plt.hist(probs_np[l==0], bins = 40, weights=w[l==0], label = "SM", histtype="step", linewidth=2)
+        # plt.hist(probs_np[l==1], bins = 40, weights=w[l==1], label = f"EFT (ctg = {true_ctg:.2f})", histtype="step", linewidth=2)
 
-plt.plot(ctg_range, likelihood_ratios)
-plt.xlabel("ctg")
-plt.ylabel("Log Likelihood Ratios")
-plt.title("Log Likelihood Ratios vs ctg")
-plt.show()
+        # plt.hist(probs_np, bins = 40, weights=w, label = f"Full NN output", histtype="step", linewidth=2, alpha = 0.5, linestyle="dashed")
+        # plt.hist(probs_np_true, bins = 40, weights=w, label = f"NN output (ctg = {true_ctg:.2f})", color="grey", alpha = 0.5)
+        # plt.ylim(0,20)
+        # plt.xlim(0,1)
+        # plt.xlabel(f"Probability (evaluated at ctg = {ctg:.2f})")
+        # plt.ylabel("Frequency")
+        # plt.legend(loc = "upper right")
+        # plt.savefig(f"prob_dist_evol/full_dataset_all/ctg_{ctg:.2f}.png")
+        # plt.show()
 
-# Assuming likelihood_ratios and ctg_range are NumPy arrays
-likelihood_ratios = np.array(likelihood_ratios)
-mask = (-5 < ctg_range) & (ctg_range < 5)  # Creates a boolean mask
+        likelihood = 0
+        #print(probs_np, w)
+        for i in range(len(probs_np)):
+            likelihood += ((np.log(probs_np[i])- np.log(1-probs_np[i]))* w[i])
 
-# Apply mask to filter values
-filtered_likelihoods = likelihood_ratios[mask]
-filtered_ctg_range = ctg_range[mask]
-min_index = np.argmin(filtered_likelihoods)  # Get index of min value
-print("Minimum at", filtered_ctg_range[min_index])
+        likelihood_ratios.append(-1*likelihood)
+
+    plt.plot(ctg_range, likelihood_ratios)
+    plt.xlabel("ctg")
+    plt.ylabel("Log Likelihood Ratios")
+    plt.title("Log Likelihood Ratios vs ctg")
+    plt.show()
+
+    # Assuming likelihood_ratios and ctg_range are NumPy arrays
+    likelihood_ratios_np = np.array(likelihood_ratios)
+
+    inverted = -likelihood_ratios_np
+
+    # Use find_peaks to get the indices of the local minima
+    min_indices, _ = find_peaks(inverted)
+
+    # Retrieve the corresponding ctg values and minima values
+    min_ctg = ctg_range[min_indices]
+    try:
+        best_min = np.argmin([abs(min_ctg[i]-true_ctg) for i in range(len(min_ctg))])
+        mins.append(min_ctg[best_min])
+
+    except Exception:
+        mins.append(0)
+    #min_values = likelihood_ratios[min_indices]
+
+    print("Local minima found at ctg values:", min_ctg)
+    #print("With likelihood ratios:", min_values)
+#Plotting where the likelighood ratio minimises for different values of true ctg.
+plt.scatter(lr_ctg, mins)
 #%%
-# from moviepy import ImageSequenceClip
-# import os
 
-# # List sorted images from a directory
-# image_files = [os.path.join("prob_dist_evol/no_trans", img)
-#                       for img in os.listdir("prob_dist_evol/no_trans")
-#                       if img.endswith(".png")]
-
-# # Create a clip from the images at 10 fps
-# clip = ImageSequenceClip(image_files, fps=10)
-
-# # Write to a file
-# clip.write_videofile("prob_dist_evol/output_decent.mp4", codec="libx264")
+    
+# make_video(src_path="prob_dist_evol/full_dataset_all/", save_path="prob_dist_evol/full_dataset_all/output.mp4", fps=5)
 #%%
 #Plotting NN output for SM and EFT
 
-ctg_range = [-3,-2,-1,0,1,2,3]
-fig, ax = plt.subplots(nrows=len(ctg_range), ncols = len(ctg_range),figsize=(50, 50))
-for i in range(len(ctg_range)):
-    true_ctg = ctg_range[i]
-    comb_df_sm, comb_df_eft = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
+# ctg_range = [-3,-2,-1,0,1,2,3]
+# fig, ax = plt.subplots(nrows=len(ctg_range), ncols = len(ctg_range),figsize=(50, 50))
+# for i in range(len(ctg_range)):
+#     true_ctg = ctg_range[i]
+#     comb_df_sm, comb_df_eft = train_test_split(comb_df_init, test_size=0.5, random_state=25, shuffle=True)
 
-    sm_copy = copy.deepcopy(comb_df_sm)
-    eft_copy = copy.deepcopy(comb_df_eft)
+#     sm_copy = copy.deepcopy(comb_df_sm)
+#     eft_copy = copy.deepcopy(comb_df_eft)
 
-    comb_df_anal = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=true_ctg, norm_eft=True)
+#     comb_df_anal = get_eft_comb_df(sm_copy, eft_copy, cgs=0, ctgs=true_ctg, norm_eft=True)
 
-    w, l = comb_df_anal["weight"], comb_df_anal["labels"]
+#     w, l = comb_df_anal["weight"], comb_df_anal["labels"]
 
-    comb_df_anal = comb_df_anal.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
+#     comb_df_anal = comb_df_anal.drop(columns=["weight", "labels", "a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"])
 
     
-    for j in range(len(ctg_range)):
-        ctg = ctg_range[j]
-        comb_df_anal["ctg"] = ctg
-        X, y, w = comb_df_anal.values, l, w
-        if transform:
-            X = preprocessor.transform(X)
-        X_tensor = torch.tensor(X, dtype=torch.float32)
-        with torch.no_grad():
-            probs_true = model(X_tensor)
-        probs_np_true = probs_true.squeeze().detach().numpy()
-        ax[i][j].hist(probs_np_true, bins = 40, weights=w, label = f"NN output (ctg = {true_ctg:.2f})", color="grey", alpha = 0.5)
-        ax[i][j].legend(loc = "best")
-        ax[i][j].set_xlabel(f"Probability (evaluated at ctg = {ctg:.2f})")
-        ax[i][j].set_ylabel("Frequency")
-        ax[i][j].set_ylim(0,3000)
-# %%
+#     for j in range(len(ctg_range)):
+#         ctg = ctg_range[j]
+#         comb_df_anal["ctg"] = ctg
+#         X, y, w = comb_df_anal.values, l, w
+#         if transform:
+#             X = preprocessor.transform(X)
+#         X_tensor = torch.tensor(X, dtype=torch.float32)
+#         with torch.no_grad():
+#             probs_true = model(X_tensor)
+#         probs_np_true = probs_true.squeeze().detach().numpy()
+#         ax[i][j].hist(probs_np_true, bins = 40, weights=w, label = f"NN output (ctg = {true_ctg:.2f})", color="grey", alpha = 0.5)
+#         ax[i][j].legend(loc = "best")
+#         ax[i][j].set_xlabel(f"Probability (evaluated at ctg = {ctg:.2f})")
+#         ax[i][j].set_ylabel("Frequency")
+#         ax[i][j].set_ylim(0,3000)
+#%%
+fig, ax = plt.subplots(nrows=1, ncols = len(special_features),figsize=(30, 5))
+for j in range(len(special_features)):
+    var = special_features[j]
+    plot_eft_hists(df=comb_df_init,var= var, combs=[(0.3,0.69)], weight_col="weight", ax = ax[j], fontsize=24)
+    ax[j].set_title(f"ctg = {true_ctg:.2f}")
+plt.tight_layout(pad=0.5)
+
+
+#%%
+#How input features change with ctg
+# ctg_range = np.linspace(-3, 3, 60)
+# ctg_range = np.around(ctg_range, 2)
+# for i in range(len(ctg_range)):
+#     true_ctg = ctg_range[i]
+
+#     fig, ax = plt.subplots(nrows=1, ncols = len(special_features),figsize=(30, 5))
+#     for j in range(len(special_features)):
+#         var = special_features[j]
+#         plot_eft_hists(df=comb_df_init,var= var, combs=[(0,true_ctg)], weight_col="weight", ax = ax[j], fontsize=24)
+#         ax[j].set_title(f"ctg = {true_ctg:.2f}")
+#         ax[j].set_ylim
+#         if var == "deltaR_sel":
+#             ax[j].set_ylim(0, 0.8)
+#         elif var == "HT_sel":
+#             ax[j].set_ylim(0, 0.003)
+#         elif var == "n_jets_sel":
+#             ax[j].set_ylim(0, 0.7)
+#         elif var == "delta_phi_gg_sel":
+#             ax[j].set_ylim(0, 0.9)
+#         elif var == "lead_pt-over-mass_sel":
+#             ax[j].set_ylim(0, 1.5)
+#         else:
+#             ax[j].set_ylim(0, 3000)
+
+#     plt.tight_layout(pad=0.3)
+#     plt.savefig(f"pnn_input_vid/ctg={true_ctg:.2f}.png")
+# make_video(src_path="pnn_input_vid/", save_path="pnn_input_vid/vid.mp4", fps=10)
+

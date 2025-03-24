@@ -45,6 +45,19 @@ def get_background_dist(back_data, num_cats=5, plot = False):
     #fig.savefig(f"{analysis_path}/back_mass.png", bbox_inches="tight")
     return fits
 
+def get_mass_dist(mass_data, weights):
+    num_bins = 80 # Keep at 80 otherwise integral messes up
+    counts, bin_edges = np.histogram(mass_data, bins = num_bins, range= (100,180), weights = weights)
+    bin_centres = (bin_edges[:-1]+bin_edges[1:])/2
+
+    #Ignoring 0s and outliers
+    bin_centres = bin_centres[counts>0]
+    counts = counts[counts>0]
+    
+    p_fit, p_cov = curve_fit(exp, bin_centres, counts,p0=[0.001, 10000])
+
+    return p_fit
+
 def get_back_int(data, cat, bounds, n_bins, num_cats=5):
     p_fit = get_background_dist(data,num_cats)[cat]
     lam, A = p_fit

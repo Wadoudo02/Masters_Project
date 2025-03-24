@@ -20,7 +20,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
 plt.style.use(hep.style.CMS)
 
-c_g = 0.3
+c_g = 0
 c_tg = 0.69
 grid_search = False
 
@@ -54,7 +54,7 @@ scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 X_val = scaler.transform(X_val)
-# joblib.dump(scaler, "saved_models/scaler.pkl")
+joblib.dump(scaler, "saved_models/scaler.pkl")
 
 #Making sure everything is np array, only necessayr becasue of some version mismatch.
 (X_train, X_test, X_val,
@@ -103,13 +103,13 @@ if grid_search:
 #%%
 #Training nn
 if not grid_search:
-    lr, hidden_dim, num_epochs = 0.01, [64, 32, 16, 8], 200
+    lr, hidden_dim, num_epochs = 0.01, [64, 32, 16, 8], 100
 
 y_train_tensor, y_test_tensor, y_val_tensor,w_train_tensor, w_test_tensor, w_val_tensor, X_train_tensor,X_test_tensor, X_val_tensor = get_tensors([y_train, y_test, y_val, w_train, w_test, w_val], [X_train, X_test, X_val])
 
 #Input dim of 4 and buncha hidden layers.
 input_dim = X_train.shape[1]
-#hidden_dim = [256, 64, 32, 16, 8]
+hidden_dim = [256, 64, 32, 16, 8]
 #hidden_dim = [64, 32, 16, 8]
 
 #model = LogisticRegression(input_dim)
@@ -189,7 +189,7 @@ plt.grid()
 plt.show()
 
 # Save the trained model
-#torch.save(model.state_dict(), 'saved_models/model_no_trans.pth')
+torch.save(model.state_dict(), 'saved_models/model_ctg.pth')
 #torch.save(model.state_dict(), 'saved_models/mergedNN.pth')
 # %%
 #2 plots 1 of pt seperation and other of nn seperation

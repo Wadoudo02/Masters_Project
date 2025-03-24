@@ -5,7 +5,7 @@ import numpy as np
 from SMEFT_utils import *
 from chi2 import mu_c
 from nll import *
-from background_dist import get_back_int
+from background_dist import get_back_int, get_mass_dist, exp
 import joblib
 import copy
 from Plotter import Plotter
@@ -17,8 +17,9 @@ plt.style.use(hep.style.CMS)
 
 plotter = Plotter()
 mine = True
-norm_eft = False
+norm_eft = True
 param = False
+
 cg = 0.3
 ctg = 0.69
 
@@ -32,22 +33,22 @@ feat_maps = {"deltaR_sel" : r"$\Delta R$",
 #Extract relevant columns from overall df
 wad_cats = [0, 0.22491833, 0.27491833, 0.32491833, 0.69582565,1] if not param else [0, 0.17430348, 0.22430348, 0.27430348, 0.55810981,1]
 my_cats = [0,0.32273505, 0.37273505, 0.42273505, 0.65670192,1] if not param else [0, 0.26127338, 0.31127338, 0.36136802, 0.7,1]
+my_cats=[0,0.42489904, 0.47489904, 0.52489904, 0.6196714,1] if not param else [0,0.4004362,  0.46749751, 0.53490441, 0.61331013,1]
 
-#my_cats = [0, 0.4, 0.5, 0.6, 0.7,1]
+#my_cats = [0,0.42489904, 0.47489904, 0.56, 0.65,1]
 special_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt-over-mass_sel"]#,"lead_pt-over-mass_sel"] 
+columns_to_load = special_features+["mass_sel", "plot_weight", 'j0_btagB_sel', 'j1_btagB_sel', 'j2_btagB_sel', 'j3_btagB_sel']
 
-#%%
-#plot_SMEFT_features(special_features)
 #%%
 
 ttH_df = get_tth_df(cg=cg, ctg=ctg)
 scaler = joblib.load('saved_models/scaler.pkl')
 
-dfs = get_dfs(new_sample_path)
+dfs = get_dfs(new_sample_path, cols_to_load = columns_to_load)
 
 for i, proc in enumerate(procs.keys()):
     #dfs[proc].dropna(inplace=True)
-    dfs[proc] = get_selection(dfs[proc], proc)
+    dfs[proc] = get_selection(dfs[proc], proc, soft=True)
 
     invalid_weights = dfs[proc]["true_weight_sel"] <= 0
     init_yield = dfs[proc]["true_weight_sel"].sum()
@@ -101,9 +102,9 @@ hidden_dim = [256, 64, 32, 16, 8]
 if mine:
     model = ComplexNN(input_dim, hidden_dim, 1)
     if param:
-        model.load_state_dict(torch.load("saved_models/param_model.pth"))
+        model.load_state_dict(torch.load("saved_models/best_model.pth"))
     else:
-        model.load_state_dict(torch.load("saved_models/model.pth"))
+        model.load_state_dict(torch.load("saved_models/model_ctg.pth"))
     cats = my_cats
 else:
     model = WadNeuralNetwork(input_dim, input_dim*3)
@@ -128,13 +129,20 @@ for i in range(len(dfs_cats["ggH"]["mass"])):
             continue
         mass = dfs_cats[proc]["mass"][i]
         weight = dfs_cats[proc]["weights"][i]
+        if proc=="background":
+            lam, A = get_mass_dist(mass, weight)
+            ax[i].plot(np.arange(100, 180), exp(np.arange(100, 180), lam, A), "r--", label="Exp fit")
         #print(proc, "cat: ", i, dfs_cats[proc]["mass"][i].shape)
-        ax[i].hist(mass, bins=50, weights=weight, label=proc, histtype="step")
+        ax[i].hist(mass, bins=80, weights=weight, label=proc if proc!="ttH_EFT" else "ttH (0.3, 0.69)", histtype="step")
         #sns.histplot(x=mass, weights=weight, bins=50, label=proc, ax=ax[i], fill=False, element="step")
-        ax[i].legend()
+        
+        ax[i].legend(loc="best", fontsize = 12)
         ax[i].set_title(f"Category {i}")
         ax[i].set_xlabel("mass (GeV)")
         ax[i].set_ylabel("Events")
+        ax[i].axvline(120,linestyle=":",color="green")
+        ax[i].axvline(130,linestyle=":",color="green")
+
 
 #Plotting features after categorisation
 fig, ax = plt.subplots(ncols = len(special_features),figsize=(30, 5))
@@ -245,7 +253,7 @@ ax_bottom_right.legend()
 plot_eft_hists(df=ttH_df,var="pt", combs = [(cg, ctg)], ax=None, ax_ratio=None)
 #%%
 #Getting weighted average of coefficients
-cats = [0, 0.3, 0.4, 0.5, 0.6, 1]
+#cats = [0, 0.3, 0.4, 0.5, 0.6, 1]
 ttH_probs = dfs_preds["ttH"][0]
 ttH_cats = []
 for i in range(1, len(cats)):
@@ -432,27 +440,27 @@ if not param:
     param_ctg_fit, param_ctg_cons_up, param_ctg_cons_down = find_crossings([c_vals, param_dnll_ctg], 1.)
     param_ctg_cons = (param_ctg_cons_up, param_ctg_cons_down)
 
-#Splining over kink :(
-lower_bound = 0.17
-upper_bound = 0.35
+# #Splining over kink :(
+# lower_bound = 0.17
+# upper_bound = 0.35
 
-# Find indices corresponding to these bounds
-mask = (c_vals >= lower_bound) & (c_vals <= upper_bound)
-interp_indices = np.where(mask)[0]
+# # Find indices corresponding to these bounds
+# mask = (c_vals >= lower_bound) & (c_vals <= upper_bound)
+# interp_indices = np.where(mask)[0]
 
-# Get indices outside the kink region to build a smooth spline;
-# you might want to include a few extra points near the boundaries.
-keep_mask = (c_vals < lower_bound) | (c_vals > upper_bound)
+# # Get indices outside the kink region to build a smooth spline;
+# # you might want to include a few extra points near the boundaries.
+# keep_mask = (c_vals < lower_bound) | (c_vals > upper_bound)
 
-# Create a spline fit using a cubic spline (k=3)
-# The smoothing factor s=0 forces the spline to pass through the points exactly.
-spline = UnivariateSpline(c_vals[keep_mask], param_dnll_ctg[keep_mask], k=3, s=0)
+# # Create a spline fit using a cubic spline (k=3)
+# # The smoothing factor s=0 forces the spline to pass through the points exactly.
+# spline = UnivariateSpline(c_vals[keep_mask], param_dnll_ctg[keep_mask], k=3, s=0)
 
-# Create a copy of the original array
-#param_dnll_cg_new = param_dnll_cg.copy()
+# # Create a copy of the original array
+# #param_dnll_cg_new = param_dnll_cg.copy()
 
-# Replace the kink region with the smoothly interpolated values
-param_dnll_ctg[interp_indices] = spline(c_vals[interp_indices])
+# # Replace the kink region with the smoothly interpolated values
+# param_dnll_ctg[interp_indices] = spline(c_vals[interp_indices])
 
 
 fig, ax = plt.subplots(2,1, figsize=(7, 10),gridspec_kw={'hspace': 0.3})
@@ -493,9 +501,10 @@ plotter.overlay_line_plots(
     base_fontsize=24)
 ax[0].plot(c_vals, np.ones(len(c_vals)), linestyle="--", color = "grey")
 x_mid = -0.7
-ax[0].text(x_mid, 1.05, r"68% CL, $2\Delta$NLL = 1", ha='center', va='bottom', fontsize=10, color='black')
+ax[0].set_title("Variation in NLL over wilson ceofficients", fontsize = 20)
+ax[0].text(x_mid, 1.05, r"68% CL", ha='center', va='bottom', fontsize=13, color='grey')
 ax[1].plot(c_vals, np.ones(len(c_vals)),linestyle="--", color = "grey" )
-ax[1].text(-0.75, 1.05, r"68% CL, $2\Delta$NLL = 1", ha='center', va='bottom', fontsize=9, color='black')
+ax[1].text(-0.75, 1.05, r"68% CL", ha='center', va='bottom', fontsize=13, color='grey')
 ax[1].legend(fontsize=15, loc="upper right",frameon=True,  # Enable the frame
                    edgecolor='black',  # Set edge color
                    fancybox=True,  # Rounded corners
@@ -505,11 +514,11 @@ ax[1].legend(fontsize=15, loc="upper right",frameon=True,  # Enable the frame
 #%%
 #Grid minimisation
 
-width = 4
+width = 3
 hessian_comb = joblib.load("saved_models/hessian_comb.pkl")
 
-cg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed
-ctg_values = np.linspace(-width//2, width//2, 100)  # Adjust range as needed
+cg_values = np.linspace(-width/2, width/2, 100)  # Adjust range as needed
+ctg_values = np.linspace(-width/2, width/2, 100)  # Adjust range as needed
 
 # Initialize a 2D grid for chi-squared values
 chi_squared_grid = np.zeros((len(cg_values), len(ctg_values)))
@@ -522,43 +531,44 @@ for i, cg in enumerate(cg_values):
         nll_grid_pt[i][j] = calc_NLL_comb(comb_hist, mu_c(c_g=cg, c_tg=ctg, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True), "ttH")
         nll_grid_nn[i][j] = calc_nll_simple(hists, mu_c(c_g=cg, c_tg=ctg, a_cgs=a_cgs,a_ctgs=a_ctgs,b_cg_cgs=b_cg_cgs,b_ctg_ctgs=b_ctg_ctgs,b_cg_ctgs=b_cg_ctgs,second_order=True), "ttH")
 #print(min(nll_grid_pt)+1, min(nll_grid_pt)+4)
-fig, ax = plt.subplots(ncols=3, nrows=1,figsize=(20, 8))
+fig, ax = plt.subplots(ncols=2, nrows=1,figsize=(14, 8))
 
 cg_grid, ctg_grid = np.meshgrid(cg_values, ctg_values)  # Create grid for plotting
 
-ax[0].contourf(cg_grid, ctg_grid, chi_squared_grid.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
-contour_plot = ax[0].contour(cg_grid, ctg_grid, chi_squared_grid.T, levels=[2.3, 5.99], colors=['yellow', 'green'], linestyles=['--', '-'])
-ax[0].clabel(contour_plot, fmt={2.3: '68%', 5.99: '95%'}, inline=True, fontsize=20)  # Add labels to the contours
-ax[0].scatter(best_cg_chi, best_ctg_chi, color='red', label='Minimum $\chi^2$', zorder=5)
+# ax[0].contourf(cg_grid, ctg_grid, chi_squared_grid.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
+# contour_plot = ax[0].contour(cg_grid, ctg_grid, chi_squared_grid.T, levels=[2.3, 5.99], colors=['yellow', 'green'], linestyles=['--', '-'])
+# ax[0].clabel(contour_plot, fmt={2.3: '68%', 5.99: '95%'}, inline=True, fontsize=20)  # Add labels to the contours
+# ax[0].scatter(best_cg_chi, best_ctg_chi, color='red', label='Minimum $\chi^2$', zorder=5)
 
 # Plot the second contour plot
-ax[1].contourf(cg_grid, ctg_grid, nll_grid_pt.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
-contour2 = ax[1].contour(cg_grid, ctg_grid, nll_grid_pt.T, levels=[np.min(nll_grid_pt)+1, np.min(nll_grid_pt)+4], colors=['yellow', 'green'], linestyles=['--', '-'])
-ax[1].clabel(contour2, fmt={np.min(nll_grid_pt)+1: '68%', np.min(nll_grid_pt)+4: '95%'}, inline=True, fontsize=20)
-ax[1].scatter(cg_fit, ctg_fit, color='red', label='Minimum NLL', zorder=5)
+ax[0].contourf(cg_grid, ctg_grid, nll_grid_pt.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
+contour2 = ax[0].contour(cg_grid, ctg_grid, nll_grid_pt.T, levels=[np.min(nll_grid_pt)+1, np.min(nll_grid_pt)+4], colors=['yellow', 'green'], linestyles=['--', '-'])
+ax[0].clabel(contour2, fmt={np.min(nll_grid_pt)+1: '68%', np.min(nll_grid_pt)+4: '95%'}, inline=True, fontsize=20)
+ax[0].scatter(cg_fit, ctg_fit, color='red', label='Minimum NLL', zorder=5)
 
 
 # Plot the third contour plot
-contour3 = ax[2].contour(cg_grid, ctg_grid, nll_grid_nn.T, levels=[np.min(nll_grid_nn)+1, np.min(nll_grid_nn)+4], colors=['yellow', 'green'], linestyles=['--', '-'])
-ax[2].clabel(contour3, fmt={np.min(nll_grid_nn)+1: '68%', np.min(nll_grid_nn)+4: '95%'}, inline=True, fontsize=20)
-ax[2].contourf(cg_grid, ctg_grid, nll_grid_nn.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
-ax[2].scatter(pt_cg_fit, pt_ctg_fit, color='red', label='Minimum NLL', zorder=5)
+contour3 = ax[1].contour(cg_grid, ctg_grid, nll_grid_nn.T, levels=[np.min(nll_grid_nn)+1, np.min(nll_grid_nn)+4], colors=['yellow', 'green'], linestyles=['--', '-'])
+ax[1].clabel(contour3, fmt={np.min(nll_grid_nn)+1: '68%', np.min(nll_grid_nn)+4: '95%'}, inline=True, fontsize=20)
+ax[1].contourf(cg_grid, ctg_grid, nll_grid_nn.T, levels=50, cmap='viridis')  # Transpose chi_squared to match grid
+ax[1].scatter(pt_cg_fit, pt_ctg_fit, color='red', label='Minimum NLL', zorder=5)
 
 
 # Add colorbar
 cbar = fig.colorbar(ax[0].collections[0], ax=ax, orientation='vertical', fraction=0.02, pad=0.04)
-cbar.set_label(r"$\chi^2$")
+cbar.set_label(r"NLL")
 
 fig.supxlabel(r"Wilson coefficient $c_{g}$")
 fig.supylabel(r"Wilson coefficient $c_{tg}$")
 
-ax[0].set_title(r"Contour Plot of $\chi^2$")
-ax[1].set_title(r"Contour Plot of $\mathrm{NLL}_{pt}$")
-ax[2].set_title(r"Contour Plot of $\mathrm{NLL}_{nn}$")
+#ax[0].set_title(r"Contour Plot of $\chi^2$")
+ax[0].set_title(r"Contour Plot of $\mathrm{NLL}_{STXS}$")
+ax[1].set_title(r"Contour Plot of $\mathrm{NLL}_{NN}$")
 
+#ax[0].legend(frameon=True, edgecolor='black', loc='best')
 ax[0].legend(frameon=True, edgecolor='black', loc='best')
 ax[1].legend(frameon=True, edgecolor='black', loc='best')
-ax[2].legend(frameon=True, edgecolor='black', loc='best')
 
 #plt.grid()
 plt.show()
+# %%
