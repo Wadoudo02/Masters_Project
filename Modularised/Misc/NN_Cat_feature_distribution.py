@@ -391,7 +391,7 @@ cat_colours = dict(zip(["SM", "SMEFT"], palette))
 features_to_plot = ["deltaR", "HT", "pt", "delta_phi_gg"]
 
 # Create a 2x2 figure
-fig, axs = plt.subplots(2, 2, figsize=(16, 12), dpi=500)
+fig, axs = plt.subplots(2, 2, figsize=(18, 13), dpi=500)
 axs = axs.flatten()
 
 # Loop over each feature and its corresponding subplot
@@ -426,7 +426,7 @@ for i, feat in enumerate(features_to_plot):
         weights=w,
         histtype="step",
         lw=2,
-        label="SM",
+        label="SM $(c_g, c_{{tg}}) = (0, 0)$",
         color=cat_colours["SM"]
     )
     
@@ -437,23 +437,26 @@ for i, feat in enumerate(features_to_plot):
         weights=w_SMEFT,
         histtype="step",
         lw=2,
-        label="SMEFT",
+        label=f"SMEFT $(c_g, c_{{tg}}) = ({cg}, {ctg})$",
         color=cat_colours["SMEFT"]
     )
 
 
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Events")
-    ax.legend(loc="best")
+    ax.set_ylabel("Fraction of Events")
+    ax.legend(loc="best", frameon=True, fancybox=True)
 
     # If the logscale flag is True, set the y-axis to a logarithmic scale
     if logscale:
         ax.set_yscale("log")
 
 # Add a CMS label to one of the subplots (or you can add it to all if preferred)
-hep.cms.label("ttH Features", data=True, lumi=300, com=13.6, ax=axs[0], lumi_format="{0:.0f}")
+#hep.cms.label("ttH Features", data=True, lumi=300, com=13.6, ax=axs[0], lumi_format="{0:.0f}")
 
 plt.tight_layout()
+
+plt.savefig(thesis_plot_path + "/EFT_Comparison.pdf")
+
 plt.show()
 # If you want to save to file:
 # fig.savefig("NN_feature_distributions.png", dpi=150, bbox_inches="tight")
