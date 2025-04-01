@@ -57,11 +57,11 @@ category_boundaries[4] = 1
 
 
 
-category_boundaries = [0, 0.31, 0.35, 0.4, 1]
+category_boundaries = [0, 0.33, 0.35, 0.4, 1]
 
 #category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.610416158614033, 1.0]
 
-plot_entire_chain = True
+plot_entire_chain = False
 
 plot_fraction = False
 
@@ -307,7 +307,7 @@ combined_hist, hists_by_cat = build_combined_histogram_NN(dfs, procs, cats_uniqu
                          weight_var="true_weight", mass_range=(120, 130), mass_bins=5)
 
 
-plot_combined_histogram(combined_hist, categories=cats_unique, mass_bins=5)
+plot_combined_histogram(combined_hist, categories=cats_unique, mass_bins=5)#, processes_to_exclude = "background")
                                                                              
 
 #%%
@@ -375,6 +375,16 @@ NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadra
 NLL_Results["Name"] = "NN Categorisation"
 
 #Save_Results_to_JSON(NLL_Results, 'data/standard_NN_results.json')
+
+#%%
+
+from NN_utils import NN_NLL_2d_contour
+
+cl68 = NN_NLL_2d_contour(
+    hists,
+    cg_range = np.linspace(-1, 1, 100),
+    ctg_range = np.linspace(-1, 2, 100),
+    cat_averages = cat_averages)
 
 #%%
 

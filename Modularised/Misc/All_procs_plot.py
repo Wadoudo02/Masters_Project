@@ -44,11 +44,11 @@ target_lumi = 300
 # Processes to plot
 procs = {
     "background" : ["Background", "black"],
-    "ttH" : ["ttH x 10", "mediumorchid"],
+    "ttH" : ["ttH", "mediumorchid"],
     #"ttH_SMEFT" : ["ttH_SMEFT x 10", "green"],
-    "ggH" : ["ggH x 10", "cornflowerblue"],
-    "VBF" : ["VBF x 10", "red"],
-    "VH" : ["VH x 10", "orange"],
+    "ggH" : ["ggH", "cornflowerblue"],
+    "VBF" : ["VBF", "red"],
+    "VH" : ["VH", "orange"],
     #"Data" : ["Data", "green"]
 }
 
@@ -87,6 +87,7 @@ for i, proc in enumerate(procs.keys()):
     # Calculate true weight: remove x10 multiplier for signal
     if proc in ['ggH', 'VBF', 'VH', 'ttH']:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
+        dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']/10
         #dfs[proc]['plot_weight'] *= 2
     else:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']

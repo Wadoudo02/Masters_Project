@@ -701,4 +701,125 @@ def weighted_quantile(values, quantiles, weights):
     
     # Interpolate
     return np.interp(quantiles, weighted_quantiles, values)
+
+def NN_NLL_2d_contour(
+    hists,
+    cg_range,
+    ctg_range,
+    cat_averages,
+    quadratic_order=True,
+):
+    """
+    Creates a 2D NLL contour plot without any minimisation.
+
+    A meshgrid is created over the supplied ranges for c_g and c_tg. 
+    For each point, the negative log-likelihood is computed using 
+    calc_NLL_Simple and mu_c_NN, and converted into 2ΔNLL by subtracting 
+    the minimum and multiplying by 2.
+
+    On top of the filled contour plot, contour lines are added:
+    - A yellow dashed line at 2ΔNLL = 2.3 (68% CL)
+    - A green solid line at 2ΔNLL = 7.82 (98% CL)
+
+    The contour lines are labelled directly on the plot.
+
+    Additionally, the minimum of the NLL (assumed at (0,0)) is marked.
+
+    Parameters
+    ----------
+    hists : object
+        Histogram or similar data used for computing the NLL.
+    cg_range : array-like
+        Range of values for the Wilson coefficient c_g.
+    ctg_range : array-like
+        Range of values for the Wilson coefficient c_tg.
+    cat_averages : object
+        Catalogue averages used by the mu_c_NN function.
+    quadratic_order : bool, optional
+        If True, uses quadratic order in mu_c_NN; otherwise, first order (default is True).
+    plot : bool, optional
+        If True, displays the plot (default is True).
+
+    Returns
+    -------
+    None
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
     
+    # Create meshgrid for c_g and c_tg values.
+    cg_vals, ctg_vals = np.meshgrid(cg_range, ctg_range)
+    
+    # Calculate the NLL for each (c_g, c_tg) pair on the grid.
+    Z = np.array([
+        [calc_NLL_Simple(hists, mu_c_NN(cg, ctg, cat_averages=cat_averages, quadratic=quadratic_order))
+         for cg in cg_range]
+        for ctg in ctg_range
+    ])
+    
+    # Convert to 2ΔNLL by subtracting the minimum and multiplying by 2.
+    min_nll = np.min(Z)
+    Z = 2 * (Z - min_nll)
+    
+    # Plot the 2D filled contour plot.
+    plt.figure(figsize=(11, 9))
+    levels = np.linspace(np.min(Z), np.max(Z), 50)
+    contour_filled = plt.contourf(cg_vals, ctg_vals, Z, levels=levels, cmap='viridis')
+    plt.xlabel(r"Wilson Coefficient $c_{g}$")
+    plt.ylabel(r"Wilson Coefficient $c_{tg}$")
+    order_str = "Quadratic Order" if quadratic_order else "First Order"
+    #plt.title(f"2D NLL Contour Plot ({order_str})")
+    cbar = plt.colorbar(contour_filled)
+    cbar.set_label("2ΔNLL")
+    plt.grid(True, linestyle='--', alpha=0.5)
+    
+    # Define the contour levels and corresponding styles:
+    # 2.3 corresponds to 68% CL (yellow dashed), 7.82 corresponds to 98% CL (green solid)
+    contour_levels = [2.3, 7.82]
+    contour_colors = ['yellow', 'green']
+    contour_linestyles = ['--', '-']
+    
+    # Plot the contour lines and label them directly on the lines.
+    contour_lines = plt.contour(
+        cg_vals, ctg_vals, Z,
+        levels=contour_levels,
+        colors=contour_colors,
+        linestyles=contour_linestyles
+    )
+    plt.clabel(contour_lines, fmt={2.3: '68%', 7.82: '98%'}, inline=True, fontsize=20)
+    
+    # Mark the minimum of the NLL at (0,0)
+    plt.plot(0, 0, marker='o', color='red', markersize=10, label='NLL Minimum (0,0)')
+    
+    # Create custom legend entries for the contour lines and the minimum marker.
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='yellow', lw=2, linestyle='--', label='68% CL (2ΔNLL = 2.3)'),
+        Line2D([0], [0], color='green', lw=2, linestyle='-',  label='98% CL (2ΔNLL = 7.82)'),
+        Line2D([0], [0], marker='o', color='red', markersize=10, lw=0, label='NLL Minimum (0,0)')
+    ]
+    
+    cs68 = plt.contour(cg_vals, ctg_vals, Z, levels=[2.3], colors='yellow', linestyles='--')
+
+    # Extract the paths for the 2.3 level
+    contour_paths = cs68.collections[0].get_paths()
+    
+    # Prepare a list to hold the contour coordinates
+    contour_coordinates = []
+    
+    # Loop over each contour segment and extract its vertices
+    for path in contour_paths:
+        vertices = path.vertices  # This is an (N, 2) array for the segment.
+        contour_coordinates.append(vertices)
+        
+    plt.legend(handles=legend_elements, loc='upper center',frameon=True, edgecolor='black', fancybox=True, framealpha=0.85, facecolor='white')
+    
+    ax = plt.gca()
+    ax.tick_params(axis='both', which='major', pad=10)
+    plt.tight_layout()
+    
+    #plt.savefig(thesis_plot_path + "/2D_NLL_NN.pdf")
+    
+    plt.show()
+    
+    return contour_coordinates

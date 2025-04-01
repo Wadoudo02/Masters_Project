@@ -310,6 +310,17 @@ Save_Results_to_JSON(NLL_Results, 'data/STXS_NLL_results.json')
 
 #%%
 
+from NN_utils import NN_NLL_2d_contour
+
+NN_NLL_2d_contour(
+    hists,
+    cg_range = np.linspace(-1, 1, 100),
+    ctg_range = np.linspace(-1, 2, 100),
+    cat_averages = cat_averages)
+
+
+#%%
+
 import json
 
 # Specify the filename to read the JSON data from

@@ -16,7 +16,7 @@ Quadratic = True
 # Constants
 total_lumi = 7.9804
 target_lumi = 300
-cg_ctg_pairs = [(0, 0),  (0, 1), (0, 2), (0, -1), (0, -2)]  # SMEFT parameter pairs
+cg_ctg_pairs = [(0, 0),  (0.3, 0.69)]  # SMEFT parameter pairs
 pt_bins = [0, 60, 120, 200, 300, np.inf]
 pt_labels = ['0-60', '60-120', '120-200', '200-300', '>300']
 
@@ -31,7 +31,7 @@ def add_SMEFT_weights(proc_data, cg, ctg, quadratic = True):
     return new_w
 
 # Variable to plot
-v = "HT"
+v = "pt"
 
 # Extract plotting details from vars_plotting_dict
 if v == "pt":
@@ -83,11 +83,12 @@ mask = mask & (df_tth['max_b_tag_score_sel'] > 0.4)
 
 df_tth = df_tth[mask]
 
-fig, ax = plt.subplots(figsize=(11, 8), dpi=300)
+fig, ax = plt.subplots(figsize=(12, 8), dpi=300)
 
 # Define color palette
 colors = sns.color_palette("husl", len(cg_ctg_pairs))
 
+labels_weights = ["SM", "SMEFT"]
 
 # Overlay histograms for each SMEFT parameter pair
 for j, (cg, ctg) in enumerate(cg_ctg_pairs):
@@ -110,17 +111,33 @@ for j, (cg, ctg) in enumerate(cg_ctg_pairs):
     print(w)
 
     # Plot histogram with color
-    ax.hist(
-            x, bins=num_bins, range=plot_range, density=False, weights=w,
-            histtype='step', color=colors[j], linewidth=2, alpha=1, label=f"$(c_g, c_{{tg}}) = ({cg}, {ctg})$"
-                    )
+    if len(cg_ctg_pairs) == 2:
+        ax.hist(
+                x, bins=num_bins, range=plot_range, density=False, weights=w,
+                histtype='step', color=colors[j], linewidth=2, alpha=1, label=f"{labels_weights[j]} $(c_g, c_{{tg}}) = ({cg}, {ctg})$")
+    else:
+        ax.hist(
+                x, bins=num_bins, range=plot_range, density=False, weights=w,
+                histtype='step', color=colors[j], linewidth=2, alpha=1, label=f"$(c_g, c_{{tg}}) = ({cg}, {ctg})$")
     
 # Label and formatting
 ax.set_ylabel("Fraction of Events")
 if logplot:
     ax.set_yscale("log")
-hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
+#hep.cms.label("", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 ax.legend(loc="best", ncol=1)
+
+'''
+# Get the handles and labels
+handles, labels = ax.get_legend_handles_labels()
+
+# Swap the order of handles and labels
+handles = [handles[1], handles[0]]
+labels = [labels[1], labels[0]]
+
+# Create a new legend with swapped order
+ax.legend(handles, labels)
+'''
 
 # Shared x-axis label from vars_plotting_dict
 ax.set_xlabel(x_label)
@@ -134,14 +151,15 @@ for i, b in enumerate(boundaries):
     # Place the label above the line using the x-axis transform for the y position
     # Here we label the boundary to the right (e.g. 60 gets labelled as "60-120")
     ax.text(b + 25, 0.95, pt_labels[i+1], rotation=270, transform=ax.get_xaxis_transform(),
-            ha='right', va='top', color='grey', fontsize=8)
+            ha='right', va='top', color='grey', fontsize=12)
 # Optionally, label the left-most category at the left edge of the plot
 ax.text(ax.get_xlim()[0] + 25, 0.95, pt_labels[0], rotation=270, transform=ax.get_xaxis_transform(),
-        ha='right', va='top', color='grey', fontsize=8)
+        ha='right', va='top', color='grey', fontsize=12)
 
 # Adjust layout
 plt.tight_layout(rect=[0.05, 0.05, 0.95, 0.95])
 
+
 # Save figure
-#fig.savefig(f"{plot_path}/ttH_SMEFT_{v}.png", bbox_inches="tight")
+#plt.savefig(thesis_plot_path + "/STXS_Categorisation_Big.pdf")
 plt.show()
