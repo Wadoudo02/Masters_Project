@@ -26,7 +26,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_parameterised_new_func.pth")
+checkpoint = torch.load("data/neural_network_parameterised_turbo.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -41,7 +41,7 @@ loaded_model.eval()
 import json
 
 # Load the probability values
-with open("data/proba_values_PNN_new_func.json", "r") as json_file:
+with open("data/proba_values_PNN_turbo.json", "r") as json_file:
     proba_data = json.load(json_file)
 
 max_proba = proba_data["max_proba"]
@@ -58,10 +58,13 @@ category_boundaries = [
 
 #category_boundaries = [0, 0.256, 0.343, 0.925, 1] # Background percentiles
 # category_boundaries = [0.,         0.25129123, 0.5375651,  0.66691406, 1.        ]
-# category_boundaries[0] = 0
-# category_boundaries[4] = 1
+category_boundaries[0] = 0
+category_boundaries[4] = 1
+category_boundaries[3] = 0.7
 
-plot_entire_chain = False
+
+
+plot_entire_chain = True
 
 plot_fraction = False
 
@@ -157,20 +160,35 @@ for i, proc in enumerate(procs.keys()):
 
     N = len(dfs[proc])
 
+
     dfs[proc]["cg"]  = 0.3 #np.random.uniform(low=cg_min,  high=cg_max,  size=N)
     dfs[proc]["ctg"] = 0.69 #np.random.uniform(low=ctg_min, high=ctg_max, size=N)
     
      # Extract the features for NN input
-    features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
+    features = ["deltaR", "HT", "n_jets", "delta_phi_gg", "pt"]
     features = [f"{feature}_sel" for feature in features]
-    features.append("cg")
     features.append("ctg")
+    features.append("cg")
+    
+    features_to_normalise = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel"]
+
+    # Initialise the scaler
+    scaler = StandardScaler()
+
+    # Fit the scaler on the selected features and transform them
+    norm_values = scaler.fit_transform(dfs[proc][features_to_normalise])
+
+    # Create new columns with a '_norm' suffix
+    for i, feature in enumerate(features_to_normalise):
+        dfs[proc][f"{feature}_norm"] = norm_values[:, i]
+        
+    training_features = [f"{feat}_norm" for feat in features_to_normalise] + ["ctg"] + ["cg"]
     
     if not all(feature in dfs[proc].columns for feature in features):
         raise ValueError(f"Missing one or more required features in process {proc}")
 
     # Prepare the input tensor for the NN
-    nn_input = torch.tensor(dfs[proc][features].values, dtype=torch.float32)
+    nn_input = torch.tensor(dfs[proc][training_features].values, dtype=torch.float32)
 
     # Get NN predictions
     with torch.no_grad():
@@ -196,7 +214,6 @@ cats_unique = labels.copy()
 
 def exponential_decay(x, A, lambd):
     return A * np.exp(-lambd * (x - 120))
-
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -289,7 +306,6 @@ for cat in cats_unique:
         fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
         plt.show()
     
-#%%
 
 # Looking into the NN, how its categorising the different features
 

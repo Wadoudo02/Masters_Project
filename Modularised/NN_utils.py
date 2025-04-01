@@ -557,7 +557,7 @@ def compare_profile_scans(*datasets):
           "profile_cg_label", "profile_ctg_label"
     """
     # Prepare figure and subplots
-    fig, axes = plt.subplots(1, 2, figsize=(15, 7))
+    fig, axes = plt.subplots(1, 2, figsize=(15, 9))
     #fig.suptitle("Comparison of Profile Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
 
     # -- Left subplot: c_g profile scan (profiling over c_tg) --
@@ -670,7 +670,7 @@ def compare_profile_scans(*datasets):
 
     plt.tight_layout()
     
-    #plt.savefig(thesis_plot_path + "/profile_comparison.pdf")
+    plt.savefig(thesis_plot_path + "/profile_comparison_long.pdf")
     
     plt.show()
 
