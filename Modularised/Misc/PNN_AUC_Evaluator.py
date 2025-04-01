@@ -38,7 +38,7 @@ from sklearn.metrics import (
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_parameterised_yielded.pth")
+checkpoint = torch.load("data/neural_network_parameterised_turbo.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -71,24 +71,6 @@ PlotInputFeatures = False
 LossPlotLog = True  # Toggle for log scale
 
 sample_path="/Users/wadoudcharbak/Downloads/Pass2"
-# -------------------------------------------------------------------------
-#                         SMEFT WEIGHTING FUNCTION
-# -------------------------------------------------------------------------
-def add_SMEFT_weights(proc_data, cg_val, ctg_val, name="new_weights", quadratic=False):
-    """
-    For each row in proc_data, calculates the reweighting factor for the 
-    specified c_g and c_tg using linear and (optionally) quadratic terms.
-    """
-    proc_data[name] = proc_data["true_weight"] * (
-        1.0 + proc_data["a_cg"] * cg_val + proc_data["a_ctgre"] * ctg_val
-    )
-    if quadratic:
-        proc_data[name] += (
-            (cg_val**2) * proc_data["b_cg_cg"]
-            + cg_val * ctg_val * proc_data["b_cg_ctgre"]
-            + (ctg_val**2) * proc_data["b_ctgre_ctgre"]
-        )
-    return proc_data
 
 
 # -------------------------------------------------------------------------
@@ -144,13 +126,14 @@ mask = mask & (df_tth['max_b_tag_score_sel'] > 0.4)
 df_tth = df_tth[mask]
 
 
+
 def add_SMEFT_weights_PNN(proc_data):
     cg_vals  = proc_data["cg"]
     ctg_vals = proc_data["ctg"]
     # baseline:
     new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
     # optional quadratic:
-    new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
+    new_w += proc_data["true_weight"] * ((cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"])
     return new_w
 
 
@@ -177,15 +160,15 @@ def compute_auc_for_dataset(df_class0, df_class1, model, feature_cols):
     auc_val = auc(fpr, tpr)
     return auc_val
 
-features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
+features = ["deltaR", "HT", "n_jets", "delta_phi_gg", "pt"]
 features = [f"{feature}_sel" for feature in features]
-features.append("cg")
 features.append("ctg")
+features.append("cg")
 
 import json
 
 # Specify the filename to read the JSON data from
-filename = 'data/NN_AUC_Scores.json'
+filename = 'data/NN_AUC_Scores_new_func.json'
 
 # Read the JSON data back into a Python dictionary
 with open(filename, 'r') as file:
@@ -202,7 +185,7 @@ plt.figure(figsize=(12, 6))
 
 plt.style.use(hep.style.CMS)
 
-ctg_lines = [0] #, +0.69, -0.69, +1, -1]
+ctg_lines = [0] #, +0.69] #, -0.69, +1, -1]
 
 for ctg_val in ctg_lines:
     auc_scores = []
@@ -253,12 +236,12 @@ for ctg_val in ctg_lines:
 plt.xlabel('$c_g$ value')
 plt.ylabel('AUC score')
 
-hep.cms.label("AUC vs $c_g$", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}")
-
 plt.plot(NN_AUC_Scores["Cg Values"], NN_AUC_Scores["NN: AUC vs Cg"], label="NN AUC Score", marker = "o")
 
-plt.axvline(x=-0.4, color='grey', linestyle='--', label=r'$\mathrm{AUC_{PNN}} > \mathrm{AUC_{NN}}$')
-plt.plot([], [], linestyle='None', label=r'$\mathrm{c_g}=-0.4,\ \mathrm{c_{tg}}=0$')
+#plt.axvline(x=-0.4, color='grey', linestyle='--', label=r'$\mathrm{AUC_{PNN}} > \mathrm{AUC_{NN}}$')
+#plt.plot([], [], linestyle='None', label=r'$\mathrm{c_g}=-0.4,\ \mathrm{c_{tg}}=0$')
+
+plt.axvline(x=0.3, color='grey', linestyle='--', label=r'NN trained here')
 
 # Add a legend to distinguish between the different pairs
 plt.legend()
@@ -275,7 +258,8 @@ ctg_values = np.linspace(-3, 3, 31)
 # Create a new figure for the plot
 plt.figure(figsize=(10, 6))
 
-cg_lines = [0]#, +0.3, -0.3, +1, -1]
+cg_lines = [0] #, +0.3] #, -0.3, +1, -1]
+
 
 for cg_val in cg_lines:
     auc_scores = []
@@ -325,15 +309,16 @@ for cg_val in cg_lines:
     plt.plot(ctg_values, auc_scores, label=f'PNN cg={cg_val}', marker = "o")
 
 # Label the axes and add a title
-plt.xlabel('ctg value')
+plt.xlabel(r"$c_{tg}$")
 plt.ylabel('AUC score')
-plt.title('AUC vs ctg')
+plt.title(r'AUC vs $c_{tg}$')
 
 plt.plot(NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"], label="NN AUC Score", marker = "o")
 
-plt.axvline(x=-0.4, color='grey', linestyle='--', label=r'$\mathrm{AUC_{PNN}} < \mathrm{AUC_{NN}}$')
-plt.plot([], [], linestyle='None', label=r'$\mathrm{c_g}=0,\ \mathrm{c_{tg}}=-0.4$')
+#plt.axvline(x=-0.4, color='grey', linestyle='--', label=r'$\mathrm{AUC_{PNN}} < \mathrm{AUC_{NN}}$')
+#plt.plot([], [], linestyle='None', label=r'$\mathrm{c_g}=0,\ \mathrm{c_{tg}}=-0.4$')
 
+plt.axvline(x=0.69, color='grey', linestyle='--', label=r'NN trained here')
 
 # Add a legend to distinguish between the different pairs
 plt.legend()
@@ -343,36 +328,97 @@ plt.grid()
 plt.show()
 
 #%%
-'''
-# Suppose you have:
-# ctg_values for the "PNN" line,
-# auc_scores for the "PNN" line, and
-# NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"] for the "NN" line.
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import mplhep as hep  # if you're using HEP-style plots
 
-# We expect they are the same shape and in matching order
-pnn_x = ctg_values
-pnn_y = auc_scores
+# Apply CMS style
+plt.style.use(hep.style.CMS)
 
-# OR, if you prefer them as NumPy arrays:
-nn_x = np.array(NN_AUC_Scores["Ctg Values"])
-nn_y = np.array(NN_AUC_Scores["NN: AUC vs Ctg"])
+# Define value ranges
+cg_values = np.linspace(-3, 3, 31)
+ctg_values = np.linspace(-3, 3, 31)
 
-# Compute the pointwise difference in y-values
-diff = np.abs(pnn_y - nn_y)
+# Containers for AUC scores
+auc_vs_cg = []
+auc_vs_ctg = []
 
-# Find index of the maximum delta
-max_idx = np.argmax(diff)
+# Define scan values
+ctg_val_fixed = 0
+cg_val_fixed = 0
 
-# Retrieve x and the difference
-x_val_with_max_diff = pnn_x[max_idx]
-y_diff_max = diff[max_idx]
+# Scan AUC vs cg
+for cg_val in cg_values:
+    df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+    df_sm_test["cg"] = df_smeft_test["cg"] = cg_val
+    df_sm_test["ctg"] = df_smeft_test["ctg"] = ctg_val_fixed
+    df_sm_test["label"] = 0
+    df_smeft_test["label"] = 1
+    df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
 
-print(f"The greatest Δy occurs at x={x_val_with_max_diff}, with a difference of {y_diff_max:.3f}.")
-'''
+    df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
+    df_sm_test["true_weight"] *= 10**4
+    df_smeft_test["true_weight"] /= df_smeft_test["true_weight"].sum()
+    df_smeft_test["true_weight"] *= 10**4
+
+    auc_score = compute_auc_for_dataset(df_sm_test, df_smeft_test, loaded_model, feature_cols=features)
+    auc_vs_cg.append(auc_score)
+
+# Scan AUC vs ctg
+for ctg_val in ctg_values:
+    df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+    df_sm_test["cg"] = df_smeft_test["cg"] = cg_val_fixed
+    df_sm_test["ctg"] = df_smeft_test["ctg"] = ctg_val
+    df_sm_test["label"] = 0
+    df_smeft_test["label"] = 1
+    df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
+
+    df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
+    df_sm_test["true_weight"] *= 10**4
+    df_smeft_test["true_weight"] /= df_smeft_test["true_weight"].sum()
+    df_smeft_test["true_weight"] *= 10**4
+
+    auc_score = compute_auc_for_dataset(df_sm_test, df_smeft_test, loaded_model, feature_cols=features)
+    auc_vs_ctg.append(auc_score)
+
+# --- Plotting ---
+fig = plt.figure(figsize=(14, 6))
+gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1])
+
+# ---- Subplot 1: AUC vs cg ----
+ax0 = plt.subplot(gs[0])
+ax0.plot(cg_values, auc_vs_cg, label=f'PNN $c_{{tg}}$={ctg_val_fixed}', marker="o")
+ax0.plot(NN_AUC_Scores["Cg Values"], NN_AUC_Scores["NN: AUC vs Cg"], label="NN AUC Score", marker="o")
+ax0.axvline(x=0.3, color='grey', linestyle='--', label='NN trained here')
+ax0.set_xlabel(r"$c_g$")
+ax0.set_ylabel("AUC Score")
+ax0.set_title("AUC vs $c_g$")
+ax0.legend()
+ax0.grid(True)
+
+# ---- Subplot 2: AUC vs ctg ----
+ax1 = plt.subplot(gs[1])
+ax1.plot(ctg_values, auc_vs_ctg, label=f'PNN $c_g$={cg_val_fixed}', marker="o")
+ax1.plot(NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"], label="NN AUC Score", marker="o")
+ax1.axvline(x=0.69, color='grey', linestyle='--', label='NN trained here')
+ax1.set_xlabel(r"$c_{tg}$")
+ax1.set_ylabel("AUC Score")
+ax1.set_title("AUC vs $c_{tg}$")
+ax1.legend()
+ax1.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
-cg_range = np.linspace(-2, 2, 30)
-ctg_range = np.linspace(-2, 2, 30)
-auc_grid = np.zeros((len(cg_range), len(ctg_range)))
+
+outwards = 2
+
+cg_range = np.linspace(-outwards, outwards, 100)
+ctg_range = np.linspace(-outwards,outwards, 100)
+PNN_auc_grid = np.zeros((len(cg_range), len(ctg_range)))
 
 for i, cg_val in enumerate(cg_range):
     for j, ctg_val in enumerate(ctg_range):
@@ -402,7 +448,7 @@ for i, cg_val in enumerate(cg_range):
         df_smeft_test["true_weight"] /= df_smeft_test["true_weight"].sum()
         df_smeft_test["true_weight"] *= 10**4
         
-        auc_grid[i, j] = compute_auc_for_dataset(
+        PNN_auc_grid[i, j] = compute_auc_for_dataset(
             df_sm_test,
             df_smeft_test,
             loaded_model,
@@ -414,13 +460,38 @@ CG, CTG = np.meshgrid(ctg_range, cg_range)
 # We'll put c_{tg} on the x-axis and c_g on the y-axis.
 
 plt.figure(figsize=(8,6))
-cs = plt.contourf(CG, CTG, auc_grid, levels=20, cmap="viridis")
+cs = plt.contourf(CG, CTG, PNN_auc_grid, levels=20, cmap="viridis")
 plt.colorbar(cs, label="AUC Score")
 plt.xlabel(r"$c_{g}$")
 plt.ylabel(r"$c_{tg}$")
 plt.title(r"2D Contour of AUC vs $(c_g, c_{tg})$")
 plt.show()
 
+np.save("data/PNN_auc_grid_2.npy", PNN_auc_grid)
 
 #%%
 
+# Load the AUC grids
+NN_auc_grid = np.load("data/NN_auc_grid.npy")
+PNN_auc_grid = np.load("data/PNN_auc_grid.npy")
+
+# Compute the difference: PNN - NN (you can reverse depending on interpretation)
+auc_diff_grid = PNN_auc_grid - NN_auc_grid
+
+# Reconstruct the parameter ranges (assuming they were 100 points from -2 to 2)
+cg_range = np.linspace(-outwards, outwards, NN_auc_grid.shape[0])
+ctg_range = np.linspace(-outwards, outwards, NN_auc_grid.shape[1])
+CG, CTG = np.meshgrid(ctg_range, cg_range)
+
+# Plot the difference grid
+plt.figure(figsize=(8, 6))
+cs = plt.contourf(CG, CTG, auc_diff_grid, levels=20, cmap="coolwarm")
+plt.colorbar(cs, label="Δ AUC (PNN - NN)")
+plt.xlabel(r"$c_{g}$")
+plt.ylabel(r"$c_{tg}$")
+plt.title("Difference in AUC: PNN vs NN")
+
+plt.plot([0.3], [0.69], marker='o', color='red', markersize=10, lw=0, label='Training point for NN')
+#plt.axhline(0, color='k', linestyle='--', linewidth=0.5)
+#plt.axvline(0, color='k', linestyle='--', linewidth=0.5)
+plt.show()

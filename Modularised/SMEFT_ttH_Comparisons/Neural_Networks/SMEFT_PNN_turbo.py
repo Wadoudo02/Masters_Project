@@ -117,26 +117,11 @@ mask = mask & (df_tth['max_b_tag_score_sel'] > 0.4)
 
 df_tth = df_tth[mask]
 
-from sklearn.preprocessing import StandardScaler
-
-# List of features to be normalised (excluding 'ctg')
-features_to_normalise = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel"]
-
-# Initialise the scaler
-scaler = StandardScaler()
-
-# Fit the scaler on the selected features and transform them
-norm_values = scaler.fit_transform(df_tth[features_to_normalise])
-
-# Create new columns with a '_norm' suffix
-for i, feature in enumerate(features_to_normalise):
-    df_tth[f"{feature}_norm"] = norm_values[:, i]
-
+training_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel", "ctg", "cg"]
 
 print(df_tth.head())
 
 
-training_features = [f"{feat}_norm" for feat in features_to_normalise] + ["ctg"] + ["cg"]
 
 # Define our ctg values
 ctg_values = np.linspace(-1, 1, 21)
@@ -438,6 +423,6 @@ proba_data = {"max_proba": max_proba, "min_proba": min_proba}
 with open("data/proba_values_PNN_turbo.json", "w") as json_file:
     json.dump(proba_data, json_file)
 
-print(f" --> Saved model to 'data/neural_network_parameterised_yielded.pth'")
+print(f" --> Saved model to 'data/neural_network_parameterised_turbo.pth'")
 print(f" --> Probability range: min={min_proba}, max={max_proba}")
 

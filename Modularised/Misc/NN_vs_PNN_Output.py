@@ -28,7 +28,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-NN_checkpoint = torch.load("data/neural_network_yielded.pth")
+NN_checkpoint = torch.load("data/neural_network_new_func.pth")
 
 # Instantiate the model
 NN_model = NeuralNetwork(NN_checkpoint["input_dim"], NN_checkpoint["hidden_dim"])
@@ -41,7 +41,7 @@ NN_model.eval()
 
 
 # Load the model checkpoint
-PNN_checkpoint = torch.load("data/neural_network_parameterised_yielded.pth")
+PNN_checkpoint = torch.load("data/neural_network_parameterised_turbo.pth")
 
 # Instantiate the model
 PNN_model = NeuralNetwork(PNN_checkpoint["input_dim"], PNN_checkpoint["hidden_dim"])
@@ -154,7 +154,7 @@ dfs[proc]["cg"]  = 0
 dfs[proc]["ctg"]  = 0
 
  # Extract the features for NN input
-features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
+features = ["deltaR", "HT", "n_jets", "delta_phi_gg", "pt"]
 features = [f"{feature}_sel" for feature in features]
 
 if not all(feature in dfs[proc].columns for feature in features):
@@ -271,7 +271,7 @@ def add_SMEFT_weights_PNN(proc_data):
     # baseline:
     new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg_vals + proc_data["a_ctgre"]*ctg_vals)
     # optional quadratic:
-    new_w += (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
+    new_w +=  proc_data["true_weight"] *  (cg_vals**2)*proc_data["b_cg_cg"] + (cg_vals*ctg_vals)*proc_data["b_cg_ctgre"] + (ctg_vals**2)*proc_data["b_ctgre_ctgre"]
     return new_w
 
 # df_smeft["true_weight"] = add_SMEFT_weights_PNN(df_smeft) just to see how the function works please ignore

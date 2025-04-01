@@ -38,7 +38,7 @@ from sklearn.metrics import (
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_yielded.pth")
+checkpoint = torch.load("data/neural_network_new_func.pth")
 
 # Instantiate the model
 model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -74,21 +74,14 @@ sample_path="/Users/wadoudcharbak/Downloads/Pass2"
 # -------------------------------------------------------------------------
 #                         SMEFT WEIGHTING FUNCTION
 # -------------------------------------------------------------------------
-def add_SMEFT_weights(proc_data, cg_val, ctg_val, name="new_weights", quadratic=False):
-    """
-    For each row in proc_data, calculates the reweighting factor for the 
-    specified c_g and c_tg using linear and (optionally) quadratic terms.
-    """
-    proc_data[name] = proc_data["true_weight"] * (
-        1.0 + proc_data["a_cg"] * cg_val + proc_data["a_ctgre"] * ctg_val
-    )
+def add_SMEFT_weights(proc_data, cg, ctg, quadratic = True):
+
+    new_w = proc_data["true_weight"] * (1.0 + proc_data["a_cg"]*cg + proc_data["a_ctgre"]*ctg)
+    # optional quadratic:
     if quadratic:
-        proc_data[name] += (
-            (cg_val**2) * proc_data["b_cg_cg"]
-            + cg_val * ctg_val * proc_data["b_cg_ctgre"]
-            + (ctg_val**2) * proc_data["b_ctgre_ctgre"]
-        )
-    return proc_data
+        new_w += proc_data["true_weight"] * ((cg**2)*proc_data["b_cg_cg"] + (cg*ctg)*proc_data["b_cg_ctgre"] + (ctg**2)*proc_data["b_ctgre_ctgre"])
+    return new_w
+
 
 
 # -------------------------------------------------------------------------
@@ -118,7 +111,7 @@ if invalid_weights.sum() > 0:
 df_tth["true_weight"] /= df_tth["true_weight"].sum()
 df_tth["true_weight"] *= yield_weight
 
-features = ["deltaR", "HT", "n_jets", "delta_phi_gg"]
+features = ["deltaR", "HT", "n_jets", "delta_phi_gg", "pt"]
 features = [f"{feature}_sel" for feature in features]
 
 
@@ -154,7 +147,7 @@ for cg_val in cg_values:
     df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
     df_smeft_test["label"] = 1
     df_sm_test["label"] = 0
-    df_smeft_test = add_SMEFT_weights(df_smeft_test, cg_val, 0, name="true_weight", quadratic=Quadratic)
+    df_smeft_test["true_weight"] = add_SMEFT_weights(df_smeft_test, cg_val, 0, quadratic=Quadratic)
     auc_score = compute_auc_for_dataset(
         df_sm_test,
         df_smeft_test,
@@ -180,7 +173,7 @@ for ctg_val in ctg_values:
     df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
     df_smeft_test["label"] = 1
     df_sm_test["label"] = 0
-    df_smeft_test = add_SMEFT_weights(df_smeft_test, 0, ctg_val, name="true_weight", quadratic=Quadratic)
+    df_smeft_test["true_weight"] = add_SMEFT_weights(df_smeft_test, 0, ctg_val, quadratic=Quadratic)
     auc_score = compute_auc_for_dataset(
         df_sm_test,
         df_smeft_test,
@@ -210,15 +203,15 @@ NN_AUC_Scores = {
 Save_Results_to_JSON(NN_AUC_Scores, 'data/NN_AUC_Scores.json')
 
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
-cg_range = np.linspace(-2, 2, 20)
-ctg_range = np.linspace(-2, 2, 20)
+cg_range = np.linspace(-2, 2, 100)
+ctg_range = np.linspace(-2, 2, 100)
 auc_grid = np.zeros((len(cg_range), len(ctg_range)))
 
 for i, cg_val in enumerate(cg_range):
     for j, ctg_val in enumerate(ctg_range):
         df_smeft_test = df_sm_test.copy()
         df_smeft_test["label"] = 1
-        df_smeft_test = add_SMEFT_weights(df_smeft_test, cg_val, ctg_val, name="true_weight", quadratic=Quadratic)
+        df_smeft_test["true_weight"] = add_SMEFT_weights(df_smeft_test, cg_val, ctg_val, quadratic=Quadratic)
         auc_grid[i, j] = compute_auc_for_dataset(
             df_sm_test,
             df_smeft_test,
@@ -237,4 +230,6 @@ plt.xlabel(r"$c_{tg}$")
 plt.ylabel(r"$c_{g}$")
 plt.title(r"2D Contour of AUC vs $(c_g, c_{tg})$")
 plt.show()
+
+np.save("data/NN_auc_grid_2.npy", auc_grid)
 

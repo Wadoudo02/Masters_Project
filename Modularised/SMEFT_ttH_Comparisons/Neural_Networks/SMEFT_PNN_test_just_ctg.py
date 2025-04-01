@@ -158,7 +158,7 @@ training_features = [f"{feat}_norm" for feat in features_to_normalise] + ["ctg"]
 print(df_tth.head())
 
 
-#training_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel", "ctg"]
+training_features = ["deltaR_sel", "HT_sel", "n_jets_sel", "delta_phi_gg_sel", "pt_sel", "ctg"]
 
 # Define our ctg values
 ctg_values = np.linspace(-2, 2, 41)
