@@ -557,7 +557,7 @@ def compare_profile_scans(*datasets):
           "profile_cg_label", "profile_ctg_label"
     """
     # Prepare figure and subplots
-    fig, axes = plt.subplots(1, 2, figsize=(15, 9))
+    fig, axes = plt.subplots(1, 2, figsize=(15, 7))
     #fig.suptitle("Comparison of Profile Scans (NLL vs. Chi-Squared) for Multiple Data Sets")
 
     # -- Left subplot: c_g profile scan (profiling over c_tg) --
@@ -599,7 +599,7 @@ def compare_profile_scans(*datasets):
     # Place the text labels directly on the lines
     ax_left.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="dimgray",
                   ha="left", va="bottom", transform=ax_left.transData, fontsize = fontsize_for_horizontal_line_label)
-    ax_left.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="dimgray",
+    ax_left.text(x_offset, 4.0, "95.4% CL (2ΔNLL = 4)", color="dimgray",
                   ha="left", va="bottom", transform=ax_left.transData, fontsize = fontsize_for_horizontal_line_label)
 
     ax_left.set_xlabel(r"$c_g$")
@@ -651,7 +651,7 @@ def compare_profile_scans(*datasets):
     # Place the text labels directly on the lines
     ax_right.text(x_offset, 1.0, "68% CL (2ΔNLL = 1)", color="dimgray",
                   ha="left", va="bottom", transform=ax_right.transData, fontsize = fontsize_for_horizontal_line_label) 
-    ax_right.text(x_offset, 4.0, "95% CL (2ΔNLL = 4)", color="dimgray",
+    ax_right.text(x_offset, 4.0, "95.4% CL (2ΔNLL = 4)", color="dimgray",
                   ha="left", va="bottom", transform=ax_right.transData, fontsize = fontsize_for_horizontal_line_label)
 
     ax_right.set_xlabel(r"$c_{tg}$")
@@ -670,7 +670,7 @@ def compare_profile_scans(*datasets):
 
     plt.tight_layout()
     
-    plt.savefig(thesis_plot_path + "/profile_comparison_long.pdf")
+    plt.savefig(thesis_plot_path + "/profile_comparison.pdf")
     
     plt.show()
 

@@ -411,6 +411,103 @@ ax1.grid(True)
 plt.tight_layout()
 plt.show()
 
+#%%
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+# Define scan ranges
+cg_values = np.linspace(-3, 3, 31)
+ctg_values = np.linspace(-3, 3, 31)
+
+# Fixed values for scan
+ctg_val_fixed = 0
+cg_val_fixed = 0
+
+# Containers for AUC scores
+auc_vs_cg = []
+auc_vs_ctg = []
+
+# Scan AUC vs cg (ctg fixed)
+for cg_val in cg_values:
+    df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+    df_sm_test["cg"] = df_smeft_test["cg"] = cg_val
+    df_sm_test["ctg"] = df_smeft_test["ctg"] = ctg_val_fixed
+    df_sm_test["label"] = 0
+    df_smeft_test["label"] = 1
+    df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
+
+    df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
+    df_sm_test["true_weight"] *= 10**4
+    df_smeft_test["true_weight"] /= df_smeft_test["true_weight"].sum()
+    df_smeft_test["true_weight"] *= 10**4
+
+    auc_score = compute_auc_for_dataset(df_sm_test, df_smeft_test, loaded_model, feature_cols=features)
+    auc_vs_cg.append(auc_score)
+
+# Scan AUC vs ctg (cg fixed)
+for ctg_val in ctg_values:
+    df_sm_test, df_smeft_test = train_test_split(df_tth, test_size=0.5, random_state=seed_number)
+    df_sm_test["cg"] = df_smeft_test["cg"] = cg_val_fixed
+    df_sm_test["ctg"] = df_smeft_test["ctg"] = ctg_val
+    df_sm_test["label"] = 0
+    df_smeft_test["label"] = 1
+    df_smeft_test["true_weight"] = add_SMEFT_weights_PNN(df_smeft_test)
+
+    df_sm_test["true_weight"] /= df_sm_test["true_weight"].sum()
+    df_sm_test["true_weight"] *= 10**4
+    df_smeft_test["true_weight"] /= df_smeft_test["true_weight"].sum()
+    df_smeft_test["true_weight"] *= 10**4
+
+    auc_score = compute_auc_for_dataset(df_sm_test, df_smeft_test, loaded_model, feature_cols=features)
+    auc_vs_ctg.append(auc_score)
+
+import matplotlib.pyplot as plt
+
+# --- Plotting ---
+plt.rcParams.update({
+    "font.size": 14,
+    "axes.labelsize": 20,
+    "axes.titlesize": 20,
+    "legend.fontsize": 20,
+    "xtick.labelsize": 14,
+    "ytick.labelsize": 14,
+})
+
+
+
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12), sharey=True)
+
+# ---- Top Plot: AUC vs cg ----
+ax1.plot(cg_values, auc_vs_cg, label=fr'PNN ($c_{{tg}}$={ctg_val_fixed})', marker="o", linestyle='-', linewidth=2)
+ax1.plot(NN_AUC_Scores["Cg Values"], NN_AUC_Scores["NN: AUC vs Cg"], label="NN", marker="s", linestyle='--', linewidth=2)
+ax1.axvline(x=0.3, color='grey', linestyle='--', linewidth=1.5, label='NN trained here')
+
+ax1.set_xlabel(r"$c_{g}$")
+ax1.set_ylabel("AUC Score")
+ax1.set_title("AUC vs $c_{g}$", pad=10)
+ax1.legend(loc='lower right', frameon=True, fancybox=True, framealpha=0.7)
+ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+
+# ---- Bottom Plot: AUC vs ctg ----
+ax2.plot(ctg_values, auc_vs_ctg, label=fr'PNN ($c_{{g}}$={cg_val_fixed})', marker="o", linestyle='-', linewidth=2)
+ax2.plot(NN_AUC_Scores["Ctg Values"], NN_AUC_Scores["NN: AUC vs Ctg"], label="NN", marker="s", linestyle='--', linewidth=2)
+ax2.axvline(x=0.69, color='grey', linestyle='--', linewidth=1.5, label='NN trained here')
+
+ax2.set_xlabel(r"$c_{tg}$")
+ax2.set_ylabel("AUC Score")
+ax2.set_title("AUC vs $c_{tg}$", pad=10)
+ax2.legend(loc='lower right', frameon=True, fancybox=True, framealpha=0.7)
+ax2.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+
+plt.tight_layout()
+plt.savefig(thesis_plot_path + "/AUC_variation.pdf")
+
+plt.show()
+
+
+
 
 #%% 7) 2D CONTOUR: AUC vs (c_g, c_{tg})
 
@@ -485,13 +582,45 @@ CG, CTG = np.meshgrid(ctg_range, cg_range)
 
 # Plot the difference grid
 plt.figure(figsize=(8, 6))
-cs = plt.contourf(CG, CTG, auc_diff_grid, levels=20, cmap="coolwarm")
-plt.colorbar(cs, label="Δ AUC (PNN - NN)")
-plt.xlabel(r"$c_{g}$")
-plt.ylabel(r"$c_{tg}$")
-plt.title("Difference in AUC: PNN vs NN")
 
-plt.plot([0.3], [0.69], marker='o', color='red', markersize=10, lw=0, label='Training point for NN')
-#plt.axhline(0, color='k', linestyle='--', linewidth=0.5)
-#plt.axvline(0, color='k', linestyle='--', linewidth=0.5)
+plt.rcParams.update({
+    "font.size": 14,
+    "axes.labelsize": 20,
+    "axes.titlesize": 20,
+    "legend.fontsize": 20,
+    "xtick.labelsize": 14,
+    "ytick.labelsize": 14,
+})
+
+
+from matplotlib.colors import TwoSlopeNorm
+
+# Compute min and max for colour normalisation
+vmin = np.min(auc_diff_grid)
+vmax = np.max(auc_diff_grid)
+
+# Use TwoSlopeNorm to map 0 to white
+norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+
+# Plot with the new norm
+cs = plt.contourf(CG, CTG, auc_diff_grid, levels=20, cmap="RdBu_r", norm=norm)
+
+
+#plt.contour(CG, CTG, auc_diff_grid, levels=[0], colors='black', linewidths=1.5, linestyles='dashed')
+
+
+plt.colorbar(cs)
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel(r"$c_{g}$")
+plt.title(r"Difference in AUC: $\mathrm{PNN} - \mathrm{NN}$", pad=15)
+
+
+plt.plot([0.69], [0.3], marker='o', color='red', markersize=10, lw=0, label='Training point for NN')
+
+plt.legend(loc='upper center',frameon=True, edgecolor='black', fancybox=True, framealpha=0.65, facecolor='white')
+
+plt.tight_layout()
+
+plt.savefig(thesis_plot_path + "/Delta_AUC_2D.pdf")
+
 plt.show()

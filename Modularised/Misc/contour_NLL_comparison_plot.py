@@ -679,3 +679,48 @@ plt.tight_layout()
 plt.savefig(thesis_plot_path + "/2D_NLL_confidence.pdf")
 
 plt.show()
+
+#%%
+
+def extract_xy_swapped(contour):
+    x = [point[1] for point in contour]  # c_{tg} becomes x
+    y = [point[0] for point in contour]  # c_{g} becomes y
+    return x, y
+
+# Extract swapped x and y values for each contour
+x_nn, y_nn = extract_xy_swapped(NN_contour)
+x_pnn, y_pnn = extract_xy_swapped(PNN_contour_turbo)
+x_stxs, y_stxs = extract_xy_swapped(STXS_contour)
+
+# Plotting
+plt.figure(figsize=(10, 9))
+
+thick = 3
+
+plt.plot(x_nn, y_nn, label='NN', linewidth=thick)
+plt.plot(x_stxs, y_stxs, label='STXS', linewidth=thick, linestyle=':')
+plt.plot(x_pnn, y_pnn, label='PNN', linewidth=thick, linestyle='--')
+plt.plot([0], [0], marker='o', color='red', markersize=10, lw=0, label='NLL Minimum')
+
+plt.xlabel(r"Wilson Coefficient $c_{tg}$")  # Swapped
+plt.ylabel(r"Wilson Coefficient $c_{g}$")   # Swapped
+
+plt.legend(loc='upper right', frameon=True, edgecolor='black', fancybox=True, framealpha=0.65, facecolor='white')
+plt.grid(True)
+plt.axis('equal')
+
+plt.text(0.2, 0.15, 'Comparison of \n68% CL \n(2ΔNLL = 2.3)\nfor each method\n of categorisation.',
+         transform=plt.gca().transAxes,
+         fontsize=20,
+         ha='center',
+         va='center',
+         bbox=dict(boxstyle='round,pad=0.3', edgecolor='black', facecolor='none', linewidth=0.8))
+
+plt.xticks([-0.5, 0, 0.5])
+plt.yticks([-0.5, 0, 0.5])
+
+plt.tight_layout()
+
+plt.savefig(thesis_plot_path + "/2D_NLL_confidence_swapped.pdf")
+
+plt.show()
