@@ -60,12 +60,12 @@ category_boundaries[4] = 1
 
 #category_boundaries = [0, 0.20592188, 0.23070513, 0.27339321, 1] # Background Percentiles
 
-#category_boundaries = [0.,         0.35235969, 0.51631691, 0.71428785, 1.        ] # Optimised values
+category_boundaries = [0.,         0.35235969, 0.51631691, 0.71428785, 1.        ] # Optimised values
 #category_boundaries = [0.,         0.18956729, 0.22258152, 0.44875362 ,1.        ]
 
 
 
-category_boundaries = [0, 0.33, 0.35, 0.4, 1]
+#category_boundaries = [0, 0.33, 0.35, 0.4, 1]
 
 #category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.610416158614033, 1.0]
 
@@ -217,7 +217,7 @@ def positive_bound_asafunctionof_mass_bin(mass_bins):
     v = "mass"
     v_dfs = v + "_sel"
     for cat in cats_unique:
-        print(f" --> Processing: {v} in category {cat}")
+        #print(f" --> Processing: {v} in category {cat}")
         nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
 
         # Loop over procs and add histogram
