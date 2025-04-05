@@ -286,6 +286,7 @@ def NN_NLL_scans(
     range_of_values,
     cat_averages,
     quadratic_order=True,
+    mass_bins = 5,
     fixed_ctg=0,
     fixed_cg=0,
     plot = True
@@ -302,20 +303,20 @@ def NN_NLL_scans(
 
     # Profile scans for c_g
     for cg in cg_values:
-        result = minimize(lambda ctg: calc_NLL_Simple(hists, mu_c_NN(cg, ctg, cat_averages = cat_averages, quadratic = quadratic_order )), x0=0)
+        result = minimize(lambda ctg: calc_NLL_Simple(hists, mu_c_NN(cg, ctg, cat_averages = cat_averages, quadratic = quadratic_order ),mass_bins=mass_bins), x0=0)
         profile_NN_NLL_vals_cg.append(result.fun)
         minimized_ctg_for_cg.append(result.x[0])
 
     # Profile scans for c_tg
     for ctg in ctg_values:
-        result = minimize(lambda cg: calc_NLL_Simple(hists, mu_c_NN(cg, ctg, cat_averages = cat_averages, quadratic = quadratic_order )), x0=0)
+        result = minimize(lambda cg: calc_NLL_Simple(hists, mu_c_NN(cg, ctg, cat_averages = cat_averages, quadratic = quadratic_order ), mass_bins=mass_bins), x0=0)
         profile_NN_NLL_vals_ctg.append(result.fun)
         minimized_cg_for_ctg.append(result.x[0])
 
     # Frozen scans    
 
-    frozen_NN_NLL_vals_cg = [calc_NLL_Simple(hists, mu_c_NN(cg, fixed_ctg, cat_averages = cat_averages, quadratic = quadratic_order ))  for cg in cg_values]
-    frozen_NN_NLL_vals_ctg = [calc_NLL_Simple(hists, mu_c_NN(fixed_cg, ctg, cat_averages = cat_averages, quadratic = quadratic_order )) for ctg in ctg_values]
+    frozen_NN_NLL_vals_cg = [calc_NLL_Simple(hists, mu_c_NN(cg, fixed_ctg, cat_averages = cat_averages, quadratic = quadratic_order ), mass_bins=mass_bins)  for cg in cg_values]
+    frozen_NN_NLL_vals_ctg = [calc_NLL_Simple(hists, mu_c_NN(fixed_cg, ctg, cat_averages = cat_averages, quadratic = quadratic_order ), mass_bins=mass_bins) for ctg in ctg_values]
 
     #breakpoint()
 
@@ -670,7 +671,7 @@ def compare_profile_scans(*datasets):
 
     plt.tight_layout()
     
-    plt.savefig(thesis_plot_path + "/profile_comparison.pdf")
+    #plt.savefig(thesis_plot_path + "/profile_comparison.pdf")
     
     plt.show()
 
@@ -708,6 +709,7 @@ def NN_NLL_2d_contour(
     ctg_range,
     cat_averages,
     quadratic_order=True,
+    mass_bins=5
 ):
     """
     Creates a 2D NLL contour plot without any minimisation.
@@ -752,7 +754,7 @@ def NN_NLL_2d_contour(
     
     # Calculate the NLL for each (c_g, c_tg) pair on the grid.
     Z = np.array([
-        [calc_NLL_Simple(hists, mu_c_NN(cg, ctg, cat_averages=cat_averages, quadratic=quadratic_order))
+        [calc_NLL_Simple(hists, mu_c_NN(cg, ctg, cat_averages=cat_averages, quadratic=quadratic_order), mass_bins=mass_bins)
          for cg in cg_range]
         for ctg in ctg_range
     ])

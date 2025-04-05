@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Apr  5 16:31:03 2025
+
+@author: wadoudcharbak
+"""
+
 import numpy as np
 import pandas as pd
 
@@ -195,63 +203,24 @@ cats_unique = labels.copy()
 def exponential_decay(x, A, lambd):
     return A * np.exp(-lambd * (x - 120))
 
+#%%
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Plot diphoton mass distribution in each category
+def positive_bound_asafunctionof_mass_bin(mass_bins):
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Plot diphoton mass distribution in each category
 
-background_estimates = {}
+    background_estimates = {}
 
-mass_range = (120, 130)  # Needed here to get BG estimate
-mass_bins = 5
+    mass_range = (120, 130)  # Needed here to get BG estimate
 
-v = "mass"
-v_dfs = v + "_sel"
-for cat in cats_unique:
-    print(f" --> Processing: {v} in category {cat}")
-    nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
+    v = "mass"
+    v_dfs = v + "_sel"
+    for cat in cats_unique:
+        print(f" --> Processing: {v} in category {cat}")
+        nbins, xrange, is_log_scale, sanitized_var_name = vars_plotting_dict[v]
 
-    # Loop over procs and add histogram
-    for proc in procs.keys():
-        label, color = procs[proc]
-
-        cat_mask = dfs[proc]['category'] == cat
-
-        x = np.array(dfs[proc][v_dfs][cat_mask])
-
-        # Event weight
-        w = np.array(dfs[proc]['true_weight'])[cat_mask]
-
-        counts, bin_edges = np.histogram(x, bins=nbins, range=xrange, weights=w)
-
-        if proc == "background":
-           # breakpoint()
-            bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-
-            # Perform curve fitting, ignoring empty bins (where counts == 0)
-            non_zero_indices = counts > 0
-            popt, pcov = curve_fit(exponential_decay, bin_centers[non_zero_indices], counts[non_zero_indices])
-            A, lambd = popt  # Unpack fitted parameters
-
-            # Background estimate
-            BG_estimate_bin_edges = np.linspace(mass_range[0], mass_range[1], mass_bins + 1)
-            bin_estimates = []
-            for i in range(len(BG_estimate_bin_edges) - 1):
-                integral, _ = quad(exponential_decay, BG_estimate_bin_edges[i], BG_estimate_bin_edges[i + 1], args=(A, lambd))
-                bin_estimates.append(integral)
-
-            print(f"Background estimates for category {cat}: {bin_estimates}")
-
-            # Store the result
-            if cat not in background_estimates:
-                background_estimates[cat] = {}
-            background_estimates[cat][proc] = bin_estimates
-
-    # Only plot if plot_entire_chain is True
-    if plot_entire_chain:
-        fig, ax = plt.subplots(1, 1, figsize=plot_size)
-
-        print(f" --> Plotting: {v} in category {cat}")
+        # Loop over procs and add histogram
         for proc in procs.keys():
             label, color = procs[proc]
 
@@ -261,148 +230,154 @@ for cat in cats_unique:
 
             # Event weight
             w = np.array(dfs[proc]['true_weight'])[cat_mask]
-            
 
-            counts, bin_edges, _ = ax.hist(x, nbins, xrange, density = plot_fraction, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
+            counts, bin_edges = np.histogram(x, bins=nbins, range=xrange, weights=w)
 
             if proc == "background":
-                # Plot the fitted exponential decay curve
-                x_fit = np.linspace(xrange[0], xrange[1], 1000)
-                y_fit = exponential_decay(x_fit, A, lambd)
-                ax.plot(x_fit, y_fit, color="red", linestyle="--",
-                        label=f"Exponential Fit\n$A={A:.2f}$, $\\lambda={lambd:.4f}$")
+               # breakpoint()
+                bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
 
-        ax.set_xlabel(sanitized_var_name)
-        ax.set_ylabel("Events")
+                # Perform curve fitting, ignoring empty bins (where counts == 0)
+                non_zero_indices = counts > 0
+                popt, pcov = curve_fit(exponential_decay, bin_centers[non_zero_indices], counts[non_zero_indices])
+                A, lambd = popt  # Unpack fitted parameters
 
-        if is_log_scale:
-            ax.set_yscale("log")
+                # Background estimate
+                BG_estimate_bin_edges = np.linspace(mass_range[0], mass_range[1], mass_bins + 1)
+                bin_estimates = []
+                for i in range(len(BG_estimate_bin_edges) - 1):
+                    integral, _ = quad(exponential_decay, BG_estimate_bin_edges[i], BG_estimate_bin_edges[i + 1], args=(A, lambd))
+                    bin_estimates.append(integral)
 
-        ax.legend(loc='best', ncol=2)
+                #print(f"Background estimates for category {cat}: {bin_estimates}")
 
-        hep.cms.label(f"category {cat}", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
+                # Store the result
+                if cat not in background_estimates:
+                    background_estimates[cat] = {}
+                background_estimates[cat][proc] = bin_estimates
 
-        plt.tight_layout()
-        ext = f"_cat_{cat}"
-        fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
-        plt.show()
-    
+        # Only plot if plot_entire_chain is True
+        if plot_entire_chain:
+            fig, ax = plt.subplots(1, 1, figsize=plot_size)
 
-#%%
+            print(f" --> Plotting: {v} in category {cat}")
+            for proc in procs.keys():
+                label, color = procs[proc]
 
-probabilities = dfs["background"]["NN_probabilities"]
-weights = dfs["background"]["true_weight"]
+                cat_mask = dfs[proc]['category'] == cat
 
-# Calculate weighted percentiles
-percentiles = np.array([25, 50, 75, 100])
-weighted_percentiles = weighted_quantile(probabilities, percentiles/100, weights)
+                x = np.array(dfs[proc][v_dfs][cat_mask])
 
+                # Event weight
+                w = np.array(dfs[proc]['true_weight'])[cat_mask]
+                
 
-for p, v in zip(percentiles, weighted_percentiles):
-    print(f"{p}th percentile: {v:.3f}")
+                counts, bin_edges, _ = ax.hist(x, nbins, xrange, density = plot_fraction, label=label, histtype='step', weights=w, edgecolor=color, lw=2)
 
-#%%
+                if proc == "background":
+                    # Plot the fitted exponential decay curve
+                    x_fit = np.linspace(xrange[0], xrange[1], 1000)
+                    y_fit = exponential_decay(x_fit, A, lambd)
+                    ax.plot(x_fit, y_fit, color="red", linestyle="--",
+                            label=f"Exponential Fit\n$A={A:.2f}$, $\\lambda={lambd:.4f}$")
 
-combined_hist, hists_by_cat = build_combined_histogram_NN(dfs, procs, cats_unique, background_estimates, mass_var="mass_sel", 
-                         weight_var="true_weight", mass_range=(120, 130), mass_bins=mass_bins)
+            ax.set_xlabel(sanitized_var_name)
+            ax.set_ylabel("Events")
 
+            if is_log_scale:
+                ax.set_yscale("log")
 
-plot_combined_histogram(combined_hist, categories=cats_unique, mass_bins=mass_bins)#, processes_to_exclude = "background")
-                                                                             
+            ax.legend(loc='best', ncol=2)
 
-#%%
+            hep.cms.label(f"category {cat}", com="13.6", lumi=target_lumi, lumi_format="{0:.2f}", ax=ax)
 
-
-# Parameters for which we want category-wise averages
-params = ["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]
-
-cat_averages = {}
-
-
-for cat in cats_unique:
-    # Slice df for this category
-    df_cat = dfs["ttH"][dfs["ttH"]["category"] == cat]
-    
-    # Store each parameter's weighted mean
-    cat_averages[cat] = {}
-    for param in params:
-        cat_averages[cat][param] = get_weighted_average(df_cat, param, "true_weight")
-
-
-        
-        
-
-
-
-#%%
-
-# Define signal window parameters
-hists = {}
-
-v = 'mass'
-v_dfs = v + "_sel"
-
-# Initialize histogram data for each reconstructed category and process
-for cat in cats_unique:
-    hists[cat] = {}
-    for proc in procs.keys():
-        # Apply mask to categorize events by reconstructed category
-        if proc == "background":
-            hists[cat][proc] = np.array(background_estimates[cat][proc])
-        else:
-            cat_mask = dfs[proc]['category'] == cat
-            hists[cat][proc] = np.histogram(
-                dfs[proc][cat_mask][v_dfs], 
-                mass_bins, 
-                mass_range, 
-                weights=dfs[proc][cat_mask]['true_weight']
-            )[0]
+            plt.tight_layout()
+            ext = f"_cat_{cat}"
+            fig.savefig(f"{plot_path}/{v}{ext}.png", bbox_inches="tight")
+            plt.show()
             
+    # Parameters for which we want category-wise averages
+    params = ["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]
+
+    cat_averages = {}
+
+
+    for cat in cats_unique:
+        # Slice df for this category
+        df_cat = dfs["ttH"][dfs["ttH"]["category"] == cat]
+        
+        # Store each parameter's weighted mean
+        cat_averages[cat] = {}
+        for param in params:
+            cat_averages[cat][param] = get_weighted_average(df_cat, param, "true_weight")
+
+
+    # Define signal window parameters
+    hists = {}
+
+    v = 'mass'
+    v_dfs = v + "_sel"
+
+    # Initialize histogram data for each reconstructed category and process
+    for cat in cats_unique:
+        hists[cat] = {}
+        for proc in procs.keys():
+            # Apply mask to categorize events by reconstructed category
+            if proc == "background":
+                hists[cat][proc] = np.array(background_estimates[cat][proc])
+            else:
+                cat_mask = dfs[proc]['category'] == cat
+                hists[cat][proc] = np.histogram(
+                    dfs[proc][cat_mask][v_dfs], 
+                    mass_bins, 
+                    mass_range, 
+                    weights=dfs[proc][cat_mask]['true_weight']
+                )[0]
+                
+
+
+    quadratic_order = True
 
 
 
+    NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order, mass_bins, plot = False)
+    
+    return NLL_Results['profile_cg_vals'][1], NLL_Results['profile_ctg_vals'][1]
+
+
+
+
+# Define the range of mass bin values
+mass_bin_values = list(range(3, 11))
+
+# Store results
+cg_bounds = []
+ctg_bounds = []
+
+# Loop over each mass bin value and get the bounds
+for mass_bins in mass_bin_values:
+    positive_cg_bound, positive_ctg_bound = positive_bound_asafunctionof_mass_bin(mass_bins)
+    cg_bounds.append(positive_cg_bound)
+    ctg_bounds.append(positive_ctg_bound)
 
 #%%
 
+# Plot for positive cg bound
+plt.figure(figsize=(8, 5))
+plt.plot(mass_bin_values, cg_bounds, marker='o')
+plt.title("Positive $c_g$ Bound vs Number of Mass Bins")
+plt.xlabel("Number of Mass Bins")
+plt.ylabel("Positive $c_g$ Bound")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-
-quadratic_order = True
-
-
-
-NLL_Results = NN_NLL_scans(hists, np.linspace(-1, 1, 1000), cat_averages, quadratic_order, mass_bins)
-NLL_Results["Name"] = "NN Categorisation"
-
-#Save_Results_to_JSON(NLL_Results, 'data/standard_NN_results.json')
-
-#%%
-
-from NN_utils import NN_NLL_2d_contour
-
-cl68 = NN_NLL_2d_contour(
-    hists,
-    cg_range = np.linspace(-1, 1, 100),
-    ctg_range = np.linspace(-1, 2, 100),
-    cat_averages = cat_averages,
-    mass_bins=mass_bins)
-
-#%%
-
-import json
-
-# Specify the filename to read the JSON data from
-filename = 'data/STXS_NLL_results.json'
-
-
-# Read the JSON data back into a Python dictionary
-with open(filename, 'r') as file:
-    chi_squared_Results = json.load(file)
-
-#%%
-
-
-
-
-compare_frozen_scans(NLL_Results, chi_squared_Results) 
-compare_profile_scans(NLL_Results, chi_squared_Results)
-
+# Plot for positive ctg bound
+plt.figure(figsize=(8, 5))
+plt.plot(mass_bin_values, ctg_bounds, marker='o')
+plt.title("Positive $c_{tg}$ Bound vs Number of Mass Bins")
+plt.xlabel("Number of Mass Bins")
+plt.ylabel("Positive $c_{tg}$ Bound")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
