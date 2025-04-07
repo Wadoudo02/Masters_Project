@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sun Feb 16 12:21:55 2025
+Created on Sat Apr  5 18:11:28 2025
 
 @author: wadoudcharbak
 """
+
 
 import numpy as np
 import pandas as pd
@@ -28,7 +29,7 @@ from scipy.optimize import minimize
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_parameterised.pth")
+checkpoint = torch.load("data/neural_network_parameterised_turbo.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -67,13 +68,10 @@ ctg = 0.69
 # Load dataframes
 
 
-# Labels for the categories
-labels = ['NN Cat A', 'NN Cat B', 'NN Cat C', 'NN Cat D'] # Labels for each category
-
 
 dfs = {}
 for i, proc in enumerate(procs.keys()):
-    #print(f" --> Loading process: {proc}")
+    print(f" --> Loading process: {proc}")
     
     if proc == "ttH_SMEFT":
         dfs[proc] = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
@@ -82,18 +80,18 @@ for i, proc in enumerate(procs.keys()):
 
     # Remove nans from dataframe
     dfs[proc] = dfs[proc][(dfs[proc]['mass_sel'] == dfs[proc]['mass_sel'])]
-   
+
     yield_weight = dfs[proc]["plot_weight"].sum()
-   
+
     # Remove rows with negative plot_weight from DataFrame
     dfs[proc] = dfs[proc][dfs[proc]['plot_weight'] >= 0]
     
     dfs[proc]["plot_weight"] /= dfs[proc]["plot_weight"].sum()
     dfs[proc]["plot_weight"] *= yield_weight
-   
+
     # Reweight to target lumi
     dfs[proc]['plot_weight'] = dfs[proc]['plot_weight']*(target_lumi/total_lumi)
-   
+
     # Calculate true weight: remove x10 multiplier for signal
     if proc in ['ggH', 'VBF', 'VH', 'ttH']:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
@@ -126,15 +124,24 @@ for i, proc in enumerate(procs.keys()):
     dfs[proc] = dfs[proc][mask]
     yield_after_sel = dfs[proc]['true_weight'].sum()
     eff = (yield_after_sel/yield_before_sel)*100
-    
+    print(f"{proc}: N = {yield_before_sel:.2f} --> {yield_after_sel:.2f}, eff = {eff:.1f}%")
 
     dfs[proc]['pt_sel'] = dfs[proc]['pt-over-mass_sel'] * dfs[proc]['mass_sel']
 
     if proc == "ttH_SMEFT":
         dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
 
-cg_min, cg_max = -0.5, 0.5
-ctg_min, ctg_max = -0.5, 1
+import json
+
+# Load the probability values
+with open("data/proba_values_PNN_turbo.json", "r") as json_file:
+    proba_data = json.load(json_file)
+
+max_proba = proba_data["max_proba"]
+min_proba = proba_data["min_proba"]
+
+print(f"Max Probability: {max_proba}, Min Probability: {min_proba}")
+
 
 #%%
 
@@ -200,7 +207,7 @@ def get_bin_estimates(A, lambd, mass_range, mass_bins):
     return bin_estimates
 
 
-def bounds_of_wilson_coefficients(category_bounds):
+def positive_bounds_asafunctionof_cat_numnber(no_of_categories):
     """
     A faster version of 'bounds_of_wilson_coefficients' that:
       - avoids quad by using an analytical integral,
@@ -208,7 +215,23 @@ def bounds_of_wilson_coefficients(category_bounds):
       - uses Numba-accelerated exponential functions,
       - otherwise preserves logic close to the original.
     """
-    category_boundaries = sorted(category_bounds)
+    print("Number of Categories = ", no_of_categories)
+    
+    # Calculate the range
+    proba_range = max_proba - min_proba
+    
+    # Generate boundaries
+    category_boundaries = [
+        min_proba + i * (proba_range / no_of_categories)
+        for i in range(no_of_categories + 1)
+    ]
+    
+    # Set exact edges to 0 and 1 for consistency
+    category_boundaries[0] = 0
+    category_boundaries[-1] = 1
+    
+    labels = labels = [f"cat {i + 1}" for i in range(no_of_categories)]
+    
     cats_unique = labels.copy()
 
     # ~~~~~ 1) Compute NN probabilities and categories in one pass
@@ -220,10 +243,14 @@ def bounds_of_wilson_coefficients(category_bounds):
     
     for proc in procs.keys():
 
-        N = len(dfs[proc])
+        dfs[proc]["cg"]  = 0.3 #np.random.uniform(low=cg_min,  high=cg_max,  size=N)
+        dfs[proc]["ctg"] = 0.69 #np.random.uniform(low=ctg_min, high=ctg_max, size=N)
         
-        dfs[proc]["cg"]  = np.random.uniform(low=cg_min,  high=cg_max,  size=N)
-        dfs[proc]["ctg"] = np.random.uniform(low=ctg_min, high=ctg_max, size=N)
+         # Extract the features for NN input
+        features = ["deltaR", "HT", "n_jets", "delta_phi_gg", "pt"]
+        features = [f"{feature}_sel" for feature in features]
+        features.append("cg")
+        features.append("ctg")
         
         if not all(feature in dfs[proc].columns for feature in features):
             raise ValueError(f"Missing one or more required features in process {proc}")
@@ -234,17 +261,18 @@ def bounds_of_wilson_coefficients(category_bounds):
         # Get NN predictions
         with torch.no_grad():
             probabilities = loaded_model(nn_input).squeeze().numpy()
-
-
-        # Store NN probabilities + categories back into df
+            
+        # Add the probabilties as a category
         dfs[proc]["NN_probabilities"] = probabilities
+    
+        # Categorise based on probabilities
         dfs[proc]["category"] = pd.cut(
             probabilities,
             bins=category_boundaries,
             labels=labels,
             include_lowest=True
         )
-
+        
     # ~~~~~ 2) Background estimates via exponential fit
     background_estimates = {}
     mass_range = (120, 130)
@@ -266,26 +294,6 @@ def bounds_of_wilson_coefficients(category_bounds):
             # Build histogram
             counts, bin_edges = np.histogram(xvals, bins=nbins, range=xrange, weights=wvals)
 
-            if proc == "background":
-                # Fit an exponential to these bin_counts
-                bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-                A, lambd = background_fit_exponential(bin_centers, counts)
-
-                # Use analytical integral to get binned BG estimate in [120, 130]
-                bin_estimates = get_bin_estimates(A, lambd, mass_range, mass_bins)
-
-                # Store
-                if cat not in background_estimates:
-                    background_estimates[cat] = {}
-                background_estimates[cat][proc] = bin_estimates
-
-    # ~~~~~ 3) Combine histogram (use your existing function)
-    combined_hist, hists_by_cat = build_combined_histogram_NN(
-        dfs, procs, cats_unique, background_estimates,
-        mass_var="mass_sel", weight_var="true_weight",
-        mass_range=mass_range, mass_bins=mass_bins
-    )
-
     # ~~~~~ 4) Category-wise averages
     params = ["a_cg", "a_ctgre", "b_cg_cg", "b_cg_ctgre", "b_ctgre_ctgre"]
     cat_averages = {}
@@ -301,103 +309,82 @@ def bounds_of_wilson_coefficients(category_bounds):
     for cat in cats_unique:
         hists[cat] = {}
         for proc in procs.keys():
-            if proc == "background":
-                # Directly use the exponential-fit estimates
-                hists[cat][proc] = np.array(background_estimates[cat][proc])
-            else:
-                # Build a histogram from real data
-                df_proc = dfs[proc]
-                cat_mask = (df_proc["category"] == cat).values
-                xvals = df_proc[v_dfs].values[cat_mask]
-                wvals = df_proc["true_weight"].values[cat_mask]
 
-                hists[cat][proc], _ = np.histogram(
-                    xvals, mass_bins, mass_range, weights=wvals
-                )
+            df_proc = dfs[proc]
+            cat_mask = (df_proc["category"] == cat).values
+            xvals = df_proc[v_dfs].values[cat_mask]
+            wvals = df_proc["true_weight"].values[cat_mask]
+
+            hists[cat][proc], _ = np.histogram(
+                xvals, mass_bins, mass_range, weights=wvals
+            )
 
     # ~~~~~ 6) NLL scans
     quadratic_order = True
-    scan_points = np.linspace(-1, 1, 50)
-    NLL_Results = NN_NLL_scans(hists, scan_points, cat_averages,
-                               quadratic_order, plot=False)
+    #breakpoint()
+    NLL_Results = NN_NLL_scans(hists, np.linspace(-10, 10, 1000), cat_averages, quadratic_order, mass_bins, plot = False)
+    
+    return NLL_Results['profile_cg_vals'][1], NLL_Results['profile_ctg_vals'][1], NLL_Results['profile_cg_vals'][2], NLL_Results['profile_ctg_vals'][2]
 
-    # Choose keys of interest to flatten
-    keys_of_interest = ["profile_cg_vals", "profile_ctg_vals"]
-    flattened_list = []
-    for key in keys_of_interest:
-        if key in NLL_Results:
-            # Hypothetically these are arrays or lists
-            flattened_list.append(NLL_Results[key][1])
-            flattened_list.append(NLL_Results[key][2])
+# Define the range of mass bin values
+cat_no_values = list(range(1, 11))
 
-    # Final result
-    return 10000 * np.sum([abs(num) for num in flattened_list])
+# Store results
+pos_cg_bounds = []
+pos_ctg_bounds = []
+neg_cg_bounds = []
+neg_ctg_bounds = []
 
-#print(bounds_of_wilson_coefficients([0, 0.24066145, 0.29167122, 0.33349041, 1]))
-#print(bounds_of_wilson_coefficients([0, 0.3488496281206608, 0.5095711573958397, 0.6702926866710186, 1]))
-
-
-
-
+# Loop over each mass bin value and get the bounds
+for cat_no in cat_no_values:
+    positive_cg_bound, positive_ctg_bound, negitive_cg_bound, negitive_ctg_bound = positive_bounds_asafunctionof_cat_numnber(cat_no)
+    pos_cg_bounds.append(positive_cg_bound)
+    pos_ctg_bounds.append(positive_ctg_bound)
+    neg_cg_bounds.append(negitive_cg_bound)
+    neg_ctg_bounds.append(negitive_ctg_bound)
 
 #%%
 
-import numpy as np
-from scipy.optimize import minimize
+cat_no_values = list(range(1, 11))
 
-def objective_function(x):
-    """
-    Wrapper for bounds_of_wilson_coefficients that handles the fixed boundaries
-    and ensures ordering of intermediate points.
-    
-    Args:
-        x: Array of 3 values representing the intermediate boundaries
-    
-    Returns:
-        float: The objective function value
-    """
-    # Sort the intermediate boundaries to maintain order
-    x_sorted = np.sort(x)
-    
-    # Create full boundary array with fixed endpoints
-    full_boundaries = np.array([0.0] + list(x_sorted) + [1.0])
-    
-    # Check if boundaries are too close together
-    if np.min(np.diff(full_boundaries)) < 0.01:  # Minimum gap of 0.05
-        return 1e10  # Return large value if boundaries are too close
-    
-    try:
-        return bounds_of_wilson_coefficients(full_boundaries)
-    except Exception as e:
-        print(f"Error in evaluation: {e}")
-        return 1e10  # Return large value if evaluation fails
+# Plot for positive cg bound
+plt.figure(figsize=(8, 5))
+plt.plot(cat_no_values, pos_cg_bounds, marker='o')
+plt.title("Positive $c_g$ Bound vs Number of Categories")
+plt.xlabel("Number of Categories")
+plt.ylabel("Positive $c_g$ Bound")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-# Initial guess for the intermediate boundaries
-initial_guess = np.array([0.256, 0.343, 0.925])
+# Plot for positive ctg bound
+plt.figure(figsize=(8, 5))
+plt.plot(cat_no_values, pos_ctg_bounds, marker='o')
+plt.title("Positive $c_{tg}$ Bound vs Number of Categories")
+plt.xlabel("Number of Categories")
+plt.ylabel("Positive $c_{tg}$ Bound")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-# Define bounds for the optimization
-bounds = [(0.05, 0.95) for _ in range(3)]  # Each boundary must be between 0.05 and 0.95
+# Plot for positive cg bound
+plt.figure(figsize=(8, 5))
+plt.plot(cat_no_values, neg_cg_bounds, marker='o')
+plt.title("Negitive $c_g$ Bound vs Number of Categories")
+plt.xlabel("Number of Categories")
+plt.ylabel("Negitive $c_g$ Bound")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-# Run the optimization
-result = minimize(
-    objective_function,
-    initial_guess,
-    method='Nelder-Mead',
-    bounds=bounds,
-    options={
-        'maxiter': 1000,
-        'xatol': 1e-4,
-        'fatol': 1e-4
-    }
-)
+# Plot for positive ctg bound
+plt.figure(figsize=(8, 5))
+plt.plot(cat_no_values, neg_ctg_bounds, marker='o')
+plt.title("Negitive $c_{tg}$ Bound vs Number of Categories")
+plt.xlabel("Number of Categories")
+plt.ylabel("Negitive $c_{tg}$ Bound")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-# Get the optimal boundaries
-optimal_intermediate_boundaries = np.sort(result.x)
-optimal_full_boundaries = np.array([0.0] + list(optimal_intermediate_boundaries) + [1.0])
 
-print("Optimization completed:")
-print(f"Success: {result.success}")
-print(f"Number of iterations: {result.nit}")
-print(f"Final objective value: {result.fun}")
-print("\nOptimal boundaries:")
-print(optimal_full_boundaries)

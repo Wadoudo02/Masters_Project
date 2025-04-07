@@ -26,7 +26,7 @@ from NN_utils import *
 
 
 # Load the model checkpoint
-checkpoint = torch.load("data/neural_network_new_func.pth")
+checkpoint = torch.load("data/neural_network_parameterised_turbo.pth")
 
 # Instantiate the model
 loaded_model = NeuralNetwork(checkpoint["input_dim"], checkpoint["hidden_dim"])
@@ -37,11 +37,11 @@ loaded_model.load_state_dict(checkpoint["model_state"])
 # Set model to evaluation mode
 loaded_model.eval()
 
-'''
+
 import json
 
 # Load the probability values
-with open("data/proba_values_new_func.json", "r") as json_file:
+with open("data/proba_values_PNN_turbo.json", "r") as json_file:
     proba_data = json.load(json_file)
 
 max_proba = proba_data["max_proba"]
@@ -54,20 +54,12 @@ category_boundaries = [
     min_proba + i * (proba_range / 4) for i in range(5)  # 5 boundaries for 4 categories
 ]
 
+
+
+#category_boundaries = [0, 0.256, 0.343, 0.925, 1] # Background percentiles
+# category_boundaries = [0.,         0.25129123, 0.5375651,  0.66691406, 1.        ]
 category_boundaries[0] = 0
-category_boundaries[4] = 1
-'''
-
-#category_boundaries = [0, 0.20592188, 0.23070513, 0.27339321, 1] # Background Percentiles
-
-category_boundaries = [0.,         0.35235969, 0.51631691, 0.71428785, 1.        ] # Optimised values
-#category_boundaries = [0.,         0.18956729, 0.22258152, 0.44875362 ,1.        ]
-
-
-
-#category_boundaries = [0, 0.33, 0.35, 0.4, 1]
-
-#category_boundaries = [0.0, 0.2152306770648107, 0.34508433673728617, 0.610416158614033, 1.0]
+category_boundaries[-1] = 1
 
 plot_entire_chain = False
 
@@ -88,13 +80,11 @@ procs = {
     #"Data" : ["Data", "green"]
 }
 
-plot_size = (12, 6)
+plot_size = (12, 8)
 
+cg_min, cg_max = -0.5, 0.5
+ctg_min, ctg_max = -0.5, 1
 
-cg = 0.3
-ctg = 0.69
-
-Quadratic = True
 
 # Load dataframes
 
@@ -111,7 +101,6 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc] = pd.read_parquet(f"{sample_path}/ttH_processed_selected.parquet")
     else:
         dfs[proc] = pd.read_parquet(f"{sample_path}/{proc}_processed_selected.parquet")
-
 
     # Remove nans from dataframe
     dfs[proc] = dfs[proc][(dfs[proc]['mass_sel'] == dfs[proc]['mass_sel'])]
@@ -132,7 +121,6 @@ for i, proc in enumerate(procs.keys()):
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']/10
     else:
         dfs[proc]['true_weight'] = dfs[proc]['plot_weight']
-    
 
     # Add variables
     # Example: (second-)max-b-tag score
@@ -154,7 +142,7 @@ for i, proc in enumerate(procs.keys()):
     
     mask = dfs[proc]['n_jets_sel'] >= 0
     mask = mask & (dfs[proc]['max_b_tag_score_sel'] > 0.4)
-    #mask = mask & (dfs[proc]['second_max_b_tag_score_sel'] > 0.4)
+    mask = mask & (dfs[proc]['second_max_b_tag_score_sel'] > 0.4)
     #mask = mask & (dfs[proc]['HT_sel'] > 200)
     
     dfs[proc] = dfs[proc][mask]
@@ -167,10 +155,14 @@ for i, proc in enumerate(procs.keys()):
     if proc == "ttH_SMEFT":
         dfs[proc] = add_SMEFT_weights(dfs[proc], cg=cg, ctg=ctg, name="plot_weight", quadratic=Quadratic)
 
-
+    dfs[proc]["cg"]  = 0.3 #np.random.uniform(low=cg_min,  high=cg_max,  size=N)
+    dfs[proc]["ctg"] = 0.69 #np.random.uniform(low=ctg_min, high=ctg_max, size=N)
+    
      # Extract the features for NN input
     features = ["deltaR", "HT", "n_jets", "delta_phi_gg", "pt"]
     features = [f"{feature}_sel" for feature in features]
+    features.append("cg")
+    features.append("ctg")
     
     if not all(feature in dfs[proc].columns for feature in features):
         raise ValueError(f"Missing one or more required features in process {proc}")
@@ -203,12 +195,13 @@ cats_unique = labels.copy()
 def exponential_decay(x, A, lambd):
     return A * np.exp(-lambd * (x - 120))
 
+
 #%%
 
 
 def positive_bound_asafunctionof_mass_bin(mass_bins):
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Plot diphoton mass distribution in each category
+    
+    print("Number of Mass Bins = ", mass_bins)
 
     background_estimates = {}
 
@@ -348,7 +341,7 @@ def positive_bound_asafunctionof_mass_bin(mass_bins):
 
 
 # Define the range of mass bin values
-mass_bin_values = list(range(3, 11))
+mass_bin_values = list(range(2, 51))
 
 # Store results
 cg_bounds = []
@@ -361,6 +354,7 @@ for mass_bins in mass_bin_values:
     ctg_bounds.append(positive_ctg_bound)
 
 #%%
+
 
 # Plot for positive cg bound
 plt.figure(figsize=(8, 5))
@@ -381,3 +375,10 @@ plt.ylabel("Positive $c_{tg}$ Bound")
 plt.grid(True)
 plt.tight_layout()
 plt.show()
+
+
+#%%
+
+
+np.save("data/PNN_mb_pos_cg_bounds.npy", cg_bounds)
+np.save("data/PNN_mb_pos_ctg_bounds.npy", ctg_bounds)
