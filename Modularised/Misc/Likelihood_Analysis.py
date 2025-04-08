@@ -204,54 +204,55 @@ plt.show()
 
 #%%
 
-# Define the ctg values to use (change as desired)
-ctg_values = [1, 0, -1]
+
+# Define the \ctg values to use
+ctg_values = [-1, 0, 1]
 n = len(ctg_values)
 
-# Create an n x n grid of subplots
-fig, axes = plt.subplots(n, n, figsize=(12, 12), dpi=300, sharex=True, sharey=True)
+# Create a square grid of subplots
+fig, axes = plt.subplots(n, n, figsize=(10, 10), dpi=300, sharex=True, sharey=True)
 
-# Loop over each weight ctg value (rows) and each evaluation ctg value (columns)
+# Loop over each weight \ctg (rows) and evaluation \ctg (columns)
 for i, weight_ctg in enumerate(ctg_values):
-    # Compute weights for the current row using the weight ctg value
     df_weight = copy.deepcopy(df_tth)
     df_weight["ctg"] = weight_ctg
     df_weight["true_weight"] = add_SMEFT_weights_PNN_ctg(df_weight)
-    df_weight["true_weight"] /= df_weight["true_weight"].sum()  # normalise weights
+    df_weight["true_weight"] /= df_weight["true_weight"].sum()  # Normalise
 
     for j, eval_ctg in enumerate(ctg_values):
-        # Prepare a separate dataframe for NN evaluation with the eval ctg value
         df_eval = copy.deepcopy(df_weight)
         df_eval["ctg"] = eval_ctg
 
-        # Prepare the input tensor from the feature columns
         nn_input = torch.tensor(df_eval[features].values, dtype=torch.float32)
-        
-        # Get NN predictions
+
         with torch.no_grad():
             probabilities = loaded_model(nn_input).squeeze().numpy()
-        
-        # Plot the histogram on the appropriate subplot using the weights computed above
+
         ax = axes[i, j]
         ax.hist(probabilities, bins=50, range=(0, 1), weights=df_weight["true_weight"],
-                histtype='step', linewidth=2)
-        
-        # Optionally add titles/labels to the subplots
+                histtype='step', linewidth=1.8, color='red')
+
+        # Axis titles and labels
         if i == 0:
-            ax.set_title(f"PNN Eval ctg: {eval_ctg}", fontsize=20)
-        if j == 0:
-            ax.set_ylabel(f"Weights ctg: {weight_ctg}", fontsize=20)
+            ax.set_title(f"PNN Evaluated $c_{{tg}}$: {eval_ctg}", fontsize=14)
 
-# Add common x and y labels
-#fig.text(0.5, 0.04, 'Probability', ha='center', va='center', fontsize=12)
-#fig.text(0.06, 0.5, 'Fraction of Events', ha='center', va='center', rotation='vertical', fontsize=12)
+        # Tick formatting
+        ax.tick_params(axis='both', labelsize=10)
+        
+    for i, weight_ctg in enumerate(ctg_values):
+        fig.text(0.1, 0.75 - i * (0.51 / (n - 1)), f"Weights $c_{{tg}}$: {weight_ctg}", 
+                 va='center', ha='center', fontsize=14, rotation='vertical')
 
-# Add an overall title to the figure
-#fig.suptitle("Histogram of NN Predictions: Weights vs PNN Evaluation ctg", fontsize=14, y=0.97)
+# Common labels
+fig.text(0.56, 0.04, 'PNN Output Probability', ha='center', va='center', fontsize=20)
+fig.text(0.05, 0.5, 'Weighted Event Fraction', ha='center', va='center', rotation='vertical', fontsize=20)
 
-plt.tight_layout(rect=[0.05, 0.05, 1, 0.93])
+# Overall title
+#fig.suptitle("Neural Network Predictions vs Weighting and Evaluation $ctg$ Values", fontsize=16, y=0.95)
+
+plt.tight_layout(rect=[0.08, 0.06, 1, 0.92])
+plt.savefig(thesis_plot_path + "/Large_PNN_Scan.pdf")
 plt.show()
-
 
 #%%
 
@@ -305,16 +306,97 @@ for i, ctg_val in enumerate(ctg_range):
     negative_log_likelihood_ratios.append(log_l_ratios )
 
 
+negative_log_likelihood_ratios = TwoDeltaNLL(negative_log_likelihood_ratios)
+
+ctg_vals = find_confidence_interval(negative_log_likelihood_ratios, ctg_range, min(negative_log_likelihood_ratios), 1)
+ctg_label = add_val_label(ctg_vals)
+
+scaled_ratios = (negative_log_likelihood_ratios - negative_log_likelihood_ratios.min()) / \
+                (negative_log_likelihood_ratios.max() - negative_log_likelihood_ratios.min())
+
 # Plot log-likelihood vs ctg
 plt.figure(figsize=(8, 6))
-plt.plot(ctg_range, negative_log_likelihood_ratios, marker='o', label = f"W(ctg = {ctg})")
+plt.axvline(x=0.8, color='grey', linestyle='--', label='$c_{tg} = 0.8$')
+plt.plot(ctg_range, scaled_ratios, marker='o', label = f"W($c_{{tg}}$ = {ctg})")
+plt.plot([0.8],[0], "s", label = f"Min {ctg_label}", color = "r")
+
 plt.xlabel(r"$c_{tg}$")
-plt.ylabel("Log Likelihood (Weighted)")
-plt.title("1D Scan of Weighted Log Likelihood vs. $c_{tg}$")
+plt.ylabel("2$\\Delta$NLL")
+#plt.title("1D Scan of Weighted Log Likelihood vs. $c_{tg}$")
 plt.grid(True)
-plt.legend()
+plt.legend(loc="best", frameon=True, fancybox=True, fontsize=20)
+
+plt.tight_layout()
+
+plt.savefig(thesis_plot_path + "/NI_log_likelihood.pdf")
+
 plt.show()
 
+
+#%%
+
+
+ctg_values = [0.2, 0.5, 0.8, 1.1, 1.4]  # Add as many ctg values as you'd like
+
+results = {}
+
+plt.figure(figsize=(8, 6))
+
+for ctg in ctg_values:
+    df_tth_like = copy.deepcopy(df_tth)
+    df_tth_like["ctg"] = ctg
+    df_tth_like["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like)
+    df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
+    df_tth_like["true_weight"] *= 1e4
+
+    ctg_range = np.linspace(-3, 3, 100)
+    negative_log_likelihood_ratios = []
+    likelihood = []
+
+    for i, ctg_val in enumerate(ctg_range):
+        df_tth_like_scan = copy.deepcopy(df_tth_like)
+        df_tth_like_scan["ctg"] = ctg_val
+
+        #df_tth_like_scan["true_weight"] = add_SMEFT_weights_PNN_ctg(df_tth_like_scan)
+        df_tth_like_scan["true_weight"] /= df_tth_like_scan["true_weight"].sum()
+        df_tth_like_scan["true_weight"] *= 1e4
+
+        nn_input = torch.tensor(df_tth_like_scan[features].values, dtype=torch.float32)
+        with torch.no_grad():
+            probabilities = loaded_model(nn_input).squeeze().numpy()
+
+        w_likelihood = probabilities / (1 - probabilities)
+        likelihood.append(np.prod(w_likelihood * df_tth_like_scan["true_weight"]))
+
+        log_ratios = np.log(probabilities) - np.log(1 - probabilities)
+        log_l_ratios = -1 * np.sum(log_ratios * df_tth_like_scan["true_weight"])
+        negative_log_likelihood_ratios.append(log_l_ratios)
+
+    results[ctg] = {
+        "ctg_range": ctg_range,
+        "log_likelihood_ratios": negative_log_likelihood_ratios,
+        "likelihood": likelihood
+    }
+    
+    negative_log_likelihood_ratios = TwoDeltaNLL(negative_log_likelihood_ratios)
+    
+    ctg_vals = find_confidence_interval(negative_log_likelihood_ratios, ctg_range, min(negative_log_likelihood_ratios), 1)
+    ctg_label = add_val_label(ctg_vals)
+    
+    scaled_ratios = (negative_log_likelihood_ratios - negative_log_likelihood_ratios.min()) / \
+                    (negative_log_likelihood_ratios.max() - negative_log_likelihood_ratios.min())
+    
+    # Plot log-likelihood vs ctg
+    plt.plot(ctg_range, scaled_ratios, marker='o', label = f"W($c_{{tg}}$ = {ctg}) {ctg_label}")
+
+
+plt.xlabel(r"$c_{tg}$")
+plt.ylabel("2$\\Delta$NLL")
+plt.grid(True)
+plt.legend(loc="best", frameon=True, fancybox=True, fontsize=20)
+
+#plt.savefig(f"{thesis_plot_path}/NI_log_likelihood_ctg_{ctg:.2f}.pdf")
+plt.show()
 
 #%%
 
