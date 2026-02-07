@@ -70,7 +70,7 @@ Quadratic = True
 PlotInputFeatures = False
 LossPlotLog = True  # Toggle for log scale
 
-sample_path="/Users/wadoudcharbak/Downloads/Pass2"
+sample_path = "/Users/wadoudcharbak/Downloads/Pass2"
 
 
 # -------------------------------------------------------------------------
@@ -477,7 +477,7 @@ plt.rcParams.update({
 
 
 
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12), sharey=True)
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8.8), sharey=True)
 
 # ---- Top Plot: AUC vs cg ----
 ax1.plot(cg_values, auc_vs_cg, label=fr'PNN ($c_{{tg}}$={ctg_val_fixed})', marker="o", linestyle='-', linewidth=2)
@@ -502,7 +502,7 @@ ax2.legend(loc='lower right', frameon=True, fancybox=True, framealpha=0.7)
 ax2.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
 
 plt.tight_layout()
-plt.savefig(thesis_plot_path + "/AUC_variation.pdf")
+plt.savefig(thesis_plot_path + "/AUC_variation_short.pdf")
 
 plt.show()
 

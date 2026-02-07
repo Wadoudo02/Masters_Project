@@ -251,7 +251,7 @@ fig.text(0.05, 0.5, 'Weighted Event Fraction', ha='center', va='center', rotatio
 #fig.suptitle("Neural Network Predictions vs Weighting and Evaluation $ctg$ Values", fontsize=16, y=0.95)
 
 plt.tight_layout(rect=[0.08, 0.06, 1, 0.92])
-plt.savefig(thesis_plot_path + "/Large_PNN_Scan.pdf")
+#plt.savefig(thesis_plot_path + "/Large_PNN_Scan.pdf")
 plt.show()
 
 #%%
@@ -309,7 +309,7 @@ for i, ctg_val in enumerate(ctg_range):
 negative_log_likelihood_ratios = TwoDeltaNLL(negative_log_likelihood_ratios)
 
 ctg_vals = find_confidence_interval(negative_log_likelihood_ratios, ctg_range, min(negative_log_likelihood_ratios), 1)
-ctg_label = add_val_label(ctg_vals)
+ctg_label = '$0.80^{+0.82}_{-0.76}$'
 
 scaled_ratios = (negative_log_likelihood_ratios - negative_log_likelihood_ratios.min()) / \
                 (negative_log_likelihood_ratios.max() - negative_log_likelihood_ratios.min())
@@ -328,7 +328,7 @@ plt.legend(loc="best", frameon=True, fancybox=True, fontsize=20)
 
 plt.tight_layout()
 
-plt.savefig(thesis_plot_path + "/NI_log_likelihood.pdf")
+#plt.savefig(thesis_plot_path + "/NI_log_likelihood.pdf")
 
 plt.show()
 
@@ -336,11 +336,13 @@ plt.show()
 #%%
 
 
-ctg_values = [0.2, 0.5, 0.8, 1.1, 1.4]  # Add as many ctg values as you'd like
+ctg_values = np.arange(-1,1.1,0.1)  # Add as many ctg values as you'd like
 
 results = {}
 
 plt.figure(figsize=(8, 6))
+
+pred_ctg_values = []
 
 for ctg in ctg_values:
     df_tth_like = copy.deepcopy(df_tth)
@@ -349,7 +351,7 @@ for ctg in ctg_values:
     df_tth_like["true_weight"] /= df_tth_like["true_weight"].sum()
     df_tth_like["true_weight"] *= 1e4
 
-    ctg_range = np.linspace(-3, 3, 100)
+    ctg_range = np.linspace(-1, 1, 100)
     negative_log_likelihood_ratios = []
     likelihood = []
 
@@ -388,7 +390,10 @@ for ctg in ctg_values:
     
     # Plot log-likelihood vs ctg
     plt.plot(ctg_range, scaled_ratios, marker='o', label = f"W($c_{{tg}}$ = {ctg}) {ctg_label}")
-
+    
+    min_idx = np.argmin(scaled_ratios)
+    min_ctg = ctg_range[min_idx]
+    pred_ctg_values.append(min_ctg)
 
 plt.xlabel(r"$c_{tg}$")
 plt.ylabel("2$\\Delta$NLL")
@@ -397,6 +402,25 @@ plt.legend(loc="best", frameon=True, fancybox=True, fontsize=20)
 
 #plt.savefig(f"{thesis_plot_path}/NI_log_likelihood_ctg_{ctg:.2f}.pdf")
 plt.show()
+
+#%%
+
+# 1. Scatter plot of true vs predicted
+plt.scatter(ctg_values, pred_ctg_values)
+
+# 2. Perfect‐prediction line: y = x
+min_val = min(min(ctg_values), min(pred_ctg_values))
+max_val = max(max(ctg_values), max(pred_ctg_values))
+plt.plot([min_val, max_val], [min_val, max_val])
+
+# 3. Labels and title
+plt.xlabel('True CTG Values')
+plt.ylabel('Predicted CTG Values')
+plt.title('True vs Predicted CTG Values')
+
+# 4. Display
+plt.show()
+
 
 #%%
 
